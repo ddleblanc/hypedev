@@ -1,0 +1,348 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                String    @id @default(uuid())
+  walletAddress     String    @unique
+  username          String?   @unique
+  profileCompleted  Boolean   @default(false)
+  profilePicture    String?
+  bannerImage       String?
+  bio               String?
+  isCreator         Boolean   @default(false)
+  creatorAppliedAt  DateTime?
+  creatorApprovedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  socials           UserSocial[] @relation("UserSocials")
+  creatorApplication CreatorApplication?
+  projects          Project[]
+  preferences       UserPreference[]
+  suggestions       UserSuggestion[]
+  
+  // Follow relationships
+  followers         UserFollow[] @relation("UserFollows")
+  following         UserFollow[] @relation("UserFollowing")
+}
+
+
+model CreatorApplication {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Step 1: Creator Type
+  creatorType       String
+  
+  // Step 2: Creator Identity
+  displayName       String
+  tagline           String?
+  avatar            String?  // IPFS URI
+  banner            String?  // IPFS URI
+  
+  // Step 3: Creative Background
+  bio               String
+  skills            String[] // Array of skills
+  portfolio         String?
+  achievements      String?
+  
+  // Step 4: Social & Community (stored as JSON for flexibility)
+  socialLinks       Json?    // { website: "", twitter: "", instagram: "", etc. }
+  
+  // Step 5: Content Strategy
+  contentTypes      String[] // Array of content types
+  uploadFrequency   String
+  targetAudience    String
+  uniqueValue       String?
+  
+  // Step 6: Agreement
+  acceptTerms              Boolean @default(false)
+  acceptCreatorAgreement   Boolean @default(false)
+  understandFees           Boolean @default(false)
+  
+  // Metadata
+  status            String   @default("pending") // pending, approved, rejected
+  submittedAt       DateTime @default(now())
+  reviewedAt        DateTime?
+  reviewNotes       String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Project {
+  id            String   @id @default(uuid())
+  name          String
+  description   String
+  banner        String?  // Project banner image URL/IPFS
+  genre         String?  // e.g., "Fantasy RPG", "Sci-Fi", etc.
+  concept       String?  // e.g., "Game Universe", "Shared Lore", etc.
+  status        String   @default("draft") // draft, active, archived
+  
+  // Owner relationship
+  creatorId     String
+  creator       User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  // Metadata
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relationships
+  collections   Collection[]
+}
+
+model Collection {
+  id                String   @id @default(uuid())
+  address           String   @unique
+  name              String
+  symbol            String
+  description       String?
+  image             String?  // Collection banner/cover image
+  bannerImage       String?  // Hero banner image
+  profileImage      String?  // Square profile/avatar image
+  creatorAddress    String
+  royaltyPercentage Float    @default(0)
+  chainId           Int      @default(11155111) // Sepolia
+  contractType      String   @default("DropERC721") // DropERC721, OpenEditionERC721, Edition, EditionDrop
+  claimPhases       String?  // JSON string of claim phases
+  
+  // Project relationship
+  projectId         String?
+  project           Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  // Rich metadata
+  about             Json?    // Rich content blocks (text, images, videos)
+  story             String?  // Collection story/background (legacy)
+  utility           String?  // Utility description
+  roadmap           Json?    // Array of roadmap milestone objects
+  socialLinks       Json?    // { website: "", twitter: "", discord: "", etc. }
+  teamMembers       Json?    // Array of team member objects
+  tags              String[] // Array of category tags
+  category          String?  // Primary category
+  
+  // Collection stats and settings
+  isDeployed        Boolean  @default(false)
+  deployedAt        DateTime?
+  transactionHash   String?  // Transaction hash from contract deployment
+  totalSupply       Int      @default(0)
+  maxSupply         Int?
+  isVerified        Boolean  @default(false)
+  isFeatured        Boolean  @default(false)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  nfts              Nft[]
+  collectionTraits  CollectionTrait[]
+}
+
+model Nft {
+  id           String     @id @default(uuid())
+  tokenId      String
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  image        String
+  attributes   Json?      // JSON array of traits/attributes
+  metadataUri  String?    // IPFS URI for metadata
+  ownerAddress String?
+  isMinted     Boolean    @default(false)
+  mintedAt     DateTime?
+  
+  // Rarity and ranking data for fast queries
+  rarityScore  Float?     // Calculated rarity score
+  rarityRank   Int?       // Rank within collection (1 = rarest)
+  percentile   Float?     // Percentile ranking (99 = top 1%)
+  rarityTier   String?    // "Common", "Uncommon", "Rare", "Epic", "Legendary"
+  
+  // Search and filter optimization
+  searchVector String?    // Full-text search vector
+  traitCount   Int        @default(0) // Number of traits for filtering
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  traits       NftTrait[]
+  
+  @@unique([collectionId, tokenId])
+  @@index([collectionId, rarityRank])
+  @@index([collectionId, rarityScore])
+  @@index([rarityTier])
+  @@index([traitCount])
+}
+
+// Individual NFT traits for optimized filtering and search
+model NftTrait {
+  id           String @id @default(uuid())
+  nftId        String
+  nft          Nft    @relation(fields: [nftId], references: [id], onDelete: Cascade)
+  
+  traitType    String // e.g., "Background", "Eyes", "Mouth"
+  value        String // e.g., "Blue", "Laser", "Smile"
+  displayType  String? // "text", "number", "percentage", "date", etc.
+  
+  // Rarity data for this specific trait value
+  rarity       Float?  // Percentage rarity (0-100)
+  frequency    Int?    // How many NFTs in collection have this trait
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([traitType, value]) // For trait-based filtering
+  @@index([nftId])
+  @@index([rarity])
+}
+
+// Collection-level trait templates and statistics
+model CollectionTrait {
+  id           String @id @default(uuid())
+  collectionId String
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  
+  traitType    String // e.g., "Background", "Eyes"
+  isRequired   Boolean @default(false)
+  
+  // Statistics for this trait type across the collection
+  totalValues  Int     @default(0) // Number of unique values
+  totalNfts    Int     @default(0) // Number of NFTs with this trait
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  values       CollectionTraitValue[]
+  
+  @@unique([collectionId, traitType])
+  @@index([collectionId])
+}
+
+// Individual trait values and their statistics
+model CollectionTraitValue {
+  id           String @id @default(uuid())
+  traitId      String
+  trait        CollectionTrait @relation(fields: [traitId], references: [id], onDelete: Cascade)
+  
+  value        String
+  frequency    Int     @default(0) // How many NFTs have this value
+  rarity       Float   @default(0) // Percentage rarity
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([traitId, value])
+  @@index([traitId, rarity])
+}
+
+// Search index for fast text search across NFTs and collections
+model SearchIndex {
+  id           String @id @default(uuid())
+  entityType   String // "nft", "collection"
+  entityId     String
+  
+  // Searchable content
+  title        String
+  description  String?
+  keywords     String[] // Extracted keywords and tags
+  searchVector String   // Full-text search vector
+  
+  // Context for better search ranking
+  collectionId String?
+  creatorAddress String?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([entityType, entityId])
+  @@index([collectionId])
+  @@index([creatorAddress])
+}
+
+// User Preferences for intelligent suggestions
+model UserPreference {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  category  String   // "genre", "concept", "style", etc.
+  value     String   // The actual preference value
+  frequency Int      @default(1) // How often user selects this
+  lastUsed  DateTime @default(now())
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, category, value])
+  @@index([userId, category])
+}
+
+// Global suggestions based on user behavior patterns
+model UserSuggestion {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  category    String   // "genre", "concept", etc.
+  suggestion  String   // Suggested value
+  confidence  Float    @default(0.5) // AI confidence score 0-1
+  source      String   // "user_history", "similar_users", "trending", "ai_generated"
+  metadata    Json?    // Additional context for the suggestion
+  isAccepted  Boolean? // null = not shown yet, true = accepted, false = rejected
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId, category])
+  @@index([category, confidence])
+}
+
+// Global analytics for trending genres/concepts
+model GlobalSuggestion {
+  id          String   @id @default(uuid())
+  
+  category    String   // "genre", "concept", etc.
+  value       String   // The suggestion value
+  usage       Int      @default(1) // How many times it's been used globally
+  trending    Boolean  @default(false) // Is it currently trending
+  userType    String?  // "indie_dev", "artist", "streamer", "studio", etc.
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([category, value])
+  @@index([category, trending])
+  @@index([category, usage])
+}
+
+// User Follow relationships for social features
+model UserFollow {
+  id          String   @id @default(uuid())
+  followerId  String   // User who is following
+  followingId String   // User being followed
+  createdAt   DateTime @default(now())
+  
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollows", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+// User Social Media Links (renamed from Social to avoid conflict)
+model UserSocial {
+  id       String @id @default(uuid())
+  platform String
+  url      String
+  userId   String
+  user     User   @relation("UserSocials", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, platform])
+}

@@ -1,0 +1,33 @@
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import { Providers } from "@/components/providers";
+// Sidebar components now handled by ConditionalLayout
+import { FloatingTransactionPill } from "@/components/transaction/floating-transaction-pill";
+import { ConditionalLayout } from "@/components/conditional-layout";
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "HYPERCHAINX - Ultimate Gaming NFT Marketplace",
+  description: "Experience the future of gaming assets. Trade, collect, and dominate in the most advanced NFT ecosystem ever created.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en" className="dark">
+      <body className={inter.className}>
+        <Providers>
+          <ConditionalLayout>
+            {children}
+          </ConditionalLayout>
+          <FloatingTransactionPill />
+        </Providers>
+      </body>
+    </html>
+  );
+}
