@@ -1200,7 +1200,10 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                       {/* Transaction Confidence */}
                       {canBuy && (
                         <TransactionConfidenceMeter
-                          nft={nft}
+                          nft={{
+                            ...nft,
+                            rarity: nft.rarity || 'Common'
+                          }}
                           mode="buy"
                           offerAmount={nft.price!}
                         />

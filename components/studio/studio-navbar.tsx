@@ -104,19 +104,22 @@ export function StudioNavbar({ currentView, onViewChange }: StudioNavbarProps) {
             id: 'new-project', 
             label: 'New Project', 
             icon: Box,
-            action: () => console.log('New Project')
+            action: () => console.log('New Project'),
+            primary: false
           },
           { 
             id: 'new-collection', 
             label: 'New Collection', 
             icon: Layers,
-            action: () => console.log('New Collection')
+            action: () => console.log('New Collection'),
+            primary: false
           },
           { 
             id: 'create-nft', 
             label: 'Create NFT', 
             icon: Sparkles,
-            action: () => console.log('Create NFT')
+            action: () => console.log('Create NFT'),
+            primary: false
           }
         ];
       case 'analytics':
@@ -125,13 +128,15 @@ export function StudioNavbar({ currentView, onViewChange }: StudioNavbarProps) {
             id: 'export-data', 
             label: 'Export', 
             icon: Download,
-            action: () => console.log('Export Data')
+            action: () => console.log('Export Data'),
+            primary: false
           },
           { 
             id: 'refresh', 
             label: 'Refresh', 
             icon: RefreshCw,
-            action: () => console.log('Refresh')
+            action: () => console.log('Refresh'),
+            primary: false
           }
         ];
       default:

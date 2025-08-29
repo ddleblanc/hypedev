@@ -159,7 +159,10 @@ export function ProfileSetup({ userId, walletAddress, onComplete, onApplyCreator
     setSocialInputs(updated)
     
     // Update form data
-    form.setValue('socials', updated.filter(s => s.url))
+    form.setValue('socials', updated.filter(s => s.url).map(s => ({
+      ...s,
+      platform: s.platform as 'twitter' | 'instagram' | 'discord' | 'telegram' | 'website' | 'youtube'
+    })))
   }
 
   return (
@@ -340,7 +343,7 @@ export function ProfileSetup({ userId, walletAddress, onComplete, onApplyCreator
                   <div className="h-24 w-24 rounded-full overflow-hidden border">
                     {form.watch('profilePicture') ? (
                       <MediaRenderer
-                        src={form.watch('profilePicture')}
+                        src={form.watch('profilePicture') || ''}
                         alt="Profile picture"
                         className="w-full h-full object-cover"
                       />

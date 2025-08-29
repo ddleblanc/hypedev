@@ -162,7 +162,7 @@ export default function NFTCardEnhanced({ nft, onBuy, onOffer, onClick }: NFTCar
   const [isHovered, setIsHovered] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   
-  const light = getRarityLight(nft.rarity);
+  const light = getRarityLight(nft.rarity || 'Common');
 
   return (
     <div className="relative">

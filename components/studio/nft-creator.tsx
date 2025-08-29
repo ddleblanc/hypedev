@@ -46,7 +46,7 @@ import { useTransaction } from '@/contexts/transaction-context'
 const nftSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
   description: z.string().max(1000, 'Description must be less than 1000 characters').optional(),
-  image: z.any().refine((file) => file instanceof File, 'Image is required'),
+  image: z.instanceof(File, { message: 'Image is required' }).optional(),
   external_url: z.string().url().optional().or(z.literal('')),
   attributes: z.array(z.object({
     trait_type: z.string().min(1, 'Trait name is required'),
@@ -58,9 +58,9 @@ const nftSchema = z.object({
   background_color: z.string().optional(),
   // Minting options
   recipient: z.string().min(1, 'Recipient address is required'),
-  royalty_percentage: z.number().min(0).max(10).default(0),
-  explicit_content: z.boolean().default(false),
-  sensitive_content: z.boolean().default(false),
+  royalty_percentage: z.number().min(0).max(10),
+  explicit_content: z.boolean(),
+  sensitive_content: z.boolean(),
 })
 
 type NFTFormData = z.infer<typeof nftSchema>
@@ -167,6 +167,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
     defaultValues: {
       name: '',
       description: '',
+      image: undefined,
       external_url: '',
       attributes: [],
       animation_url: '',
@@ -322,6 +323,10 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
         metadata.image = imageUri
         
         // Mint NFT
+        if (!collection.address) {
+          throw new Error('Collection contract address is required')
+        }
+        
         const mintResult = await lazyMintNFT({
           contractAddress: collection.address,
           chainId: collection.chainId,

@@ -70,7 +70,7 @@ const AboutTab = ({ collection }: { collection: any }) => (
   </div>
 );
 
-const ItemsTab = ({ collection, searchQuery, sortBy, filterRarity, viewMode }: any) => (
+const ItemsTab = ({ collection, searchQuery, sortBy, filterRarity, viewMode, setSearchQuery, setSortBy, setFilterRarity, setViewMode }: any) => (
   <div className="space-y-6">
     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
       <p className="text-white/70">{collection.items.length} items available</p>
@@ -80,27 +80,46 @@ const ItemsTab = ({ collection, searchQuery, sortBy, filterRarity, viewMode }: a
           <Input
             placeholder="Search items..."
             value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10 pr-4 py-2 bg-black/40 border-white/20 text-white placeholder:text-white/60 w-64"
           />
         </div>
-        <select className="bg-black/40 border border-white/20 text-white rounded-lg px-3 py-2 text-sm">
+        <select 
+          value={filterRarity} 
+          onChange={(e) => setFilterRarity(e.target.value)}
+          className="bg-black/40 border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
+        >
           <option value="all">All Rarities</option>
           <option value="common">Common</option>
           <option value="rare">Rare</option>
           <option value="epic">Epic</option>
           <option value="legendary">Legendary</option>
         </select>
-        <select className="bg-black/40 border border-white/20 text-white rounded-lg px-3 py-2 text-sm">
+        <select 
+          value={sortBy} 
+          onChange={(e) => setSortBy(e.target.value)}
+          className="bg-black/40 border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
+        >
           <option value="price-low">Price: Low to High</option>
           <option value="price-high">Price: High to Low</option>
           <option value="rarity">Rarity</option>
           <option value="likes">Most Liked</option>
         </select>
         <div className="flex items-center gap-1">
-          <Button variant={viewMode === 'grid' ? 'default' : 'ghost'} size="icon" className="text-white">
+          <Button 
+            variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+            size="icon" 
+            className="text-white"
+            onClick={() => setViewMode('grid')}
+          >
             <Grid3x3 className="h-4 w-4" />
           </Button>
-          <Button variant={viewMode === 'list' ? 'default' : 'ghost'} size="icon" className="text-white">
+          <Button 
+            variant={viewMode === 'list' ? 'default' : 'ghost'} 
+            size="icon" 
+            className="text-white"
+            onClick={() => setViewMode('list')}
+          >
             <List className="h-4 w-4" />
           </Button>
         </div>
@@ -339,7 +358,6 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
     }
   };
 
-  const ActiveTabComponent = tabs.find(tab => tab.id === activeTab)?.component || ItemsTab;
 
   return (
     <motion.div
@@ -504,17 +522,24 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
           transition={{ duration: 0.6 }}
           className="px-4 md:px-8 py-8 min-h-screen"
         >
-          <ActiveTabComponent 
-            collection={mockCollection}
-            searchQuery={searchQuery}
-            sortBy={sortBy}
-            filterRarity={filterRarity}
-            viewMode={viewMode}
-            setSearchQuery={setSearchQuery}
-            setSortBy={setSortBy}
-            setFilterRarity={setFilterRarity}
-            setViewMode={setViewMode}
-          />
+          {activeTab === 'items' && (
+            <ItemsTab 
+              collection={mockCollection}
+              searchQuery={searchQuery}
+              sortBy={sortBy}
+              filterRarity={filterRarity}
+              viewMode={viewMode}
+              setSearchQuery={setSearchQuery}
+              setSortBy={setSortBy}
+              setFilterRarity={setFilterRarity}
+              setViewMode={setViewMode}
+            />
+          )}
+          {activeTab === 'about' && <AboutTab collection={mockCollection} />}
+          {activeTab === 'offers' && <OffersTab />}
+          {activeTab === 'holders' && <HoldersTab />}
+          {activeTab === 'traits' && <TraitsTab collection={mockCollection} />}
+          {activeTab === 'activity' && <ActivityTab />}
         </motion.section>
       </div>
     </motion.div>

@@ -278,7 +278,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       <AnimatedSidebar 
         show={uiState.showSidebar} 
         currentRoute={currentRoute}
-        studioData={studioData}
+        studioData={studioData || undefined}
         p2pData={p2pData}
       />
       <RightAnimatedSidebar 

@@ -119,6 +119,7 @@ export function CreateCollectionDialog({
         royaltyPercentage: "5",
         chainId: "1",
         maxSupply: "",
+        contractType: "DropERC721",
       });
       setDeploymentData({
         contractAddress: "",
