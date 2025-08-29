@@ -260,7 +260,8 @@ export function AppSidebar({
 
   // Render studio-specific content for second panel
   const renderStudioContent = () => {
-    switch (activeItem?.id || context) {
+    const itemId = (activeItem as any)?.id || context;
+    switch (itemId) {
       case 'projects':
         return (
           <div className="space-y-1">
@@ -498,7 +499,7 @@ export function AppSidebar({
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <NavUser user={defaultData.user} />
+          <NavUser />
         </SidebarFooter>
       </div>
 

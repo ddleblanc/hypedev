@@ -36,8 +36,8 @@ export function AuthenticatedHomescreen({ user }: AuthenticatedHomescreenProps) 
   }, [searchParams]);
 
   // Update URL when view mode changes
-  const handleViewModeChange = (newMode: 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio') => {
-    setViewMode(newMode);
+  const handleViewModeChange = (newMode: string) => {
+    setViewMode(newMode as 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio');
     
     // Update URL without page reload
     const newUrl = newMode === 'home' ? '/' : `/?view=${newMode}`;

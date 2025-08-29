@@ -35,7 +35,7 @@ interface P2PTradingContextType {
   selectedTrader: Trader | null;
   traderNFTs: NFT[];
   traderBoardNFTs: NFT[];
-  selectTrader: (trader: Trader) => void;
+  selectTrader: (trader: Trader | null) => void;
   toggleTraderNFTSelection: (nftId: string) => void;
   confirmTraderNFTs: () => void;
   removeTraderNFTFromBoard: (nftId: string) => void;
@@ -103,7 +103,7 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
     setUserBoardNFTs([]);
   };
 
-  const selectTrader = (trader: Trader) => {
+  const selectTrader = (trader: Trader | null) => {
     setSelectedTrader(trader);
   };
 

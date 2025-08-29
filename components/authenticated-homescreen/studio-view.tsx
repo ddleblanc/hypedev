@@ -6,10 +6,10 @@ import { useActiveAccount } from 'thirdweb/react';
 import { useAuth } from '@/contexts/auth-context';
 import { useStudio } from '@/contexts/studio-context';
 import { useStudioHeader } from '@/components/conditional-layout';
-import Lottie from 'lottie-react';
+// import Lottie from 'lottie-react';
 import { StudioMainContent } from "@/components/studio/studio-main-content";
 import { StudioDashboard, StudioProjects, StudioCollections, StudioNFTs, StudioActivity } from "@/components/studio/views";
-import loadingAnimation from '/public/assets/anim/loading.json';
+// import loadingAnimation from '/public/assets/anim/loading.json';
 
 interface StudioViewProps {
   setViewMode?: (mode: 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio') => void;
@@ -298,12 +298,9 @@ export function StudioView({ setViewMode }: StudioViewProps = {}) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
-          <Lottie 
-            animationData={loadingAnimation} 
-            className="w-24 h-24 mx-auto mb-4"
-            loop={true}
-            autoplay={true}
-          />
+          <div className="w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+          </div>
         </div>
       </div>
     );

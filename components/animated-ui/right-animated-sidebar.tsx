@@ -38,7 +38,7 @@ interface RightAnimatedSidebarProps {
 }
 
 // Mock traders data
-const mockTraders = [
+const mockTraders: Trader[] = [
   { 
     id: '1', 
     name: 'CryptoKing', 
@@ -312,13 +312,15 @@ export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData }: Ri
                     </TabsList>
 
                     <div className="mt-4">
-                      <Input
-                        placeholder={searchMode === 'trader' ? "Search traders..." : "Search items..."}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="bg-black/30 border-white/20 text-white placeholder:text-white/40"
-                        icon={<Search className="h-4 w-4 text-white/40" />}
-                      />
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/40" />
+                        <Input
+                          placeholder={searchMode === 'trader' ? "Search traders..." : "Search items..."}
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="bg-black/30 border-white/20 text-white placeholder:text-white/40 pl-10"
+                        />
+                      </div>
                     </div>
                   </Tabs>
                 </div>

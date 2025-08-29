@@ -653,128 +653,8 @@ export function StudioView({ setViewMode }: StudioViewProps) {
       {/* Left Panel - Studio Navigation */}
       <StudioNavigation 
         currentView={currentView} 
-        onViewChange={setCurrentView} 
+        onViewChange={(view) => setCurrentView(view as StudioView)} 
       />
-
-        {/* Studio Navigation - Main Views */}
-        {([
-          { key: 'dashboard', label: 'DASHBOARD', icon: MonitorSpeaker, description: 'Overview' },
-          { key: 'projects', label: 'PROJECTS', icon: Box, description: 'Your Creations' },
-          { key: 'collections', label: 'COLLECTIONS', icon: Layers, description: 'NFT Sets' },
-          { key: 'nfts', label: 'NFTS', icon: Sparkles, description: 'Digital Assets' },
-        ] as const).map(({ key, label, icon: Icon, description }, index) => (
-          <motion.div 
-            key={key}
-            initial={{ x: -30, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            whileHover={{ x: 24 }}
-            transition={{ 
-              x: { duration: 0.15, ease: "easeOut" },
-              opacity: { duration: 0.3, ease: "easeOut", delay: 0.2 + index * 0.05 }
-            }}
-            onClick={() => setCurrentView(key)}
-            className="group relative py-2 cursor-pointer opacity-0"
-            style={{ opacity: 0 }}
-          >
-            {/* Hyperspeed Animation Background */}
-            <div className="absolute inset-y-0 left-0 w-[120vw] -translate-x-full pointer-events-none">
-              <div className="absolute top-1/2 left-0 w-full h-20 -translate-y-1/2 bg-gradient-to-r from-transparent via-[rgb(163,255,18)]/40 to-transparent blur-sm opacity-0 transition-all duration-75 group-hover:opacity-100 group-hover:animate-[hyperRushEnter_0.4s_ease-out_forwards]" />
-              <div className="absolute top-1/2 left-0 w-full h-32 -translate-y-1/2 bg-gradient-to-r from-transparent via-[rgb(163,255,18)]/20 to-transparent blur-md opacity-0 transition-all duration-75 group-hover:opacity-100 group-hover:animate-[hyperRushEnter_0.4s_ease-out_forwards]" />
-              <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 bg-gradient-to-r from-transparent via-white/90 to-transparent blur-sm opacity-0 transition-all duration-75 group-hover:opacity-100 group-hover:animate-[hyperRushEnter_0.4s_ease-out_forwards]" />
-              <div className="absolute top-1/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-[rgb(163,255,18)]/60 to-transparent blur-sm opacity-0 transition-all duration-75 group-hover:opacity-100 group-hover:animate-[hyperRushEnter_0.4s_ease-out_forwards]" />
-              <div className="absolute top-3/4 left-0 w-full h-px bg-gradient-to-r from-transparent via-[rgb(163,255,18)]/60 to-transparent blur-sm opacity-0 transition-all duration-75 group-hover:opacity-100 group-hover:animate-[hyperRushEnter_0.4s_ease-out_forwards]" />
-            </div>
-            
-            <div className="relative z-10 flex items-center gap-4">
-              <Icon className={cn(
-                "h-8 w-8 transition-colors duration-300",
-                currentView === key ? "text-[rgb(163,255,18)]" : "text-white/70 group-hover:text-white"
-              )} />
-              <div>
-                <h3 
-                  className={cn(
-                    "text-4xl font-black tracking-wider transition-all duration-300",
-                    currentView === key ? "text-[rgb(163,255,18)]" : "text-white group-hover:text-[rgb(163,255,18)]"
-                  )}
-                  style={{ 
-                    filter: currentView === key 
-                      ? 'drop-shadow(0 0 30px rgba(163,255,18,0.8))' 
-                      : 'drop-shadow(0 0 20px rgba(163,255,18,0.4))',
-                  }}
-                >
-                  {label}
-                </h3>
-                <p className={cn(
-                  "text-lg font-medium transition-all duration-300 mt-1",
-                  currentView === key ? "text-white" : "text-white/70 group-hover:text-white"
-                )}>
-                  {description}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-
-        {/* Create Section */}
-        <motion.div 
-          initial={{ x: -30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ 
-            duration: 0.3, 
-            ease: "easeOut", 
-            delay: 0.4
-          }}
-          className="pt-8 border-t border-white/20 space-y-4 opacity-0"
-          style={{ opacity: 0 }}
-        >
-          {([
-            { key: 'create', label: 'CREATE NEW', icon: Plus, description: 'Start Building' },
-            { key: 'analytics', label: 'ANALYTICS', icon: TrendingUp, description: 'Performance' },
-          ] as const).map(({ key, label, icon: Icon, description }) => (
-            <motion.div 
-              key={key}
-              whileHover={{ x: 16 }}
-              transition={{ x: { duration: 0.15, ease: "easeOut" } }}
-              onClick={() => setCurrentView(key)}
-              className="group relative py-1 cursor-pointer"
-            >
-              <div className="absolute inset-y-0 left-0 w-[100vw] -translate-x-full pointer-events-none">
-                <div className="absolute top-1/2 left-0 w-full h-12 -translate-y-1/2 bg-gradient-to-r from-transparent via-[rgb(163,255,18)]/30 to-transparent blur-sm opacity-0 transition-all duration-75 group-hover:opacity-100 group-hover:animate-[hyperRushEnter_0.3s_ease-out_forwards]" />
-                <div className="absolute top-1/2 left-0 w-full h-16 -translate-y-1/2 bg-gradient-to-r from-transparent via-[rgb(163,255,18)]/15 to-transparent blur-md opacity-0 transition-all duration-75 group-hover:opacity-100 group-hover:animate-[hyperRushEnter_0.3s_ease-out_forwards]" />
-                <div className="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2 bg-gradient-to-r from-transparent via-white/70 to-transparent blur-sm opacity-0 transition-all duration-75 group-hover:opacity-100 group-hover:animate-[hyperRushEnter_0.3s_ease-out_forwards]" />
-              </div>
-              
-              <div className="relative z-10 flex items-center gap-3">
-                <Icon className={cn(
-                  "h-6 w-6 transition-colors duration-300",
-                  currentView === key ? "text-[rgb(163,255,18)]" : "text-white/70 group-hover:text-white"
-                )} />
-                <div>
-                  <h3 
-                    className={cn(
-                      "text-xl font-black tracking-wider transition-all duration-300",
-                      currentView === key ? "text-[rgb(163,255,18)]" : "text-white group-hover:text-[rgb(163,255,18)]"
-                    )}
-                    style={{ 
-                      filter: currentView === key 
-                        ? 'drop-shadow(0 0 20px rgba(163,255,18,0.8))' 
-                        : 'drop-shadow(0 0 15px rgba(163,255,18,0.4))',
-                    }}
-                  >
-                    {label}
-                  </h3>
-                  <p className={cn(
-                    "text-sm font-medium transition-all duration-300",
-                    currentView === key ? "text-white/90" : "text-white/60 group-hover:text-white/80"
-                  )}>
-                    {description}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
-      </div>
 
       {/* Center Panel - Main Content Area (Scrollable) */}
       <div className="relative overflow-y-auto max-h-full custom-scrollbar pr-4">
@@ -794,74 +674,19 @@ export function StudioView({ setViewMode }: StudioViewProps) {
           ease: "easeOut", 
           delay: 0.25 
         }}
-        className="flex flex-col h-full space-y-6 opacity-0"
-        style={{ opacity: 0 }}
+        className="flex flex-col h-full space-y-6"
       >
         {/* Search & Filters */}
         <div className="bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10 p-6">
-          <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Search & Filter
-          </h3>
-          <div className="space-y-3">
-            <Input
-              placeholder="Search everything..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-black/30 border-white/20 text-white placeholder:text-white/40"
-            />
-            <div className="flex gap-2">
-              <Button
-                variant={viewMode === 'grid' ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewModeState('grid')}
-                className="flex-1"
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewModeState('list')}
-                className="flex-1"
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10 p-6">
-          <h3 className="text-white text-lg font-bold mb-4">Studio Stats</h3>
-          <div className="space-y-4">
-            {[
-              { label: 'Projects', value: mockProjects.length, icon: Box },
-              { label: 'Collections', value: mockCollections.length, icon: Layers },
-              { label: 'NFTs', value: mockNFTs.length, icon: Sparkles },
-            ].map(({ label, value, icon: Icon }) => (
-              <div key={label} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
-                  <span className="text-white/70 text-sm">{label}</span>
-                </div>
-                <span className="text-white font-bold">{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10 p-6 flex-1">
-          <h3 className="text-white text-lg font-bold mb-4">Quick Actions</h3>
-          <div className="space-y-3">
+          <h3 className="text-white font-semibold mb-4">Quick Actions</h3>
+          <div className="space-y-2">
             <Button 
               onClick={() => setCurrentView('create')}
-              className="w-full justify-start bg-gradient-to-r from-[rgb(163,255,18)]/20 to-[rgb(163,255,18)]/30 border-[rgb(163,255,18)]/30 hover:from-[rgb(163,255,18)]/30 hover:to-[rgb(163,255,18)]/40"
+              className="w-full justify-start"
               variant="outline"
             >
               <Plus className="h-4 w-4 mr-2" />
-              New Project
+              Create Project
             </Button>
             <Button 
               onClick={() => setCurrentView('create')}
