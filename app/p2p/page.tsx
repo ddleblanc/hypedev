@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { P2PView } from "@/components/authenticated-homescreen/p2p-view";
+import { P2PTradingProvider } from "@/contexts/p2p-trading-context";
 
 export default function P2PPage() {
   const router = useRouter();
@@ -14,5 +15,9 @@ export default function P2PPage() {
     }
   };
 
-  return <P2PView setViewMode={handleNavigate} />;
+  return (
+    <P2PTradingProvider>
+      <P2PView setViewMode={handleNavigate} />
+    </P2PTradingProvider>
+  );
 }
