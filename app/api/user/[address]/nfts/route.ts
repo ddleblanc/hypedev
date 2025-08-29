@@ -17,8 +17,9 @@ function getChainName(chainId: number): string {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { address: string } }
+  context: { params: Promise<{ address: string }> }
 ) {
+  const params = await context.params;
   try {
     const { address } = params
     const { searchParams } = new URL(request.url)
@@ -109,42 +110,45 @@ export async function GET(
     const allNFTs = await prisma.nft.findMany(baseQuery)
 
     // Transform database NFTs to frontend format
-    let transformedNFTs = allNFTs.map(nft => ({
-      id: nft.id,
-      tokenId: nft.tokenId,
-      name: nft.name,
-      description: nft.description || '',
-      image: nft.image,
-      collectionName: nft.collection.name,
-      collectionSlug: nft.collection.name.toLowerCase().replace(/\s+/g, '-'),
-      contractAddress: nft.collection.address,
-      chain: getChainName(nft.collection.chainId),
-      rarity: nft.rarityTier || 'Common',
-      rank: nft.rarityRank || Math.floor(Math.random() * 10000) + 1,
-      traits: nft.traits.reduce((acc: any, trait) => {
-        acc[trait.traitType] = trait.value
-        return acc
-      }, {}),
-      // Ownership/creation status
-      owned: nft.ownerAddress?.toLowerCase() === normalizedAddress,
-      created: nft.collection.creatorAddress.toLowerCase() === normalizedAddress,
+    let transformedNFTs = allNFTs.map(nft => {
+      const nftWithCollection = nft as any; // Type assertion for collection relation
+      return {
+        id: nftWithCollection.id,
+        tokenId: nftWithCollection.tokenId,
+        name: nftWithCollection.name,
+        description: nftWithCollection.description || '',
+        image: nftWithCollection.image,
+        collectionName: nftWithCollection.collection.name,
+        collectionSlug: nftWithCollection.collection.name.toLowerCase().replace(/\s+/g, '-'),
+        contractAddress: nftWithCollection.collection.address,
+        chain: getChainName(nftWithCollection.collection.chainId),
+        rarity: nftWithCollection.rarityTier || 'Common',
+        rank: nftWithCollection.rarityRank || Math.floor(Math.random() * 10000) + 1,
+        traits: nftWithCollection.traits.reduce((acc: any, trait: any) => {
+          acc[trait.traitType] = trait.value
+          return acc
+        }, {}),
+        // Ownership/creation status
+        owned: nftWithCollection.ownerAddress?.toLowerCase() === normalizedAddress,
+        created: nftWithCollection.collection.creatorAddress.toLowerCase() === normalizedAddress,
       // Market data (would come from marketplace APIs in production)
       price: null, // TODO: Integrate marketplace data
       lastSale: null, // TODO: Integrate marketplace data
       floorPrice: +(Math.random() * 2 + 0.1).toFixed(2), // Mock floor price
       listed: false, // TODO: Integrate marketplace data
       auction: false, // TODO: Integrate marketplace data
-      new: (Date.now() - new Date(nft.createdAt).getTime()) < (7 * 24 * 60 * 60 * 1000), // New if created within 7 days
-      topBid: null, // TODO: Integrate marketplace data
-      // Social metrics (would come from separate service)
-      likes: Math.floor(Math.random() * 500) + 10,
-      views: Math.floor(Math.random() * 2000) + 100,
-      lastViewed: nft.updatedAt,
-      // Metadata
-      royalty: 5.0,
-      createdAt: nft.createdAt,
-      updatedAt: nft.updatedAt,
-    }))
+        new: (Date.now() - new Date(nftWithCollection.createdAt).getTime()) < (7 * 24 * 60 * 60 * 1000), // New if created within 7 days
+        topBid: null, // TODO: Integrate marketplace data
+        // Social metrics (would come from separate service)
+        likes: Math.floor(Math.random() * 500) + 10,
+        views: Math.floor(Math.random() * 2000) + 100,
+        lastViewed: nftWithCollection.updatedAt,
+        // Metadata
+        royalty: 5.0,
+        createdAt: nftWithCollection.createdAt,
+        updatedAt: nftWithCollection.updatedAt,
+      };
+    })
 
     // Apply filters
     let filteredNFTs = transformedNFTs

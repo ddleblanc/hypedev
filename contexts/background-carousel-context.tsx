@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 interface BackgroundCarouselContextType {
   currentBackground: string;
@@ -30,13 +30,23 @@ export const BackgroundCarouselProvider: React.FC<BackgroundCarouselProviderProp
 
   const showCarousel = () => {
     setIsCarouselVisible(true);
+    // Prevent body scrolling when carousel is open
+    document.body.style.overflow = 'hidden';
   };
   const hideCarousel = () => {
-    // Small delay to allow carousel to slide out, then hide it completely
+    setIsCarouselVisible(false);
+    // Re-enable body scrolling after animation completes (700ms transition)
     setTimeout(() => {
-      setIsCarouselVisible(false);
-    }, 200);
+      document.body.style.overflow = '';
+    }, 700);
   };
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   return (
     <BackgroundCarouselContext.Provider value={{

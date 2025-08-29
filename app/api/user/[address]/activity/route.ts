@@ -3,8 +3,9 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { address: string } }
+  context: { params: Promise<{ address: string }> }
 ) {
+  const params = await context.params;
   try {
     const { address } = params
     const { searchParams } = new URL(request.url)
@@ -40,8 +41,8 @@ export async function GET(
     }
 
     // Mock activity data generation (in real app, this would query blockchain/database activity)
+    const activityTypes = ['sale', 'list', 'offer', 'transfer', 'mint', 'burn', 'bid']
     const generateMockActivity = (count: number) => {
-      const activityTypes = ['sale', 'list', 'offer', 'transfer', 'mint', 'burn', 'bid']
       const collections = ['CyberPunks', 'Digital Arts', 'Meta Worlds', 'Future Tokens', 'Crypto Gems']
       const chains = ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base']
       

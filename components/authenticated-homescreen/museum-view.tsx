@@ -268,15 +268,9 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
           delay: isEntering ? 0 : 0.2 
         }}
       >
-        {/* Header Space Overlay - Matches marketplace pattern */}
-        <div className={`absolute top-0 left-0 right-0 z-20 h-32 transition-all duration-300 ${
-          hasScrolled 
-            ? 'bg-black/40 backdrop-blur-xl border-b border-white/10' 
-            : 'bg-transparent'
-        }`} />
         
         {/* Top Fade Gradient */}
-        <div className={`absolute top-32 left-0 right-0 h-8 transition-opacity duration-300 pointer-events-none z-10 ${
+        <div className={`absolute top-16 left-0 right-0 h-8 transition-opacity duration-300 pointer-events-none z-10 ${
           hasScrolled ? 'bg-gradient-to-b from-black/40 to-transparent' : 'opacity-0'
         }`} />
       
@@ -327,9 +321,6 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
         )}
       </AnimatePresence>
       
-        {/* Bottom Footer Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 h-32 bg-black/80 backdrop-blur-xl border-t border-white/10" />
-        <div className="absolute bottom-32 left-0 right-0 h-8 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10" />
       </motion.div>
     </div>
   );

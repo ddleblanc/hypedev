@@ -118,8 +118,9 @@ async function calculateUserStats(walletAddress: string, isCreator: boolean) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { address: string } }
+  context: { params: Promise<{ address: string }> }
 ) {
+  const params = await context.params;
   try {
     const { address } = params
     
@@ -169,8 +170,9 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { address: string } }
+  context: { params: Promise<{ address: string }> }
 ) {
+  const params = await context.params;
   try {
     const { address } = params
     const body = await request.json()
@@ -230,8 +232,9 @@ export async function PUT(
 // Follow/Unfollow functionality (placeholder for future implementation)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { address: string } }
+  context: { params: Promise<{ address: string }> }
 ) {
+  const params = await context.params;
   try {
     const { address } = params
     const { action, currentUserAddress } = await request.json()

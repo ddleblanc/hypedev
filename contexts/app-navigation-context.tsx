@@ -103,17 +103,17 @@ export function AppNavigationProvider({ children }: { children: React.ReactNode 
       navigationDirection: direction,
     });
 
-    // Update URL without causing a page refresh
+    // Use Next.js router for navigation
     if (updateUrl) {
       const newPathname = routeToPathname(route);
-      window.history.pushState(null, '', newPathname);
+      router.push(newPathname);
     }
 
     // Reset navigating state after animation completes
     setTimeout(() => {
       setNavigationState(prev => ({ ...prev, isNavigating: false }));
     }, 500); // Match the CSS transition duration
-  }, [navigationState.currentRoute]);
+  }, [navigationState.currentRoute, router]);
 
   const getCurrentRoute = useCallback(() => {
     return navigationState.currentRoute;

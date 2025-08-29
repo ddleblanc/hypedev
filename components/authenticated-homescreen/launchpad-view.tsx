@@ -164,14 +164,8 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
 
   return (
     <div className="fixed inset-0 z-10 overflow-hidden">
-      {/* Dynamic Header Overlay - Matches marketplace style */}
-      <div className={`absolute top-0 left-0 right-0 z-20 h-32 transition-all duration-300 ${
-        hasScrolled 
-          ? 'bg-black/40 backdrop-blur-xl border-b border-white/10' 
-          : 'bg-transparent'
-      }`} />
       
-      <div className={`absolute top-32 left-0 right-0 h-8 transition-opacity duration-300 pointer-events-none z-10 ${
+      <div className={`absolute top-16 left-0 right-0 h-8 transition-opacity duration-300 pointer-events-none z-10 ${
         hasScrolled ? 'opacity-100 bg-gradient-to-b from-black/40 to-transparent' : 'opacity-0'
       }`} />
 
@@ -331,7 +325,7 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
         </section>
 
         {/* Sticky Category Navigation */}
-        <div className={`sticky top-32 z-30 transition-all duration-300 ${
+        <div className={`sticky top-16 z-30 transition-all duration-300 ${
           hasScrolled 
             ? 'bg-black/40 backdrop-blur-xl border-b border-white/10' 
             : 'bg-transparent'

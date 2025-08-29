@@ -81,18 +81,13 @@ export function StudioNFTs({ nfts, viewMode }: StudioNFTsProps) {
     <>
 
       {/* NFTs Grid */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className={viewMode === 'grid' ? 'grid grid-cols-3 gap-4' : 'space-y-4'}
-      >
+      <div className={viewMode === 'grid' ? 'grid grid-cols-6 gap-4' : 'space-y-4'}>
         {nfts.length === 0 ? (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="col-span-3 text-center py-12"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="col-span-6 text-center py-12"
           >
             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 mx-auto">
               <Hash className="w-8 h-8 text-white/30" />
@@ -112,10 +107,14 @@ export function StudioNFTs({ nfts, viewMode }: StudioNFTsProps) {
             return (
               <motion.div
                 key={nft.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + index * 0.05 }}
-                className="group bg-black/30 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ 
+                  duration: 0.3,
+                  delay: index * 0.02,
+                  ease: "easeOut"
+                }}
+                className="group bg-black/80 rounded-2xl border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300"
               >
                 {/* NFT Image */}
                 <div className="relative aspect-square overflow-hidden">
@@ -225,7 +224,7 @@ export function StudioNFTs({ nfts, viewMode }: StudioNFTsProps) {
             );
           })
         )}
-      </motion.div>
+      </div>
     </>
   );
 }

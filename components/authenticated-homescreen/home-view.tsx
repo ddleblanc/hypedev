@@ -1,10 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { MediaRenderer } from "@/components/MediaRenderer";
+import { ConnectButton } from "thirdweb/react";
+import { sepolia } from "thirdweb/chains";
+import { client } from "@/lib/thirdweb";
 import { 
   Star,
   ArrowRight,
@@ -14,7 +19,8 @@ import {
   Gift, 
   Briefcase,
   Crown,
-  Palette
+  Palette,
+  Wallet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
@@ -101,6 +107,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
   const { user } = useAuth();
   const { showCarousel, isCarouselVisible, hideCarousel } = useBackgroundCarousel();
   const [currentCollectionIndex, setCurrentCollectionIndex] = useState(0);
+  const connectButtonRef = useRef<HTMLDivElement>(null);
   
 
   useEffect(() => {
@@ -109,6 +116,14 @@ export function HomeView({ setViewMode }: HomeViewProps) {
     }, 4000);
     return () => clearInterval(collectionInterval);
   }, []);
+
+  // Handle wallet connect click
+  const handleWalletConnect = () => {
+    const button = connectButtonRef.current?.querySelector('button');
+    if (button) {
+      button.click();
+    }
+  };
 
   // Create dynamic secondary navigation based on user creator status - memoized
   const secondaryNavigation = useMemo(() => [
@@ -125,11 +140,85 @@ export function HomeView({ setViewMode }: HomeViewProps) {
 
 
   return (
-    <div 
-      className="h-full grid grid-cols-[1fr_2fr_1fr] gap-6 relative"
-      onClick={isCarouselVisible ? hideCarousel : undefined}
-      style={{ cursor: isCarouselVisible ? 'pointer' : 'default' }}
-    >
+    <div className="flex flex-col h-screen">
+      {/* Header */}
+      <header className="relative z-50 flex items-center justify-between px-16 py-6 flex-shrink-0">
+        {/* Left section - Logo */}
+        <div className="animate-[slideInLeft_0.3s_ease-out_0.1s_both]">
+          <Image
+            src="/assets/img/logo-text.png"
+            alt="HYPERCHAINX"
+            width={300}
+            height={100}
+            className="h-12 w-auto drop-shadow-2xl"
+          />
+        </div>
+        
+        {/* Right section - Player Terminal (always visible) */}
+        <div className="relative animate-[slideInRight_0.3s_ease-out_0.15s_both] flex items-center gap-1">
+           {/* Profile Section - PFP + Banner */}
+          <div 
+            className="flex items-stretch bg-black/40 backdrop-blur-xl rounded-l-2xl border border-white/10 overflow-hidden cursor-pointer transition-all duration-300 hover:bg-black/60"
+            onClick={handleWalletConnect}
+          >
+            {/* Profile Picture - Full Height, No Padding */}
+            <div className="w-20 h-20 relative flex-shrink-0">
+              <MediaRenderer
+                src={user?.profilePicture || mockUserData.profilePicture}
+                alt="Profile Picture"
+                className="h-full w-full object-cover"
+                aspectRatio="square"
+                fallback={
+                  <div className="h-full w-full bg-gradient-to-br from-[rgb(163,255,18)] to-green-400 flex items-center justify-center text-black font-black text-xl">
+                    {(user?.username || mockUserData.username)[0]}
+                  </div>
+                }
+              />
+              <div className="absolute top-1 right-1 w-3 h-3 bg-[rgb(163,255,18)] rounded-full border border-black animate-pulse shadow-sm shadow-[rgb(163,255,18)]/50" />
+            </div>
+
+            {/* Username Banner */}
+            <div className="w-72 h-20 relative flex-shrink-0">
+              <MediaRenderer
+                src={user?.profilePicture || mockUserData.profilePicture}
+                alt="User Banner"
+                className="h-full w-full object-cover"
+                aspectRatio="auto"
+              />
+              {/* Dark to transparent fade overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent"></div>
+              {/* Username */}
+              <div className="absolute inset-0 flex items-center justify-between pr-4 pl-8">
+                <span className="text-white text-lg font-bold tracking-wide drop-shadow-lg">
+                  {user?.username || mockUserData.username}
+                </span>
+                <Wallet className="w-5 h-5 text-white/80 drop-shadow-lg" />
+              </div>
+            </div>
+          </div>
+          {/* Level Section */}
+          <div className="flex items-center bg-black border-t border-b border-white/10 px-6 py-4 h-20">
+            <div className="text-white text-sm font-bold">
+              {(mockUserData.hyperTokens / 1000).toFixed(1)}K
+            </div>
+          </div>
+
+          {/* Assets Section */}
+          <div className="relative flex items-center justify-center rounded-r-2xl border border-white/10 h-20 w-20 cursor-pointer transition-all duration-300 hover:brightness-110 overflow-hidden">
+            <div 
+              className="absolute inset-0 bg-cover bg-center" 
+              style={{ backgroundImage: 'url(/assets/img/hyper-logo.jpg)' }}
+            />
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <div 
+        className="flex-1 grid grid-cols-[1fr_2fr_1fr] gap-6 relative px-16 py-4 min-h-0"
+        onClick={isCarouselVisible ? hideCarousel : undefined}
+        style={{ cursor: isCarouselVisible ? 'pointer' : 'default' }}
+      >
       {/* Wallpaper Button - Bottom Middle */}
       <motion.button
         initial={{ opacity: 0, y: 20 }}
@@ -460,7 +549,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
           </div>
 
           {/* Operations Panel - 75% of remaining space */}
-          <div className="h-3/4 min-h-0 flex flex-col">
+          <div className="min-h-0 flex flex-col">
             <div className="flex-1 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10 p-6 overflow-y-auto">
               <div className="space-y-3">
                 {activeMissions.map((mission) => (
@@ -512,5 +601,25 @@ export function HomeView({ setViewMode }: HomeViewProps) {
           </div>
         </motion.div>
       </div>
+
+      {/* Hidden ConnectButton for wallet management */}
+      <div ref={connectButtonRef} className="hidden">
+        <ConnectButton
+          client={client}
+          chain={sepolia}
+          connectButton={{
+            label: 'Connect Wallet',
+          }}
+          connectModal={{
+            size: 'wide',
+            titleIcon: '',
+            welcomeScreen: {
+              title: 'Connect to HypeX',
+              subtitle: 'Choose how you want to connect to the ultimate gaming NFT marketplace.',
+            },
+          }}
+        />
+      </div>
+    </div>
   );
 }

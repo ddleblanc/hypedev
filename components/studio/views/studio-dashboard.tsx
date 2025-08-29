@@ -127,7 +127,7 @@ export function StudioDashboard({ mockProjects, mockCollections, mockNFTs }: Stu
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
           >
-            <Card className="bg-black/40 backdrop-blur-sm border-white/10 hover:border-[rgb(163,255,18)]/30 transition-all duration-300">
+            <Card className="bg-black/80 backdrop-blur-sm border-white/10 hover:border-[rgb(163,255,18)]/30 transition-all duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-white/80">
                   {stat.title}
@@ -171,7 +171,7 @@ export function StudioDashboard({ mockProjects, mockCollections, mockNFTs }: Stu
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <Card className="bg-black/40 backdrop-blur-sm border-white/10">
+          <Card className="bg-black/80 backdrop-blur-sm border-white/10">
             <CardHeader>
               <CardTitle className="text-white">Sales & Revenue</CardTitle>
               <CardDescription className="text-white/60">
@@ -220,7 +220,7 @@ export function StudioDashboard({ mockProjects, mockCollections, mockNFTs }: Stu
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.5 }}
         >
-          <Card className="bg-black/40 backdrop-blur-sm border-white/10">
+          <Card className="bg-black/80 backdrop-blur-sm border-white/10">
             <CardHeader>
               <CardTitle className="text-white">Weekly Activity</CardTitle>
               <CardDescription className="text-white/60">
@@ -257,7 +257,7 @@ export function StudioDashboard({ mockProjects, mockCollections, mockNFTs }: Stu
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
         >
-          <Card className="bg-black/40 backdrop-blur-sm border-white/10">
+          <Card className="bg-black/80 backdrop-blur-sm border-white/10">
             <CardHeader>
               <CardTitle className="text-white">Category Distribution</CardTitle>
               <CardDescription className="text-white/60">
@@ -310,7 +310,7 @@ export function StudioDashboard({ mockProjects, mockCollections, mockNFTs }: Stu
           transition={{ delay: 0.7 }}
           className="md:col-span-2"
         >
-          <Card className="bg-black/40 backdrop-blur-sm border-white/10">
+          <Card className="bg-black/80 backdrop-blur-sm border-white/10">
             <CardHeader>
               <CardTitle className="text-white">Recent Projects</CardTitle>
               <CardDescription className="text-white/60">

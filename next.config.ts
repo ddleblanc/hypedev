@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "www.fiercepc.co.uk",
       },
+      {
+        protocol: "https",
+        hostname: "image.civitai.com",
+      },
     ],
   },
 };
