@@ -696,7 +696,7 @@ export function LootboxDetailModal({ open, onOpenChange, lootbox }: LootboxDetai
                 disabled={!agreedToTerms || !account}
               >
                 <Package className="h-4 w-4" />
-                Buy {quantity} Box{quantity > 1 ? 'es' : ''} • {(lootbox.price * quantity).toFixed(3)} ETH
+                Buy {quantity} Box{quantity > 1 ? 'es' : ''} • {((lootbox.price || 0) * quantity).toFixed(3)} ETH
               </Button>
             ) : !isOwner ? (
               <Button size="lg" variant="outline" className="flex-1 h-12" disabled>

@@ -246,8 +246,7 @@ export default function LootboxesPage() {
               transition={{ 
                 duration: 2,
                 times: [0, 0.6, 0.85, 1],
-                ease: [0.22, 1, 0.36, 1],
-                exit: { duration: 0.3, ease: "easeIn" }
+                ease: [0.22, 1, 0.36, 1]
               }}
               className="fixed inset-0 z-5 flex items-center justify-center pointer-events-none"
               style={{ willChange: 'transform, opacity' }}
