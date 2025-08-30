@@ -65,10 +65,10 @@ const featuredDrops = [
   },
   {
     id: 2,
-    name: "MetaVerse Warriors",
+    name: "1v1 Champions",
     collection: "MVW Genesis",
     creator: "GameForge Labs",
-    description: "Epic battle royale in the metaverse with P2E mechanics",
+    description: "Intense 1v1 competitive dueling with P2E mechanics",
     image: "https://picsum.photos/800/800?random=101",
     
     mintPhases: [
@@ -115,7 +115,7 @@ const categories = [
   { id: "live", name: "Live & Upcoming", icon: Activity, count: "23", active: true },
   { id: "featured", name: "Featured", icon: Crown, count: "8" },
   { id: "gaming", name: "Gaming", icon: Play, count: "67" },
-  { id: "metaverse", name: "Metaverse", icon: Zap, count: "23" },
+  { id: "1v1", name: "1v1 Gaming", icon: Zap, count: "23" },
   { id: "defi", name: "DeFi", icon: TrendingUp, count: "18" },
   { id: "ai", name: "AI & Tech", icon: Gem, count: "16" }
 ];

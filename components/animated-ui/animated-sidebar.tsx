@@ -34,6 +34,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useP2PTrading } from "@/contexts/p2p-trading-context";
+import { GameCommandCard } from "@/components/ui/game-command-card";
 
 interface AnimatedSidebarProps {
   show: boolean;
@@ -53,9 +54,26 @@ interface AnimatedSidebarProps {
     gridViewMode: 'grid' | 'list';
     onGridViewModeChange: (mode: 'grid' | 'list') => void;
   };
+  lootboxData?: {
+    availableLootboxes: Array<{
+      id: string;
+      name: string;
+      collection: string;
+      image: string;
+      price: number;
+      discountPrice?: number | null;
+      discountPercent: number;
+      rarity: string;
+      totalSupply: number;
+      remaining: number;
+      category: string;
+      accentColor: string;
+    }>;
+  };
+  onNavigate?: (route: string) => void;
 }
 
-export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData }: AnimatedSidebarProps) {
+export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, onNavigate }: AnimatedSidebarProps) {
   const { 
     userNFTs, 
     selectedTrader, 
@@ -204,17 +222,28 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                   </h2>
                   <p className="text-sm text-white/60">Fortune Awaits</p>
                 </>
-              ) : currentRoute === 'play-metaverse' ? (
+              ) : currentRoute === 'play-1v1' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                     <Gem className="h-5 w-5 text-cyan-400" />
-                    Metaverse Hub
+                    1v1 Arena Hub
                   </h2>
-                  <p className="text-sm text-white/60">Virtual Worlds</p>
+                  <p className="text-sm text-white/60">Challenge Players</p>
+                </>
+              ) : currentRoute === 'lootboxes-detail' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Box className="h-5 w-5 text-purple-400" />
+                    Lootbox Collection
+                  </h2>
+                  <p className="text-sm text-white/60">Explore & Discover</p>
                 </>
               ) : (
                 <>
-                  <h2 className="text-xl font-bold text-white mb-2">Marketplace</h2>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Marketplace
+                  </h2>
                   <p className="text-sm text-white/60">Browse 50,000+ items</p>
                 </>
               )}
@@ -303,6 +332,27 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                       className="flex-1"
                     >
                       <List className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : currentRoute === 'lootboxes-detail' ? (
+                <div className="w-full space-y-3">
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2"
+                    >
+                      <Filter className="w-3 h-3" />
+                      Rarity
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2"
+                    >
+                      <TrendingUp className="w-3 h-3" />
+                      Price
                     </Button>
                   </div>
                 </div>
@@ -435,6 +485,44 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                       💬 Community Forum
                     </a>
                   </motion.div>
+                </div>
+              </>
+            ) : currentRoute === 'lootboxes-detail' && lootboxData ? (
+              <>
+                {/* Lootbox Collection */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    AVAILABLE LOOTBOXES ({lootboxData.availableLootboxes.length})
+                  </motion.h3>
+                  
+                  <div className="space-y-3">
+                    {lootboxData.availableLootboxes.map((lootbox, index) => (
+                      <motion.div
+                        key={lootbox.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 + index * 0.05 }}
+                      >
+                        <GameCommandCard
+                          option={{
+                            id: lootbox.id,
+                            title: lootbox.name,
+                            description: `${lootbox.collection} • ${lootbox.discountPrice || lootbox.price} ETH`,
+                            image: lootbox.image,
+                            category: lootbox.rarity,
+                            accentColor: lootbox.accentColor as any
+                          }}
+                          corner="topRight"
+                          onClick={() => onNavigate && onNavigate(`lootbox-${lootbox.id}`)}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
               </>
             ) : currentRoute === 'p2p' ? (
@@ -612,7 +700,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                       {currentRoute === 'play-casual' && 'CASUAL GAMES'}
                       {currentRoute === 'play-competitive' && 'TOURNAMENTS'}
                       {currentRoute === 'play-casino' && 'CASINO GAMES'}
-                      {currentRoute === 'play-metaverse' && 'METAVERSE'}
+                      {currentRoute === 'play-1v1' && '1V1'}
                     </motion.h3>
                     <div className="space-y-4">
                       {currentRoute === 'play-casual' && [
@@ -681,7 +769,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                         </motion.div>
                       ))}
                       
-                      {currentRoute === 'play-metaverse' && [
+                      {currentRoute === 'play-1v1' && [
                         { label: 'Active Worlds', value: '12', icon: Sparkles },
                         { label: 'Concurrent Users', value: '8,764', icon: Users },
                         { label: 'Land Parcels', value: '1,247', icon: Box },
@@ -860,6 +948,19 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
               >
                 <p className="text-xs text-white/40">
                   Studio v1.0
+                </p>
+              </motion.div>
+            </div>
+          ) : currentRoute === 'lootboxes-detail' ? (
+            <div className="p-4 border-t border-white/10 bg-black/50">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="text-center"
+              >
+                <p className="text-xs text-white/40">
+                  Lootbox Explorer v1.0
                 </p>
               </motion.div>
             </div>

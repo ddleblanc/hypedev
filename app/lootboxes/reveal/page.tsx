@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,9 +19,9 @@ import {
   Shield,
   Wand2
 } from "lucide-react";
-import { LayoutWrapper } from "@/components/layout-wrapper";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { GameCommandCard, GameCommandCardOption } from "@/components/ui/game-command-card";
 
 const LOOTBOX_NAVIGATION = [
   { label: "WARRIOR BOXES", icon: Sword, href: "/lootboxes/warrior" },
@@ -30,31 +31,31 @@ const LOOTBOX_NAVIGATION = [
   { label: "LEGENDARY VAULT", icon: Crown, href: "/lootboxes/legendary" }
 ];
 
-const LOOTBOX_BANNERS = [
+const LOOTBOX_BANNERS: GameCommandCardOption[] =  [
   {
-    name: "Warrior's Arsenal",
-    subtitle: "COMBAT COLLECTION",
-    image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/c51fe7d8-e94f-45ed-b23e-d584c8998118/anim=false,width=450,optimized=true/00586-3019206393.jpeg",
-    theme: "from-red-500 to-orange-600",
-    price: "0.05 ETH",
-    rarity: "Epic"
+    id: '1',
+    title: "Warrior's Arsenal",
+    description: "COMBAT COLLECTION",
+    image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1ad84358-5802-4eae-b74b-f6c880d38ea5/transcode=true,original=true,quality=90/vid_00005.webm",
+    category: 'Epic',
+    accentColor: 'purple'
   },
   {
-    name: "Mystic Treasures",
-    subtitle: "MAGIC COLLECTION",
-    image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/5683b6d8-fa8c-4d5f-8fdb-b6e98801c82a/anim=false,width=450,optimized=true/01959-1721753241.jpeg",
-    theme: "from-purple-500 to-pink-600",
-    price: "0.15 ETH",
-    rarity: "Legendary"
+    id: '2',
+    title: "Mystic Treasures",
+    description: "MAGIC COLLECTION",
+    image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/a770baa3-875b-4e1d-9f8f-3a0f533e3f96/transcode=true,original=true,quality=90/Blood%20Moon%20Oni.webm",
+    category: 'Legendary',
+    accentColor: 'amber'
   },
-  {
-    name: "Cosmic Cache",
-    subtitle: "UNIVERSE COLLECTION",
-    image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1351be80-e8bd-4d05-8d60-31ced9a024ce/original=true,quality=90/96222521.jpeg",
-    theme: "from-cyan-400 to-blue-600",
-    price: "1.0 ETH",
-    rarity: "Mythic"
-  }
+    {
+    id: '3',
+    title: "Cosmic Cache",
+    description: "UNIVERSE COLLECTION",
+    image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/7f64191f-c494-492e-ab3d-21fb88686523/transcode=true,original=true,quality=90/6JRGQ9C6B2HFZJ94J50N42NPJ0.webm?token=CfDJ8IU-uofjHWVPg1_3zdfXdVM1DITXcjK26rTZ_vSgBMON7cn-5Hl4AXjKzNKtDpWgM1vyLFAaaQOTYAXngeNshK2hchUDWACRROB_CMqEUo8WVGj-YwL9zsZzNiUr8P9Qrb2-fYUTWJFR9leN08g5eAEvNhLDPlRIhzJQ_J_OtG1vJHXmtmkbI4U9HzwrEJ_6mIzNxhxK7TdTQv5IdF-d6mRjZhiFfA2G7uXVfu5tTjmRqwan9Rou9I-n4vAonRsTHA.mp4",
+    category: 'Legendary',
+    accentColor: 'red'
+  },
 ];
 
 const LOOTBOX_OPTIONS = [
@@ -111,6 +112,7 @@ const LOOTBOX_OPTIONS = [
 ];
 
 export default function LootboxesPage() {
+  const router = useRouter();
   const [showLootboxCarousel, setShowLootboxCarousel] = useState(false);
   const [selectedLootbox, setSelectedLootbox] = useState<string | null>(null);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
@@ -120,6 +122,7 @@ export default function LootboxesPage() {
   const [revealedItem, setRevealedItem] = useState<any>(null);
   const [showClaimButton, setShowClaimButton] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [showRarityOverlay, setShowRarityOverlay] = useState(false);
 
 
   // Control video playback
@@ -147,6 +150,7 @@ export default function LootboxesPage() {
     setShowClaimButton(false); // Reset claim button
     setIsClaiming(false); // Reset claiming state
     setHasVideoEnded(false); // Reset video end state
+    setShowRarityOverlay(false); // Reset rarity overlay
     setIsVideoPlaying(true);
     // Handle loot box opening logic here
     console.log('Opening lootbox:', lootboxId);
@@ -161,6 +165,7 @@ export default function LootboxesPage() {
       setShowRevealImage(false);
       setRevealedItem(null);
       setIsClaiming(false);
+      setShowRarityOverlay(false);
       setIsVideoPlaying(false); // This will bring back the side panels
     }, 1000);
   };
@@ -176,9 +181,19 @@ export default function LootboxesPage() {
     }
   };
 
+  const getRarityOverlayColor = (rarity: string) => {
+    switch (rarity) {
+      case 'Common': return 'rgba(156, 163, 175, 0.225)'; // gray-400 with opacity
+      case 'Rare': return 'rgba(96, 165, 250, 0.225)'; // blue-400 with opacity
+      case 'Epic': return 'rgba(168, 85, 247, 0.225)'; // purple-400 with opacity
+      case 'Mythic': return 'rgba(251, 191, 36, 0.225)'; // yellow-400 with opacity
+      case 'Cosmic': return 'rgba(34, 211, 238, 0.225)'; // cyan-400 with opacity
+      default: return 'rgba(255, 255, 255, 0.225)'; // white with opacity
+    }
+  };
+
   return (
-    <LayoutWrapper>
-      <div className="min-h-screen relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden">
         {/* Fullscreen Video Background */}
         <div className="fixed inset-0 -z-10">
           <video
@@ -186,7 +201,7 @@ export default function LootboxesPage() {
             src="/assets/vid/reveal.mp4"
             playsInline
             muted
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover grayscale"
             onEnded={() => {
               setHasVideoEnded(true);
               if (videoRef.current) {
@@ -202,9 +217,15 @@ export default function LootboxesPage() {
               const video = videoRef.current;
               if (video && isVideoPlaying) {
                 const progress = video.currentTime / video.duration;
-                // Show reveal image at 30% through video
-                if (progress >= 0.3 && !showRevealImage) {
+                // Show rarity color overlay at 45% through video
+                if (progress >= 0.45 && !showRarityOverlay) {
+                  setShowRarityOverlay(true);
+                }
+                // Show reveal image at 75% through video (after overlay completes)
+                if (progress >= 0.75 && !showRevealImage) {
                   setShowRevealImage(true);
+                  // Hide overlay when NFT appears to prevent conflicts
+                  setShowRarityOverlay(false);
                 }
               }
             }}
@@ -212,12 +233,56 @@ export default function LootboxesPage() {
           <div className="absolute inset-0 bg-black/20" />
         </div>
 
-        {/* Black Overlay - Fades out when lootbox is selected, fades back in when video ends */}
+        {/* Rarity Color Overlay - Grows from center before NFT reveal */}
+        <AnimatePresence>
+          {showRarityOverlay && revealedItem && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ 
+                scale: [0, 0.5, 2, 8],
+                opacity: [0, 0.225, 0.6, 0.75]
+              }}
+              exit={{ scale: 12, opacity: 0 }}
+              transition={{ 
+                duration: 2,
+                times: [0, 0.6, 0.85, 1],
+                ease: [0.22, 1, 0.36, 1],
+                exit: { duration: 0.3, ease: "easeIn" }
+              }}
+              className="fixed inset-0 z-5 flex items-center justify-center pointer-events-none"
+              style={{ willChange: 'transform, opacity' }}
+            >
+              <motion.div 
+                className="w-32 h-32 rounded-full blur-3xl mix-blend-multiply"
+                animate={{
+                  filter: [
+                    "blur(24px) brightness(1)",
+                    "blur(20px) brightness(1.2)", 
+                    "blur(16px) brightness(1.5)",
+                    "blur(12px) brightness(2)"
+                  ]
+                }}
+                transition={{
+                  duration: 2,
+                  times: [0, 0.6, 0.85, 1],
+                  ease: [0.22, 1, 0.36, 1]
+                }}
+                style={{ 
+                  backgroundColor: getRarityOverlayColor(revealedItem.rarity),
+                  boxShadow: `0 0 200px 100px ${getRarityOverlayColor(revealedItem.rarity)}`,
+                  willChange: 'transform, filter'
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Overlay - Fades out when lootbox is selected, fades back in when video ends */}
         <motion.div
           initial={{ opacity: 1 }}
           animate={{ opacity: (isVideoPlaying && !hasVideoEnded) ? 0 : 1 }}
           transition={{ duration: hasVideoEnded ? 2 : 1, ease: "easeInOut" }}
-          className="fixed inset-0 bg-black z-0"
+          className="fixed inset-0 bg-black/20 z-0"
         />
 
         {/* Left Panel - Lootbox Navigation */}
@@ -276,35 +341,23 @@ export default function LootboxesPage() {
             ease: "easeInOut", 
             delay: (showLootboxCarousel || (isVideoPlaying && !isClaiming)) ? 0 : 0.25 
           }}
-          className="fixed right-0 top-0 bottom-0 z-10 flex flex-col justify-center pr-12 space-y-4 w-80"
+          className="fixed right-0 top-0 bottom-0 z-10 flex flex-col justify-center pr-12 space-y-4 w-160"
         >
+    
           {LOOTBOX_BANNERS.map((banner) => (
-            <Card key={banner.name} className="bg-white/5 border-white/10 p-4">
-              <div className="flex items-center gap-4">
-                <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                  <Image
-                    src={banner.image}
-                    alt={banner.name}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-                <div className="flex-1">
-                  <p className="text-white font-medium">{banner.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge className={`text-xs px-2 py-1 ${
-                      banner.rarity === 'Epic' ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' :
-                      banner.rarity === 'Legendary' ? 'bg-orange-500/20 text-orange-300 border-orange-500/30' :
-                      'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
-                    }`}>
-                      {banner.rarity}
-                    </Badge>
-                    <span className="text-[rgb(163,255,18)] text-sm font-bold">{banner.price}</span>
-                  </div>
-                </div>
-                <Gift className="w-5 h-5 text-white/60" />
-              </div>
-            </Card>
+                  <GameCommandCard 
+                  key={banner.id} 
+  option={{
+    id: banner.id,
+    title: banner.title,
+    description: banner.description,
+    image: banner.image,
+    category: banner.category,
+    accentColor: banner.accentColor
+  }}
+  corner="topRight"
+  onClick={() => router.push(`/lootboxes/${banner.id}`)}
+/>
           ))}
         </motion.div>
 
@@ -329,10 +382,8 @@ export default function LootboxesPage() {
                 times: [0, 0.3, 1],
                 ease: [0.25, 0.46, 0.45, 0.94]
               } : {
-                duration: 0.8,
-                type: "spring",
-                stiffness: 200,
-                damping: 10
+                duration: 0.6,
+                ease: "easeOut"
               }}
               onAnimationComplete={() => {
                 if (!isClaiming && showRevealImage) {
@@ -341,6 +392,7 @@ export default function LootboxesPage() {
                 }
               }}
               className="fixed inset-0 z-30 flex items-center justify-center pointer-events-none"
+              style={{ willChange: 'transform, opacity' }}
             >
               <div className="relative">
                 {/* Glow effect */}
@@ -573,9 +625,18 @@ export default function LootboxesPage() {
                                 <div className="pt-2 border-t border-white/10">
                                   <div className="flex justify-between items-center">
                                     <span className="text-[rgb(163,255,18)] font-bold text-sm">{lootbox.price}</span>
-                                    <Button size="sm" className="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1">
-                                      Open
-                                    </Button>
+                                    <div className="flex gap-1">
+                                      <Button 
+                                        size="sm" 
+                                        className="bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleLootboxSelect(lootbox.id);
+                                        }}
+                                      >
+                                        Open
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -596,6 +657,5 @@ export default function LootboxesPage() {
           )}
         </AnimatePresence>
       </div>
-    </LayoutWrapper>
   );
 }

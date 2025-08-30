@@ -30,11 +30,11 @@ const playOptions: GameOption[] = [
     accentColor: "purple"
   },
   {
-    id: "metaverse",
-    title: "METAVERSE",
-    description: "Explore virtual worlds and immersive gaming experiences",
+    id: "1v1",
+    title: "1V1",
+    description: "Intense head-to-head battles and competitive duels",
     image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/080b9a0f-d103-4356-95fe-56e6816df24f/transcode=true,original=true,quality=90/Professional_Mode_A_hyper_realistic__cinematic_pok.webm",
-    category: "VIRTUAL WORLDS",
+    category: "DUELING",
     accentColor: "cyan"
   }
 ];

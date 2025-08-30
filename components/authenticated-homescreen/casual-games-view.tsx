@@ -186,11 +186,11 @@ const newReleases = [
   },
   {
     id: 10,
-    title: "Metaverse Mini Golf",
+    title: "1v1 Mini Golf",
     genre: "Sports",
     image: "https://picsum.photos/400/300?random=522",
     logo: "https://picsum.photos/100/100?random=522", 
-    description: "Play mini golf in stunning metaverse environments.",
+    description: "Compete in head-to-head mini golf duels.",
     players: "67K",
     rating: 4.6,
     tokenRewards: "$GOLF",
@@ -581,8 +581,8 @@ export function CasualGamesView({ onBack }: CasualGamesViewProps) {
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6">
                 <Badge className="mb-3 bg-[rgb(163,255,18)] text-black">EDITOR'S CHOICE</Badge>
-                <h3 className="text-2xl font-bold text-white mb-2">Metaverse Racing Championship</h3>
-                <p className="text-white/80">Experience the future of racing in stunning virtual worlds</p>
+                <h3 className="text-2xl font-bold text-white mb-2">1v1 Racing Championship</h3>
+                <p className="text-white/80">Experience intense head-to-head racing competitions</p>
                 <Button className="mt-4 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90">
                   <Play className="w-4 h-4 mr-2" />
                   Play Now

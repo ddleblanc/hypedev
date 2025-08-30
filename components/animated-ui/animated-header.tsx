@@ -85,7 +85,7 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
         { id: 'play/casual', label: 'Casual', icon: Gamepad2, type: 'route' },
         { id: 'play/competitive', label: 'Competitive', icon: Trophy, type: 'route' },
         { id: 'play/casino', label: 'Casino', icon: Zap, type: 'route' },
-        { id: 'play/metaverse', label: 'Metaverse', icon: Crown, type: 'route' }
+        { id: 'play/1v1', label: '1v1', icon: Crown, type: 'route' }
       ];
     }
     

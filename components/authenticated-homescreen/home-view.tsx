@@ -129,7 +129,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
   const secondaryNavigation = useMemo(() => [
     { label: "SOCIAL", icon: MessageSquare, href: "/social", external: true },
     { label: "ACHIEVEMENTS", icon: Trophy, href: "/achievements", external: true },
-    { label: "LOOTBOXES", icon: Gift, href: "/lootboxes", external: true },
+    { label: "LOOTBOXES", icon: Gift, href: "/lootboxes/reveal", external: true },
     { label: "PORTFOLIO", icon: Briefcase, href: "/portfolio", external: true },
     // Conditional creator/studio link
     user && (user.creatorAppliedAt || user.isCreator) 
@@ -460,7 +460,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
             ease: "easeInOut", 
             delay: isCarouselVisible ? 0 : 0.25 
           }}
-          className="flex flex-col h-full max-h-full overflow-hidden gap-4"
+          className="flex flex-col justify-center h-full max-h-full overflow-hidden gap-4"
         >
           
           {/* Trending Collections - Image Slider */}

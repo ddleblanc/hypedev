@@ -9,6 +9,7 @@ import { PersistentBackground } from "@/components/persistent-background";
 import { SinglePageApp } from "@/components/single-page-app";
 import { AppNavigationProvider, useAppNavigation } from "@/contexts/app-navigation-context";
 import { StudioProvider, useStudio } from "@/contexts/studio-context";
+import { useRightSidebarStore } from "@/hooks/use-right-sidebar-store";
 import { AnimatedHeader } from "@/components/animated-ui/animated-header";
 import { AnimatedFooter } from "@/components/animated-ui/animated-footer";
 import { AnimatedSidebar } from "@/components/animated-ui/animated-sidebar";
@@ -44,6 +45,7 @@ interface ProgressiveUIState {
 function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
   const { navigationState, navigateToRoute } = useAppNavigation();
   const { studioData } = useStudio();
+  const { isRightSidebarOpen } = useRightSidebarStore();
   const [uiState, setUiState] = useState<ProgressiveUIState>({
     showHeader: false,
     showFooter: false,
@@ -70,9 +72,19 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
     trustScore: 4.8
   });
 
-  // Track navigation and update UI state based on current route
+  // 1v1 right sidebar data
+  const [oneVsOneRightSidebarData] = useState({
+    onlineOpponents: 47,
+    activeMatches: 12,
+    rankPoints: 2156,
+    winRate: 87.5,
+    currentRank: 'MASTER'
+  });
+
+  // Track navigation and update UI state based on current route and right sidebar state
   useEffect(() => {
     const currentRoute = navigationState.currentRoute;
+    const pathname = window.location.pathname;
     
     // Progressive reveal logic
     if (currentRoute === 'home') {
@@ -125,6 +137,26 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
         navigationDepth: 2,
         previousRoute: prev.previousRoute || 'home'
       }));
+    } else if (currentRoute === 'play-1v1') {
+      // 1v1: Show header, footer, left sidebar, and RIGHT sidebar
+      setUiState(prev => ({
+        showHeader: true,
+        showFooter: true,
+        showSidebar: true,
+        showRightSidebar: true,
+        navigationDepth: 2,
+        previousRoute: prev.previousRoute || 'play'
+      }));
+    } else if (pathname === '/play/1v1') {
+      // 1v1 route: Show header, footer, and right sidebar based on context
+      setUiState(prev => ({
+        showHeader: true,
+        showFooter: true,
+        showSidebar: false,
+        showRightSidebar: isRightSidebarOpen,
+        navigationDepth: 2,
+        previousRoute: prev.previousRoute || 'play'
+      }));
     } else if (['play', 'launchpad', 'museum'].includes(currentRoute)) {
       // Other views: Show header and footer, but no sidebar
       setUiState(prev => ({
@@ -146,7 +178,7 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
         previousRoute: prev.previousRoute || 'play'
       }));
     }
-  }, [navigationState.currentRoute]);
+  }, [navigationState.currentRoute, isRightSidebarOpen]);
 
   const handleNavigate = (route: string) => {
     // Check if we're going back (reducing depth)
@@ -227,8 +259,9 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
       />
       <RightAnimatedSidebar 
         show={uiState.showRightSidebar}
-        currentRoute={navigationState.currentRoute}
+        currentRoute={window.location.pathname === '/play/1v1' ? 'play-1v1' : navigationState.currentRoute}
         p2pData={p2pRightSidebarData}
+        oneVsOneData={oneVsOneRightSidebarData}
       />
       
       {/* Main content with padding adjustments */}
@@ -256,12 +289,15 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const isAppRoute = pathname === '/' ||
     pathname === '/trade' ||
     pathname === '/play' ||
+    pathname === '/play/1v1' ||
     pathname === '/p2p' ||
     pathname === '/marketplace' ||
     pathname === '/casual' ||
     pathname === '/launchpad' ||
     pathname === '/museum' ||
-    pathname === '/studio';
+    pathname === '/studio' ||
+    pathname === '/lootboxes' ||
+    pathname?.startsWith('/lootboxes/');
 
   // Check if user is authenticated and on an app route
   const isAuthenticatedAppRoute = user && isConnected && isAppRoute;

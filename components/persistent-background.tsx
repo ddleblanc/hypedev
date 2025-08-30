@@ -31,6 +31,7 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
   // Convert pathname to route type
   const getCurrentRoute = () => {
     if (pathname === '/') return 'home';
+    if (pathname === '/lootboxes' || pathname.startsWith('/lootboxes/')) return 'lootboxes';
     const route = pathname.split('/')[1];
     return route || 'home';
   };
@@ -61,6 +62,7 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
       home: 0,
       trade: 1,
       play: 1,
+      lootboxes: 1,
       p2p: 2,
       marketplace: 2,
       casual: 2,
@@ -111,6 +113,10 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
     switch(currentRoute) {
       case 'trade':
       case 'play':
+        scale = 'scale-110';
+        blur = 'blur-sm';
+        break;
+      case 'lootboxes':
         scale = 'scale-110';
         blur = 'blur-sm';
         break;
@@ -199,6 +205,11 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
           }`} />
         </div>
       </div>
+      
+      {/* Lootbox Black Overlay - sits above the regular background */}
+      {currentRoute === 'lootboxes' && (
+        <div className="fixed inset-0 z-5 bg-black transition-all duration-1000" />
+      )}
       
       {/* Scrollable content layer */}
       <div className="relative z-10 min-h-screen">

@@ -37,12 +37,12 @@ const tradeOptions: GameOption[] = [
     accentColor: "blue"
   },
   {
-    id: "tokens",
-    title: "TOKENS",
-    description: "Trade gaming tokens and participate in token economies",
-    image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/2d89529b-6141-4d66-9992-9798d96dcd5d/transcode=true,width=450,optimized=true/Untitled%20(3).webm",
-    href: "/tokens",
-    category: "DIGITAL ASSETS",
+    id: "lootboxes",
+    title: "LOOTBOXES",
+    description: "Open mystery boxes containing rare gaming items and NFTs",
+    image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1ad84358-5802-4eae-b74b-f6c880d38ea5/transcode=true,original=true,quality=90/vid_00005.webm",
+    href: "/lootboxes/reveal",
+    category: "MYSTERY REWARDS",
     accentColor: "purple"
   },
   {
@@ -70,6 +70,8 @@ export function TradeView({ setViewMode }: TradeViewProps) {
       setViewMode('marketplace');
     } else if (option.id === 'launchpad') {
       setViewMode('launchpad');
+    } else if (option.id === 'lootboxes') {
+      window.location.href = '/lootboxes/reveal';
     } else if (option.href) {
       window.location.href = option.href;
     }

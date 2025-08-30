@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
+import { useRightSidebarStore } from "@/hooks/use-right-sidebar-store";
 import { 
   Play,
   Info,
@@ -29,91 +30,91 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
-const mockMetaverseWorlds = {
+const mock1v1Worlds = {
   hero: {
-    id: "metaverse-hub",
-    title: "Metaverse Hub",
-    subtitle: "Explore limitless virtual worlds",
-    description: "Step into the future of gaming with immersive virtual worlds, digital ownership, and endless possibilities. Build, explore, and connect in expansive metaverse environments that blur the line between reality and imagination.",
+    id: "1v1-hub",
+    title: "1v1 Hub",
+    subtitle: "Ultimate competitive duels",
+    description: "Enter intense head-to-head battles where skill determines victory. Face opponents in fast-paced 1v1 matches across multiple game modes, climb the ranks, and prove your dominance in competitive gaming.",
     image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/080b9a0f-d103-4356-95fe-56e6816df24f/transcode=true,original=true,quality=90/Professional_Mode_A_hyper_realistic__cinematic_pok.webm",
     logo: "/api/placeholder/200/80",
     items: 75000,
     floor: "15.8 ETH",
     volume: "456K ETH",
-    creator: "MetaStudios",
+    creator: "1v1Studios",
     rating: 4.9,
     isNew: false,
-    tags: ["Metaverse", "Virtual Worlds", "Digital Assets"]
+    tags: ["1v1", "Competitive", "PvP"]
   },
   featured: [
     {
-      id: "cyber-metropolis",
-      title: "Cyber Metropolis",
-      subtitle: "Futuristic city exploration",
+      id: "cyber-arena",
+      title: "Cyber Arena",
+      subtitle: "High-tech combat zone",
       image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/080b9a0f-d103-4356-95fe-56e6816df24f/transcode=true,original=true,quality=90/Professional_Mode_A_hyper_realistic__cinematic_pok.webm",
       items: 45000,
       floor: "12.5 ETH",
       volume: "189K ETH",
       isNew: true,
       trending: "+234%",
-      creator: "CyberWorlds"
+      creator: "CyberArenas"
     },
     {
-      id: "fantasy-kingdoms",
-      title: "Fantasy Kingdoms",
-      subtitle: "Magical realm adventures",
+      id: "fantasy-colosseum",
+      title: "Fantasy Colosseum",
+      subtitle: "Medieval duel grounds",
       image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/080b9a0f-d103-4356-95fe-56e6816df24f/transcode=true,original=true,quality=90/Professional_Mode_A_hyper_realistic__cinematic_pok.webm",
       items: 38000,
       floor: "8.9 ETH",
       volume: "145K ETH",
       isNew: false,
       trending: "+156%",
-      creator: "FantasyLabs"
+      creator: "FantasyDuels"
     },
     {
-      id: "space-colonies",
-      title: "Space Colonies",
-      subtitle: "Interstellar civilization building",
+      id: "space-battleground",
+      title: "Space Battleground",
+      subtitle: "Zero-gravity combat arena",
       image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/080b9a0f-d103-4356-95fe-56e6816df24f/transcode=true,original=true,quality=90/Professional_Mode_A_hyper_realistic__cinematic_pok.webm",
       items: 52000,
       floor: "18.2 ETH",
       volume: "267K ETH",
       isNew: false,
       trending: "+89%",
-      creator: "CosmicBuilders"
+      creator: "CosmicDuels"
     }
   ],
   categories: [
-    { id: "worlds", name: "Virtual Worlds", collections: 47, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/69281ee0-9883-441a-9a8e-e43ff4e05ad0/original=true,quality=90/94617017.jpeg" },
-    { id: "land", name: "Digital Land", collections: 156, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/c51fe7d8-e94f-45ed-b23e-d584c8998118/anim=false,width=450,optimized=true/00586-3019206393.jpeg" },
-    { id: "avatars", name: "Avatars", collections: 89, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/5683b6d8-fa8c-4d5f-8fdb-b6e98801c82a/anim=false,width=450,optimized=true/01959-1721753241.jpeg" },
-    { id: "items", name: "Virtual Items", collections: 234, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/50d09e0b-f10b-400b-9354-2fa908865565/anim=false,width=450,optimized=true/00015-2320167257.jpeg" },
-    { id: "experiences", name: "Experiences", collections: 67, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1351be80-e8bd-4d05-8d60-31ced9a024ce/original=true,quality=90/96222521.jpeg" }
+    { id: "arenas", name: "Battle Arenas", collections: 47, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/69281ee0-9883-441a-9a8e-e43ff4e05ad0/original=true,quality=90/94617017.jpeg" },
+    { id: "weapons", name: "Weapons", collections: 156, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/c51fe7d8-e94f-45ed-b23e-d584c8998118/anim=false,width=450,optimized=true/00586-3019206393.jpeg" },
+    { id: "fighters", name: "Fighters", collections: 89, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/5683b6d8-fa8c-4d5f-8fdb-b6e98801c82a/anim=false,width=450,optimized=true/01959-1721753241.jpeg" },
+    { id: "gear", name: "Combat Gear", collections: 234, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/50d09e0b-f10b-400b-9354-2fa908865565/anim=false,width=450,optimized=true/00015-2320167257.jpeg" },
+    { id: "tournaments", name: "Tournaments", collections: 67, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1351be80-e8bd-4d05-8d60-31ced9a024ce/original=true,quality=90/96222521.jpeg" }
   ]
 };
 
 const virtualWorlds = [
   {
     id: "neo-tokyo",
-    title: "Neo Tokyo 2077",
-    name: "Neo Tokyo 2077",
-    description: "Cyberpunk metaverse with neon-lit streets",
+    title: "Neo Tokyo Arena",
+    name: "Neo Tokyo Arena",
+    description: "Cyberpunk 1v1 arena with neon-lit battlegrounds",
     image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/080b9a0f-d103-4356-95fe-56e6816df24f/transcode=true,original=true,quality=90/Professional_Mode_A_hyper_realistic__cinematic_pok.webm",
     players: 12847,
     rating: 4.8,
     status: "LIVE",
-    theme: "Cyberpunk"
+    theme: "Cyberpunk Duels"
   },
   {
-    id: "crystal-realm",
-    title: "Crystal Realm",
-    name: "Crystal Realm",
-    description: "Fantasy world with magical crystals",
+    id: "crystal-colosseum",
+    title: "Crystal Colosseum",
+    name: "Crystal Colosseum",
+    description: "Fantasy 1v1 arena with magical crystals",
     image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/080b9a0f-d103-4356-95fe-56e6816df24f/transcode=true,original=true,quality=90/Professional_Mode_A_hyper_realistic__cinematic_pok.webm",
     players: 8934,
     rating: 4.9,
     status: "BETA",
-    theme: "Fantasy"
+    theme: "Fantasy Duels"
   }
 ];
 
@@ -136,30 +137,31 @@ const myAssets = [
 
 const events = [
   {
-    id: "metaverse-expo",
-    title: "Metaverse Expo 2024",
+    id: "1v1-championship",
+    title: "1v1 Championship 2024",
     date: "Dec 15-17",
     time: "2:00 PM PST",
-    world: "Neo Tokyo 2077",
-    type: "Conference",
+    world: "Neo Tokyo Arena",
+    type: "Tournament",
     attendees: 50000
   },
   {
-    id: "virtual-concert",
-    title: "Neon Dreams Concert",
+    id: "duel-masters",
+    title: "Duel Masters Finals",
     date: "Dec 20",
     time: "8:00 PM PST",
-    world: "Crystal Realm",
-    type: "Entertainment",
+    world: "Crystal Colosseum",
+    type: "Competition",
     attendees: 25000
   }
 ];
 
-export function MetaverseGamingLayout() {
+export function OneVsOneGamingLayout() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMuted, setIsMuted] = useState(true);
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef });
+  const { openRightSidebar } = useRightSidebarStore();
   
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
@@ -172,6 +174,10 @@ export function MetaverseGamingLayout() {
     }
   };
 
+  const handleStartDueling = () => {
+    openRightSidebar();
+  };
+
   return (
     <>
       <motion.div
@@ -182,7 +188,7 @@ export function MetaverseGamingLayout() {
         className="w-full overflow-hidden bg-black"
       >
       <div className="relative">
-        {/* Hero Banner - Metaverse themed */}
+        {/* Hero Banner - 1v1 themed */}
         <motion.div
           ref={heroRef}
           className="relative h-[70vh] md:h-[85vh] overflow-hidden"
@@ -196,13 +202,13 @@ export function MetaverseGamingLayout() {
               loop
               playsInline
             >
-              <source src={mockMetaverseWorlds.hero.image} type="video/webm" />
+              <source src={mock1v1Worlds.hero.image} type="video/webm" />
             </video>
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-900/80 via-blue-800/40 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
           </div>
 
-          {/* Navigation - Metaverse themed */}
+          {/* Navigation - 1v1 themed */}
           <motion.div
             initial={{ y: -50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -213,10 +219,10 @@ export function MetaverseGamingLayout() {
               <div className="flex items-center gap-4 md:gap-8">
                 <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
                   <Globe className="h-6 w-6 text-cyan-400" />
-                  Metaverse Hub
+                  1v1 Hub
                 </h1>
                 <nav className="hidden md:flex items-center gap-6">
-                  {["Worlds", "Land", "Avatars", "Items", "Events"].map((item) => (
+                  {["Arenas", "Weapons", "Fighters", "Gear", "Tournaments"].map((item) => (
                     <button
                       key={item}
                       className="text-white/80 hover:text-white transition-colors text-lg font-medium"
@@ -230,7 +236,7 @@ export function MetaverseGamingLayout() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 h-4 w-4 md:h-5 md:w-5" />
                   <Input
-                    placeholder="Explore metaverse..."
+                    placeholder="Find opponents..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-8 md:pl-10 pr-4 py-2 bg-black/20 backdrop-blur-md border-white/20 text-white placeholder:text-white/60 focus:border-cyan-400/40 w-48 md:w-80 text-sm md:text-base"
@@ -240,7 +246,7 @@ export function MetaverseGamingLayout() {
             </div>
           </motion.div>
 
-          {/* Hero Content - Metaverse themed */}
+          {/* Hero Content - 1v1 themed */}
           <motion.div
             style={{ opacity: heroOpacity }}
             className="absolute bottom-0 left-0 right-0 p-4 md:p-8 pb-12 md:pb-20"
@@ -261,9 +267,9 @@ export function MetaverseGamingLayout() {
                     {[...Array(5)].map((_, i) => (
                       <Star key={i} className="h-3 w-3 md:h-4 md:w-4 fill-yellow-400 text-yellow-400" />
                     ))}
-                    <span className="text-white/80 ml-1 md:ml-2 text-sm md:text-base">{mockMetaverseWorlds.hero.rating}</span>
+                    <span className="text-white/80 ml-1 md:ml-2 text-sm md:text-base">{mock1v1Worlds.hero.rating}</span>
                   </div>
-                  <span className="text-white/80 text-sm md:text-base">{mockMetaverseWorlds.hero.items.toLocaleString()} Worlds</span>
+                  <span className="text-white/80 text-sm md:text-base">{mock1v1Worlds.hero.items.toLocaleString()} Matches</span>
                 </div>
               </motion.div>
 
@@ -273,7 +279,7 @@ export function MetaverseGamingLayout() {
                 transition={{ delay: 0.6, duration: 0.8 }}
                 className="text-3xl md:text-5xl font-bold text-white mb-3 md:mb-4"
               >
-                {mockMetaverseWorlds.hero.title}
+                {mock1v1Worlds.hero.title}
               </motion.h2>
 
               <motion.p
@@ -282,7 +288,7 @@ export function MetaverseGamingLayout() {
                 transition={{ delay: 0.8, duration: 0.8 }}
                 className="text-base md:text-xl text-white/90 mb-4 md:mb-6 leading-relaxed"
               >
-                {mockMetaverseWorlds.hero.description}
+                {mock1v1Worlds.hero.description}
               </motion.p>
 
               <motion.div
@@ -291,15 +297,18 @@ export function MetaverseGamingLayout() {
                 transition={{ delay: 1, duration: 0.8 }}
                 className="flex flex-wrap items-center gap-2 md:gap-4"
               >
-                <Button className="bg-cyan-500 text-black hover:bg-cyan-600 font-bold px-4 md:px-8 py-2 md:py-3 rounded-lg flex items-center gap-2 text-sm md:text-base">
+                <Button 
+                  onClick={handleStartDueling}
+                  className="bg-cyan-500 text-black hover:bg-cyan-600 font-bold px-4 md:px-8 py-2 md:py-3 rounded-lg flex items-center gap-2 text-sm md:text-base"
+                >
                   <Play className="h-4 w-4 md:h-5 md:w-5" fill="currentColor" />
-                  <span className="hidden sm:inline">Enter Metaverse</span>
-                  <span className="sm:hidden">Enter</span>
+                  <span className="hidden sm:inline">Start Dueling</span>
+                  <span className="sm:hidden">Duel</span>
                 </Button>
                 <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 font-bold px-4 md:px-8 py-2 md:py-3 rounded-lg flex items-center gap-2 text-sm md:text-base">
                   <Building className="h-4 w-4 md:h-5 md:w-5" />
-                  <span className="hidden sm:inline">My Assets</span>
-                  <span className="sm:hidden">Assets</span>
+                  <span className="hidden sm:inline">My Loadout</span>
+                  <span className="sm:hidden">Loadout</span>
                 </Button>
                 <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 rounded-full p-2 md:p-3">
                   <Gem className="h-5 w-5 md:h-6 md:w-6" />
@@ -321,15 +330,15 @@ export function MetaverseGamingLayout() {
                 className="flex flex-wrap items-center gap-4 md:gap-6 mt-4 md:mt-6 text-white/80"
               >
                 <div>
-                  <span className="text-xs md:text-sm uppercase tracking-wide text-white/60">Active Worlds</span>
+                  <span className="text-xs md:text-sm uppercase tracking-wide text-white/60">Active Arenas</span>
                   <p className="text-base md:text-lg font-bold text-cyan-400">47</p>
                 </div>
                 <div>
-                  <span className="text-xs md:text-sm uppercase tracking-wide text-white/60">Online Users</span>
+                  <span className="text-xs md:text-sm uppercase tracking-wide text-white/60">Online Duelists</span>
                   <p className="text-base md:text-lg font-bold">12,847</p>
                 </div>
                 <div>
-                  <span className="text-xs md:text-sm uppercase tracking-wide text-white/60">Digital Assets</span>
+                  <span className="text-xs md:text-sm uppercase tracking-wide text-white/60">Daily Matches</span>
                   <p className="text-base md:text-lg font-bold">456K</p>
                 </div>
               </motion.div>
@@ -337,7 +346,7 @@ export function MetaverseGamingLayout() {
           </motion.div>
         </motion.div>
 
-        {/* Categories Row - Metaverse */}
+        {/* Categories Row - 1v1 */}
         <motion.section
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
@@ -345,7 +354,7 @@ export function MetaverseGamingLayout() {
           className="px-4 md:px-8 py-8 md:py-16 bg-black"
         >
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold text-white">Metaverse Categories</h2>
+            <h2 className="text-3xl font-bold text-white">1v1 Categories</h2>
             <Button variant="ghost" className="text-white/80 hover:text-white flex items-center gap-2">
               View All
               <ArrowUpRight className="h-4 w-4" />
@@ -353,7 +362,7 @@ export function MetaverseGamingLayout() {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
-            {mockMetaverseWorlds.categories.map((category, index) => (
+            {mock1v1Worlds.categories.map((category, index) => (
               <motion.div
                 key={category.id}
                 initial={{ opacity: 0, y: 30 }}
