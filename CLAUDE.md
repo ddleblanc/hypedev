@@ -1,3 +1,8 @@
+You must exclusively use **Thirdweb v5** APIs and tools for *all* blockchain-related functionality—covering wallets, contracts, IPFS, NFTs, claim logic, media rendering, AI integrations, and more.
+
+- No v4 or legacy usage permitted.
+- Ensure every blockchain related task references Thirdweb v5 documentation and SDK.
+
 High-Level Layout Architecture Guide
 Core Philosophy: Native App Experience
 

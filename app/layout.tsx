@@ -8,6 +8,7 @@ import { StudioProvider } from "@/contexts/studio-context";
 import { BackgroundCarouselProvider } from "@/contexts/background-carousel-context";
 import { FloatingTransactionPill } from "@/components/transaction/floating-transaction-pill";
 import { LayoutWrapper } from "@/components/layout-wrapper";
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -37,6 +38,7 @@ export default function RootLayout({
             </AppNavigationProvider>
           </BackgroundCarouselProvider>
           <FloatingTransactionPill />
+          <Toaster />
         </Providers>
       </body>
     </html>

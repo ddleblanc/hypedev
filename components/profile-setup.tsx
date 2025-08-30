@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useToast } from '@/hooks/use-toast'
 import { 
   User, 
   Upload, 
@@ -69,6 +70,11 @@ export function ProfileSetup({ userId, walletAddress, onComplete, onApplyCreator
   const [isCheckingUsername, setIsCheckingUsername] = useState(false)
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [socialInputs, setSocialInputs] = useState<Array<{ platform: string; url: string }>>([])
+  const [isUploadingProfile, setIsUploadingProfile] = useState(false)
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false)
+  const profileImageRef = useRef<HTMLInputElement>(null)
+  const bannerImageRef = useRef<HTMLInputElement>(null)
+  const { toast } = useToast()
 
   const form = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -358,30 +364,50 @@ export function ProfileSetup({ userId, walletAddress, onComplete, onApplyCreator
                       <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground mb-3">Upload profile image</p>
                       <input
+                        ref={profileImageRef}
                         type="file"
                         accept="image/*"
                         onChange={async (e) => {
                           const file = e.target.files?.[0]
                           if (file) {
+                            setIsUploadingProfile(true)
                             try {
                               const ipfsUri = await uploadImageToThirdweb(file)
                               form.setValue('profilePicture', ipfsUri)
+                              toast({
+                                title: "Success",
+                                description: "Profile picture uploaded successfully",
+                              })
                             } catch (error) {
                               console.error('Error uploading profile image:', error)
-                              // Fallback to local URL for preview
-                              const url = URL.createObjectURL(file)
-                              form.setValue('profilePicture', url)
+                              toast({
+                                title: "Upload Failed",
+                                description: "Failed to upload image to IPFS. Please try again.",
+                                variant: "destructive",
+                              })
                             }
+                            setIsUploadingProfile(false)
                           }
                         }}
                         className="hidden"
                         id="profileImage"
                       />
-                      <Label htmlFor="profileImage" className="cursor-pointer">
-                        <Button type="button" variant="outline" size="sm">
-                          Choose File
-                        </Button>
-                      </Label>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        disabled={isUploadingProfile}
+                        onClick={() => profileImageRef.current?.click()}
+                      >
+                        {isUploadingProfile ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          'Choose File'
+                        )}
+                      </Button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
                       Recommended: 400×400px • Max 2MB • JPG or PNG
@@ -397,30 +423,50 @@ export function ProfileSetup({ userId, walletAddress, onComplete, onApplyCreator
                   <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground mb-3">Upload banner image</p>
                   <input
+                    ref={bannerImageRef}
                     type="file"
                     accept="image/*"
                     onChange={async (e) => {
                       const file = e.target.files?.[0]
                       if (file) {
+                        setIsUploadingBanner(true)
                         try {
                           const ipfsUri = await uploadImageToThirdweb(file)
                           form.setValue('bannerImage', ipfsUri)
+                          toast({
+                            title: "Success",
+                            description: "Banner image uploaded successfully",
+                          })
                         } catch (error) {
                           console.error('Error uploading banner image:', error)
-                          // Fallback to local URL for preview
-                          const url = URL.createObjectURL(file)
-                          form.setValue('bannerImage', url)
+                          toast({
+                            title: "Upload Failed",
+                            description: "Failed to upload image to IPFS. Please try again.",
+                            variant: "destructive",
+                          })
                         }
+                        setIsUploadingBanner(false)
                       }
                     }}
                     className="hidden"
                     id="bannerImage"
                   />
-                  <Label htmlFor="bannerImage" className="cursor-pointer">
-                    <Button type="button" variant="outline" size="sm">
-                      Choose File
-                    </Button>
-                  </Label>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    disabled={isUploadingBanner}
+                    onClick={() => bannerImageRef.current?.click()}
+                  >
+                    {isUploadingBanner ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      'Choose File'
+                    )}
+                  </Button>
                   <p className="text-xs text-muted-foreground mt-3">
                     Recommended: 1500×500px • Max 5MB • Showcase your style
                   </p>
