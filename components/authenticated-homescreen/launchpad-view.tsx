@@ -120,7 +120,7 @@ const categories = [
   { id: "ai", name: "AI & Tech", icon: Gem, count: "16" }
 ];
 
-type LaunchpadViewProps = {};
+type LaunchpadViewProps = Record<string, never>;
 
 export function LaunchpadView({}: LaunchpadViewProps) {
   const router = useRouter();
@@ -779,7 +779,7 @@ export function LaunchpadView({}: LaunchpadViewProps) {
                 <Timer className="w-6 h-6 text-purple-400" />
               </div>
               <div>
-                <h3 className="text-white font-bold text-lg">Don't Miss Out!</h3>
+                <h3 className="text-white font-bold text-lg">Don&apos;t Miss Out!</h3>
                 <p className="text-white/70">CyberRealms Genesis drops in 2 days - Join the allowlist now</p>
               </div>
             </div>

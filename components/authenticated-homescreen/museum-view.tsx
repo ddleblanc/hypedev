@@ -28,7 +28,7 @@ import { MuseumHeroSection } from "@/components/museum/hero-section";
 import { MuseumGallery } from "@/components/museum/gallery-section";
 import { LegendDetailModal } from "@/components/museum/legend-detail-modal";
 
-type MuseumViewProps = {};
+type MuseumViewProps = Record<string, never>;
 
 export function MuseumView({}: MuseumViewProps) {
   const [selectedLegend, setSelectedLegend] = useState<string | null>(null);
@@ -238,7 +238,7 @@ export function MuseumView({}: MuseumViewProps) {
               <div className="flex-1">
                 <h3 className="text-white font-bold mb-2">Museum Explorer</h3>
                 <p className="text-white/70 text-sm mb-4">
-                  Use mouse to discover interactive elements. Press 'F' for immersive mode.
+                  Use mouse to discover interactive elements. Press &apos;F&apos; for immersive mode.
                 </p>
                 <Button 
                   size="sm" 

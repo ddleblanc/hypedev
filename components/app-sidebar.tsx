@@ -222,13 +222,13 @@ export function AppSidebar({
   
   // Get appropriate navigation items
   const studioNav = context ? getStudioNavigation(context) : getStudioNavigation('overview')
-  const [activeItem, setActiveItem] = React.useState(isStudioContext ? studioNav[0] : defaultData.navMain[0])
+  const [activeItem, setActiveItem] = React.useState<{ title: string; url: string; icon: React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>; isActive: boolean; id?: string }>(isStudioContext ? studioNav[0] : defaultData.navMain[0])
 
   // Handle navigation for studio context
-  const handleStudioNavigation = (item: any) => {
+  const handleStudioNavigation = (item: { title: string; url: string; icon: React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>; isActive: boolean; id?: string }) => {
     setActiveItem(item)
     if (onNavigate) {
-      switch (item.id) {
+      switch (item.id || '') {
         case 'overview':
           onNavigate.goHome()
           break
@@ -249,18 +249,24 @@ export function AppSidebar({
     setOpen(true)
   }
 
-  const handleDefaultNavigation = (item: any) => {
+  const handleDefaultNavigation = (item: { title: string; url: string; icon: React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>; isActive: boolean; id?: string }) => {
     setActiveItem(item)
     setOpen(true)
   }
 
   // Get current navigation data
   const navItems = isStudioContext ? studioNav : defaultData.navMain
-  const handleNavigation = isStudioContext ? handleStudioNavigation : handleDefaultNavigation
+  const handleNavigation = (item: { title: string; url: string; icon: React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement>>; isActive: boolean; id?: string }) => {
+    if (isStudioContext) {
+      handleStudioNavigation(item);
+    } else {
+      handleDefaultNavigation(item);
+    }
+  }
 
   // Render studio-specific content for second panel
   const renderStudioContent = () => {
-    const itemId = (activeItem as any)?.id || context;
+    const itemId = (activeItem as { id?: string })?.id || context;
     switch (itemId) {
       case 'projects':
         return (

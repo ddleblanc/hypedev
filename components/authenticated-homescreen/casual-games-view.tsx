@@ -546,7 +546,7 @@ export function CasualGamesView({ onBack }: CasualGamesViewProps) {
                 </Badge>
                 <h2 className="text-4xl font-black text-white mb-3">Weekend Tournament</h2>
                 <p className="text-xl text-white/90 mb-6 max-w-2xl">
-                  Join this weekend's mega tournament! Win exclusive NFT rewards and earn up to 10,000 tokens!
+                  Join this weekend&apos;s mega tournament! Win exclusive NFT rewards and earn up to 10,000 tokens!
                 </p>
                 <div className="flex items-center gap-4">
                   <Button className="bg-purple-500 hover:bg-purple-600 text-white font-bold px-8">
@@ -580,7 +580,7 @@ export function CasualGamesView({ onBack }: CasualGamesViewProps) {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6">
-                <Badge className="mb-3 bg-[rgb(163,255,18)] text-black">EDITOR'S CHOICE</Badge>
+                <Badge className="mb-3 bg-[rgb(163,255,18)] text-black">EDITOR&apos;S CHOICE</Badge>
                 <h3 className="text-2xl font-bold text-white mb-2">1v1 Racing Championship</h3>
                 <p className="text-white/80">Experience intense head-to-head racing competitions</p>
                 <Button className="mt-4 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90">

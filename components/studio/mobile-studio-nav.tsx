@@ -101,14 +101,14 @@ interface MobileStudioNavProps {
   // Actions
   primaryAction?: {
     label: string;
-    icon?: any;
+    icon?: React.ComponentType<{ className?: string }>;
     onClick: () => void;
   };
   
   // Title & Breadcrumbs
   title?: string;
   subtitle?: string;
-  breadcrumbs?: Array<{ label: string; onClick?: () => void; icon?: any }>;
+  breadcrumbs?: Array<{ label: string; onClick?: () => void; icon?: React.ComponentType<{ className?: string }> }>;
 }
 
 const contextConfig = {
@@ -408,8 +408,17 @@ function MobileNavContent({
   currentCollection?: Collection | null;
   projects: Project[];
   collections: Collection[];
-  navigationItems: any[];
-  onNavigate?: any;
+  navigationItems: Array<{
+    label: string;
+    icon: React.ForwardRefExoticComponent<Omit<React.SVGProps<SVGSVGElement>, "ref"> & React.RefAttributes<SVGSVGElement>>;
+    onClick?: () => void;
+    isActive?: boolean;
+    badge?: string | null;
+  }>;
+  onNavigate?: {
+    goToProject?: (project: Project) => void;
+    goToCollection?: (collection: Collection) => void;
+  };
   onClose: () => void;
 }) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -502,7 +511,7 @@ function MobileNavContent({
                       <button
                         key={project.id}
                         onClick={() => {
-                          onNavigate?.goToProject(project);
+                          onNavigate?.goToProject?.(project);
                           onClose();
                         }}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${
@@ -558,7 +567,7 @@ function MobileNavContent({
                       <button
                         key={collection.id}
                         onClick={() => {
-                          onNavigate?.goToCollection(collection);
+                          onNavigate?.goToCollection?.(collection);
                           onClose();
                         }}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all ${

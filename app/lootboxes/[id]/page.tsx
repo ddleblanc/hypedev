@@ -279,10 +279,10 @@ export default function LootboxDetailPage() {
             <h3 className="text-2xl font-bold text-white mb-6">About This Lootbox</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <h4 className="text-lg font-semibold text-white mb-4">What's Inside</h4>
+                <h4 className="text-lg font-semibold text-white mb-4">What&apos;s Inside</h4>
                 <p className="text-white/70 leading-relaxed">
                   Each {lootbox.title} contains carefully curated items that match the {lootbox.category.toLowerCase()} tier quality. 
-                  You're guaranteed to receive valuable items that enhance your gaming experience.
+                  You&apos;re guaranteed to receive valuable items that enhance your gaming experience.
                 </p>
               </div>
               <div>

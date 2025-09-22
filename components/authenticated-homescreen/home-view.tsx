@@ -98,7 +98,7 @@ const activeMissions = [
   { id: 4, title: "Weekly Challenge", progress: 90, reward: "500 HYP", status: "completing" }
 ];
 
-type HomeViewProps = {};
+type HomeViewProps = Record<string, never>;
 
 export function HomeView({}: HomeViewProps) {
   const { user: walletUser } = useWalletAuthOptimized();

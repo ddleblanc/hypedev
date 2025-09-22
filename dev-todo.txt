@@ -1,0 +1,58 @@
+# Development TODO - Marketplace Dynamic Sidebar System
+
+## Critical Build Issues (BLOCKING)
+- [ ] Fix React Hook violation in AnimatedSidebar component (conditional useP2PTrading hook call)
+- [ ] Resolve TypeScript parsing errors in components/animated-ui/animated-sidebar.tsx around lines 191, 199, 207, 239
+- [ ] Fix remaining "Unexpected any" TypeScript errors throughout codebase
+- [ ] Address empty object type errors in view components (use Record<string, never> instead of {})
+- [ ] Fix React unescaped entities errors in remaining components
+
+## Marketplace Sidebar Dynamic Content System
+- [ ] Investigate why AnimatedSidebar is not showing dynamic content for authenticated marketplace users
+- [ ] Verify ConditionalLayout routing logic properly directs authenticated users to AnimatedSidebar vs NFTMarketplaceSidebar
+- [ ] Ensure marketplace-specific content (categories, filters, price ranges) renders in AnimatedSidebar default case
+- [ ] Test authentication flow: unauthenticated users should see NFTMarketplaceSidebar, authenticated users should see AnimatedSidebar
+- [ ] Verify currentRoute prop is correctly passed and handled in AnimatedSidebar component
+
+## AnimatedSidebar Component Fixes
+- [ ] Always call useP2PTrading hook to avoid conditional hook calls (move condition inside hook usage)
+- [ ] Fix TypeScript types: replace `any` with proper interfaces for projects, collections, nfts
+- [ ] Fix accentColor type mismatch in lootbox rendering
+- [ ] Resolve JSX parsing errors in header section around lines 191-239
+- [ ] Ensure proper prop types for studioData, p2pData, lootboxData
+
+## Studio Integration (COMPLETED)
+- [x] Remove legacy view-based navigation components
+- [x] Integrate studio with ProgressiveUIWrapper and dynamic bars system
+- [x] Update studio to use AnimatedSidebar with studio-specific content
+- [x] Fix TypeScript errors in studio components
+
+## Vercel Deployment
+- [ ] Ensure build passes locally before pushing
+- [ ] Monitor CI checks and fix any deployment-specific issues
+- [ ] Verify deployed app shows correct sidebar behavior for both authenticated and unauthenticated users
+
+## Testing Requirements
+- [ ] Test marketplace navigation while unauthenticated (should show NFTMarketplaceSidebar)
+- [ ] Test marketplace navigation while authenticated (should show AnimatedSidebar with dynamic content)
+- [ ] Test studio navigation (should show AnimatedSidebar with studio content)
+- [ ] Verify all dynamic content renders properly (categories, filters, price ranges)
+- [ ] Test route transitions and sidebar content updates
+
+## Code Quality
+- [ ] Remove unused imports and variables (many warnings in build output)
+- [ ] Consider replacing <img> tags with Next.js <Image> components for performance
+- [ ] Fix React Hook dependency warnings in useEffect hooks
+- [ ] Address component display name issues for better debugging
+
+## Priority Order
+1. Fix critical build errors (React Hook violation, parsing errors)
+2. Investigate and fix marketplace sidebar routing logic
+3. Test authentication flow and dynamic content rendering
+4. Clean up code quality issues
+5. Deploy and verify production behavior
+
+## Notes
+- The core issue appears to be that authenticated marketplace users are not getting routed to the AnimatedSidebar system
+- AnimatedSidebar already has marketplace-specific content in the default case - routing logic needs investigation
+- Build failures are preventing Vercel deployment, blocking testing of the actual sidebar behavior

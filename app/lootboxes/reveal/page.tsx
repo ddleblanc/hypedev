@@ -119,7 +119,7 @@ export default function LootboxesPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasVideoEnded, setHasVideoEnded] = useState(false);
   const [showRevealImage, setShowRevealImage] = useState(false);
-  const [revealedItem, setRevealedItem] = useState<any>(null);
+  const [revealedItem, setRevealedItem] = useState<{ id: string; name: string; price: string; rarity: string; image: string; rewards: string[]; owned: number; color: string } | null>(null);
   const [showClaimButton, setShowClaimButton] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const [showRarityOverlay, setShowRarityOverlay] = useState(false);
@@ -144,7 +144,7 @@ export default function LootboxesPage() {
   const handleLootboxSelect = (lootboxId: string) => {
     const selectedBox = LOOTBOX_OPTIONS.find(box => box.id === lootboxId);
     setSelectedLootbox(lootboxId);
-    setRevealedItem(selectedBox);
+    setRevealedItem(selectedBox || null);
     setShowLootboxCarousel(false);
     setShowRevealImage(false); // Reset reveal state
     setShowClaimButton(false); // Reset claim button
