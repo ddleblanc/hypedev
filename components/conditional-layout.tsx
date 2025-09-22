@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import type { AppRoute } from "@/contexts/app-navigation-context";
 import { useState, useEffect, createContext, useContext, useCallback, useMemo } from "react";
 import { NFTMarketplaceSidebar } from "@/components/nft-marketplace-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -180,7 +181,7 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [navigationState.currentRoute, isRightSidebarOpen]);
 
-  const handleNavigate = (route: string) => {
+  const handleNavigate = (route: AppRoute) => {
     // Check if we're going back (reducing depth)
     const isGoingBack = 
       (route === 'home' && uiState.navigationDepth > 0) ||
@@ -195,17 +196,17 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
           if (route === 'home') {
             setUiState(prev => ({ ...prev, showHeader: false, showFooter: false }));
           }
-          navigateToRoute(route as any);
+          navigateToRoute(route);
         }, 200);
       } else if (uiState.showHeader && route === 'home') {
         setUiState(prev => ({ ...prev, showHeader: false, showFooter: false }));
-        setTimeout(() => navigateToRoute(route as any), 200);
+        setTimeout(() => navigateToRoute(route), 200);
       } else {
-        navigateToRoute(route as any);
+        navigateToRoute(route);
       }
     } else {
       // Normal forward navigation
-      navigateToRoute(route as any);
+      navigateToRoute(route);
     }
   };
 

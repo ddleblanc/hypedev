@@ -28,7 +28,13 @@ import { Upload, ImageIcon, Sparkles, Folder, Loader2 } from "lucide-react";
 interface CreateProjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: (project: any) => void;
+  onSuccess?: (project: {
+    id: string;
+    name: string;
+    description?: string;
+    genre?: string;
+    concept?: string;
+  }) => void;
 }
 
 const GENRES = [

@@ -255,7 +255,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query conditions
-    const whereCondition: any = {};
+    const whereCondition: {
+      collectionId?: string;
+      collection?: {
+        creatorAddress: string;
+      };
+    } = {};
 
     if (collectionId) {
       // Verify collection ownership

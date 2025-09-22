@@ -64,7 +64,7 @@ interface SmartToolbarProps {
   context: StudioContext;
   title?: string;
   subtitle?: string;
-  breadcrumbs?: Array<{ label: string; onClick?: () => void; icon?: any }>;
+  breadcrumbs?: Array<{ label: string; onClick?: () => void; icon?: React.ComponentType<{ className?: string }> }>;
   
   // Search functionality
   searchQuery?: string;
@@ -79,14 +79,14 @@ interface SmartToolbarProps {
   // Actions
   primaryAction?: {
     label: string;
-    icon?: any;
+    icon?: React.ComponentType<{ className?: string }>;
     onClick: () => void;
     variant?: 'default' | 'destructive' | 'outline' | 'secondary';
     loading?: boolean;
   };
   secondaryActions?: Array<{
     label: string;
-    icon?: any;
+    icon?: React.ComponentType<{ className?: string }>;
     onClick: () => void;
     shortcut?: string;
   }>;

@@ -56,7 +56,38 @@ export async function GET(
     const normalizedAddress = user.walletAddress.toLowerCase()
 
     // Build the base query based on filter
-    let baseQuery: any = {
+    const baseQuery: {
+      include: {
+        collection: {
+          select: {
+            name: true;
+            symbol: true;
+            creatorAddress: true;
+            chainId: true;
+            address: true;
+          };
+        };
+        traits: {
+          include: {
+            nft: false;
+          };
+        };
+      };
+      where?: {
+        ownerAddress?: string;
+        isMinted?: boolean;
+        collection?: {
+          creatorAddress: string;
+        };
+        OR?: Array<{
+          ownerAddress?: string;
+          isMinted?: boolean;
+          collection?: {
+            creatorAddress: string;
+          };
+        }>;
+      };
+    } = {
       include: {
         collection: {
           select: {
@@ -110,8 +141,20 @@ export async function GET(
     const allNFTs = await prisma.nft.findMany(baseQuery)
 
     // Transform database NFTs to frontend format
-    let transformedNFTs = allNFTs.map(nft => {
-      const nftWithCollection = nft as any; // Type assertion for collection relation
+    const transformedNFTs = allNFTs.map(nft => {
+      const nftWithCollection = nft as typeof nft & {
+        collection: {
+          name: string;
+          symbol: string;
+          creatorAddress: string;
+          chainId: number;
+          address: string;
+        };
+        traits: Array<{
+          traitType: string;
+          value: string;
+        }>;
+      };
       return {
         id: nftWithCollection.id,
         tokenId: nftWithCollection.tokenId,
@@ -124,7 +167,7 @@ export async function GET(
         chain: getChainName(nftWithCollection.collection.chainId),
         rarity: nftWithCollection.rarityTier || 'Common',
         rank: nftWithCollection.rarityRank || Math.floor(Math.random() * 10000) + 1,
-        traits: nftWithCollection.traits.reduce((acc: any, trait: any) => {
+        traits: nftWithCollection.traits.reduce((acc: Record<string, string>, trait) => {
           acc[trait.traitType] = trait.value
           return acc
         }, {}),

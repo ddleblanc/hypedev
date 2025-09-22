@@ -20,9 +20,21 @@ interface StudioSidebarProps {
   onSearchChange: (query: string) => void;
   viewMode: 'grid' | 'list';
   onViewModeChange: (mode: 'grid' | 'list') => void;
-  mockProjects: any[];
-  mockCollections: any[];
-  mockNFTs: any[];
+  mockProjects: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>;
+  mockCollections: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>;
+  mockNFTs: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>;
 }
 
 export function StudioSidebar({ 

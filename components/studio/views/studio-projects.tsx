@@ -12,7 +12,15 @@ import {
 } from "lucide-react";
 
 interface StudioProjectsProps {
-  mockProjects: any[];
+  mockProjects: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    banner?: string;
+    status: string;
+    collections: number;
+    totalNFTs: number;
+  }>;
   viewMode: 'grid' | 'list';
 }
 

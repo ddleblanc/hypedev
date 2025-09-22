@@ -31,7 +31,7 @@ import {
 
 interface BreadcrumbItem {
   label: string;
-  icon?: any;
+  icon?: React.ComponentType<{ className?: string }>;
   onClick?: () => void;
   isActive?: boolean;
   shortcut?: string;
@@ -74,7 +74,7 @@ export function SmartBreadcrumb({
         onClick: undefined, 
         isCollapsed: true, 
         collapsedItems: middle 
-      } as any,
+      } as BreadcrumbItem & { isCollapsed: true; collapsedItems: BreadcrumbItem[] },
       ...last
     ];
   }, [items, maxItems]);
@@ -166,7 +166,7 @@ export function SmartBreadcrumb({
                 )}
 
                 {/* Collapsed Items Dropdown */}
-                {(item as any).isCollapsed ? (
+                {'isCollapsed' in item && item.isCollapsed ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -182,7 +182,7 @@ export function SmartBreadcrumb({
                         Navigate to
                       </div>
                       <DropdownMenuSeparator />
-                      {(item as any).collapsedItems.map((collapsedItem: BreadcrumbItem, collapsedIndex: number) => (
+                      {'collapsedItems' in item && (item as BreadcrumbItem & { collapsedItems: BreadcrumbItem[] }).collapsedItems.map((collapsedItem: BreadcrumbItem, collapsedIndex: number) => (
                         <DropdownMenuItem
                           key={collapsedIndex}
                           onClick={collapsedItem.onClick}

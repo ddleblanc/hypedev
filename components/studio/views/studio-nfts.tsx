@@ -28,7 +28,7 @@ interface NFT {
     symbol: string;
     address?: string;
   };
-  attributes: any;
+  attributes: Record<string, string | number>;
   ownerAddress: string;
   isMinted: boolean;
   mintedAt?: string;

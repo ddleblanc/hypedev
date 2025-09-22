@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query conditions
-    const whereCondition: any = {
+    const whereCondition: {
+      creatorAddress: string;
+      projectId?: string;
+    } = {
       creatorAddress: address.toLowerCase(),
     };
 

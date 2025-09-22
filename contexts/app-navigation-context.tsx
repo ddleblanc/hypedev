@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
-type AppRoute = 'home' | 'trade' | 'play' | 'play-1v1' | 'p2p' | 'marketplace' | 'casual' | 'launchpad' | 'museum' | 'studio';
+export type AppRoute = 'home' | 'trade' | 'play' | 'play-1v1' | 'p2p' | 'marketplace' | 'casual' | 'launchpad' | 'museum' | 'studio';
 
 interface NavigationState {
   currentRoute: AppRoute;

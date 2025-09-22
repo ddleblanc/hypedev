@@ -2,6 +2,7 @@
 
 import React, { useEffect } from "react";
 import { useAppNavigation } from "@/contexts/app-navigation-context";
+import { AppRoute } from "@/contexts/app-navigation-context";
 import { HomeView } from "@/components/authenticated-homescreen/home-view";
 import { TradeView } from "@/components/authenticated-homescreen/trade-view";
 import { PlayView } from "@/components/authenticated-homescreen/play-view";
@@ -19,7 +20,7 @@ export function SinglePageApp() {
   const { navigationState, navigateToRoute, getCurrentRoute } = useAppNavigation();
 
   const handleBack = (destination: string) => {
-    navigateToRoute(destination as any);
+    navigateToRoute(destination as AppRoute);
   };
 
   // Add global animations

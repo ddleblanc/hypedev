@@ -73,7 +73,7 @@ interface NFTCreatorProps {
     address?: string
     chainId: number
   }
-  onSuccess: (nft: any) => void
+  onSuccess: (nft: { id: string; name: string; tokenId?: string }) => void
   onCancel: () => void
   onCreateAnother: () => void
 }
@@ -100,7 +100,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
-  const [createdNFT, setCreatedNFT] = useState<any>(null)
+  const [createdNFT, setCreatedNFT] = useState<{ id: string; name: string; tokenId?: string } | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   
   // Pro Mode States
@@ -108,7 +108,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
   const [showProModeHint, setShowProModeHint] = useState(false)
   const [bulkFiles, setBulkFiles] = useState<File[]>([])
   const [csvFile, setCsvFile] = useState<File | null>(null)
-  const [csvData, setCsvData] = useState<any[]>([])
+  const [csvData, setCsvData] = useState<Array<Record<string, string>>>([])
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, status: '' })
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [showCsvPreview, setShowCsvPreview] = useState(false)
@@ -140,7 +140,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
   }, [collection.name])
 
   // Generate metadata from CSV row
-  const generateMetadataFromRow = useCallback((row: any, imageFile: File) => {
+  const generateMetadataFromRow = useCallback((row: Record<string, string>, imageFile: File) => {
     const attributes = []
     
     // Extract traits from CSV columns that start with 'trait_'
@@ -226,7 +226,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
     }
   }, [form, isProMode])
   
-  const parseCsvFile = useCallback(async (file: File): Promise<any[]> => {
+  const parseCsvFile = useCallback(async (file: File): Promise<Array<Record<string, string>>> => {
     try {
       const text = await file.text()
       const lines = text.split('\n').filter(line => line.trim())
@@ -238,7 +238,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
       const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
       const data = lines.slice(1).map(line => {
         const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
-        const obj: any = {}
+        const obj: Record<string, string> = {}
         headers.forEach((header, index) => {
           obj[header] = values[index] || ''
         })

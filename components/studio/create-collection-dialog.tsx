@@ -45,9 +45,22 @@ import { ethereum, polygon, arbitrum, optimism, base, sepolia } from 'thirdweb/c
 interface CreateCollectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  projects: any[];
-  selectedProject?: any;
-  onSuccess?: (collection: any) => void;
+  projects: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>;
+  selectedProject?: {
+    id: string;
+    name: string;
+    description?: string;
+  };
+  onSuccess?: (collection: {
+    id: string;
+    name: string;
+    description?: string;
+    contractAddress?: string;
+  }) => void;
 }
 
 const CHAINS = [

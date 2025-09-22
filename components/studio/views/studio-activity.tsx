@@ -24,7 +24,7 @@ interface ActivityItem {
   title: string;
   description: string;
   timestamp: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   color: string;
   metadata?: {
     collection?: string;
@@ -167,7 +167,7 @@ export function StudioActivity({ viewMode = 'list' }: StudioActivityProps) {
           {filterOptions.map(option => (
             <button
               key={option.value}
-              onClick={() => setFilter(option.value as any)}
+              onClick={() => setFilter(option.value as 'all' | ActivityItem['type'])}
               className={cn(
                 "px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-300",
                 filter === option.value

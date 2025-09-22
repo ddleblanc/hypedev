@@ -20,9 +20,23 @@ import { cn } from "@/lib/utils";
 import { Area, AreaChart, Bar, BarChart, Line, LineChart, Pie, PieChart, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 
 interface StudioDashboardProps {
-  mockProjects: any[];
-  mockCollections: any[];
-  mockNFTs: any[];
+  mockProjects: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    collections?: number;
+    totalNFTs?: number;
+  }>;
+  mockCollections: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>;
+  mockNFTs: Array<{
+    id: string;
+    name: string;
+    description?: string;
+  }>;
 }
 
 // Chart configurations
