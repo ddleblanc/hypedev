@@ -21,7 +21,6 @@ import {
   Box,
   Layers,
   Users,
-  Handshake,
   ArrowRightLeft,
   Plus,
   Minus,
@@ -44,9 +43,27 @@ interface AnimatedSidebarProps {
     onSearchChange: (query: string) => void;
     viewMode: 'grid' | 'list';
     onViewModeChange: (mode: 'grid' | 'list') => void;
-    projects: any[];
-    collections: any[];
-    nfts: any[];
+    projects: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      image?: string;
+      status?: string;
+    }>;
+    collections: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      image?: string;
+      nftCount?: number;
+    }>;
+    nfts: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      image?: string;
+      price?: number;
+    }>;
   };
   p2pData?: {
     searchQuery: string;
@@ -74,12 +91,14 @@ interface AnimatedSidebarProps {
 }
 
 export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, onNavigate }: AnimatedSidebarProps) {
+  const p2pTradingData = useP2PTrading();
+  
   const { 
     userNFTs, 
     selectedTrader, 
     toggleUserNFTSelection, 
     confirmUserNFTs 
-  } = currentRoute === 'p2p' ? useP2PTrading() : {
+  } = currentRoute === 'p2p' ? p2pTradingData : {
     userNFTs: [],
     selectedTrader: null,
     toggleUserNFTSelection: () => {},
@@ -182,71 +201,21 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              {currentRoute === 'studio' ? (
-                <>
-                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Search className="h-5 w-5" />
-                    Studio
-                  </h2>
-                  <p className="text-sm text-white/60">Create & Manage</p>
-                </>
-              ) : currentRoute === 'p2p' ? (
-                <>
-                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <ArrowRightLeft className="h-5 w-5" />
-                    P2P Trading
-                  </h2>
-                  <p className="text-sm text-white/60">Search & Filter</p>
-                </>
-              ) : currentRoute === 'play-casual' ? (
-                <>
-                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-green-400" />
-                    Casual Zone
-                  </h2>
-                  <p className="text-sm text-white/60">Relax & Enjoy</p>
-                </>
-              ) : currentRoute === 'play-competitive' ? (
-                <>
-                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Trophy className="h-5 w-5 text-orange-400" />
-                    Competitive Arena
-                  </h2>
-                  <p className="text-sm text-white/60">Climb the Ranks</p>
-                </>
-              ) : currentRoute === 'play-casino' ? (
-                <>
-                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Crown className="h-5 w-5 text-purple-400" />
-                    High Stakes Casino
-                  </h2>
-                  <p className="text-sm text-white/60">Fortune Awaits</p>
-                </>
-              ) : currentRoute === 'play-1v1' ? (
-                <>
-                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Gem className="h-5 w-5 text-cyan-400" />
-                    1v1 Arena Hub
-                  </h2>
-                  <p className="text-sm text-white/60">Challenge Players</p>
-                </>
-              ) : currentRoute === 'lootboxes-detail' ? (
-                <>
-                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Box className="h-5 w-5 text-purple-400" />
-                    Lootbox Collection
-                  </h2>
-                  <p className="text-sm text-white/60">Explore & Discover</p>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    Marketplace
-                  </h2>
-                  <p className="text-sm text-white/60">Browse 50,000+ items</p>
-                </>
-              )}
+              <div>
+                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                  {currentRoute === 'studio' && <Search className="h-5 w-5" />}
+                  {currentRoute === 'p2p' && <ArrowRightLeft className="h-5 w-5" />}
+                  {currentRoute !== 'studio' && currentRoute !== 'p2p' && <TrendingUp className="h-5 w-5" />}
+                  {currentRoute === 'studio' && 'Studio'}
+                  {currentRoute === 'p2p' && 'P2P Trading'}
+                  {currentRoute !== 'studio' && currentRoute !== 'p2p' && 'Marketplace'}
+                </h2>
+                <p className="text-sm text-white/60">
+                  {currentRoute === 'studio' && 'Create & Manage'}
+                  {currentRoute === 'p2p' && 'Search & Filter'}
+                  {currentRoute !== 'studio' && currentRoute !== 'p2p' && 'Browse 50,000+ items'}
+                </p>
+              </div>
             </motion.div>
 
             {/* View Controls */}
@@ -515,7 +484,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                             description: `${lootbox.collection} • ${lootbox.discountPrice || lootbox.price} ETH`,
                             image: lootbox.image,
                             category: lootbox.rarity,
-                            accentColor: lootbox.accentColor as any
+                            accentColor: lootbox.accentColor as "amber" | "blue" | "purple" | "red" | "green" | "cyan" | "pink" | "orange"
                           }}
                           corner="topRight"
                           onClick={() => onNavigate && onNavigate(`lootbox-${lootbox.id}`)}
