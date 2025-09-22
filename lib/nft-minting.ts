@@ -175,7 +175,7 @@ export async function setupClaimConditions(
     const conditions = claimConditions.map(condition => ({
       startTimestamp: condition.startTimestamp,
       maxClaimableSupply: condition.maxClaimableSupply ? BigInt(condition.maxClaimableSupply) : undefined,
-      supplyClaimed: condition.supplyClaimed ? BigInt(condition.supplyClaimed) : 0n,
+      supplyClaimed: condition.supplyClaimed ? BigInt(condition.supplyClaimed) : BigInt(0),
       quantityLimitPerWallet: BigInt(condition.quantityLimitPerWallet),
       merkleRootHash: condition.merkleRootHash || "0x0000000000000000000000000000000000000000000000000000000000000000",
       pricePerToken: BigInt(condition.pricePerToken),
@@ -186,7 +186,7 @@ export async function setupClaimConditions(
     const transaction = setClaimConditions({
       contract,
       phases: conditions,
-      resetClaimEligibilityForAll: false,
+      resetClaimEligibility: false,
     })
 
     const result = await sendTransaction({
@@ -225,7 +225,7 @@ export async function mintNFTWithQuantity({
     const transaction = prepareContractCall({
       contract,
       method: "function mint(address to, uint256 quantity, string uri, uint256 pricePerToken) external payable",
-      params: [recipient, BigInt(quantity), metadataUri, 0n], // 0 for free mint
+      params: [recipient, BigInt(quantity), metadataUri, BigInt(0)], // 0 for free mint
     })
 
     const result = await sendTransaction({
@@ -335,9 +335,9 @@ export async function estimateMintGas(
     //   params: [recipient, metadataUri],
     // })
     
-    return 0n // Placeholder
+    return BigInt(0) // Placeholder
   } catch (error) {
     console.error('Gas estimation error:', error)
-    return 0n
+    return BigInt(0)
   }
 }

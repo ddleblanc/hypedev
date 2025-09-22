@@ -1,0 +1,70 @@
+
+> new@0.1.0 dev
+> next dev
+
+ ⚠ Port 3000 is in use by process 673010, using available port 3004 instead.
+   ▲ Next.js 15.4.7
+   - Local:        http://localhost:3004
+   - Network:      http://192.168.1.193:3004
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 1653ms
+ ⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+   ▲ Next.js 15.4.7
+   - Local:        http://localhost:3002
+   - Network:      http://192.168.1.193:3002
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 1524ms
+[?25h
+s
+./node_modules/@walletconnect/logger/dist/index.es.js
+./node_modules/@walletconnect/sign-client/dist/index.es.js
+./node_modules/thirdweb/dist/esm/wallets/wallet-connect/receiver/index.js
+./node_modules/thirdweb/dist/esm/react/web/ui/ConnectWallet/screens/WalletConnectReceiverScreen.js
+./node_modules/thirdweb/dist/esm/react/web/ui/ConnectWallet/Details.js
+./node_modules/thirdweb/dist/esm/exports/react.js
+./components/providers.tsx
+ GET /play/casual 200 in 11881ms
+ ⚠ ./node_modules/pino/lib/tools.js
+Module not found: Can't resolve 'pino-pretty' in '/home/lxblvnc/Documents/hypeflix/new/node_modules/pino/lib'
+
+Import trace for requested module:
+./node_modules/pino/lib/tools.js
+./node_modules/pino/pino.js
+./node_modules/@walletconnect/logger/dist/index.es.js
+./node_modules/@walletconnect/sign-client/dist/index.es.js
+./node_modules/thirdweb/dist/esm/wallets/wallet-connect/receiver/index.js
+./node_modules/thirdweb/dist/esm/react/web/ui/ConnectWallet/screens/WalletConnectReceiverScreen.js
+./node_modules/thirdweb/dist/esm/react/web/ui/ConnectWallet/Details.js
+./node_modules/thirdweb/dist/esm/exports/react.js
+./components/providers.tsx
+ ✓ Compiled /play/casual in 1444ms (4808 modules)
+ ✓ Compiled in 1152ms (4808 modules)
+ ✓ Compiled in 713ms (4808 modules)
+ ✓ Compiled in 678ms (4808 modules)
+ ✓ Compiled in 2.7s (4808 modules)
+ ✓ Compiled in 1198ms (4808 modules)
+ ✓ Compiled in 1221ms (4808 modules)
+ ✓ Compiled in 873ms (4808 modules)
+ ✓ Compiled in 812ms (4808 modules)
+ ✓ Compiled in 813ms (4808 modules)
+ ✓ Compiled in 928ms (4808 modules)
+ ✓ Compiled in 730ms (4808 modules)
+ ✓ Compiled in 447ms (4808 modules)
+ ✓ Compiled in 479ms (4808 modules)
+ ✓ Compiled in 766ms (4808 modules)
+ ✓ Compiled in 576ms (4808 modules)
+ ✓ Compiled in 933ms (4794 modules)
+ ✓ Compiled in 480ms (4808 modules)
+ ⚠ Found a change in next.config.ts. Restarting the server to apply the changes...
+   ▲ Next.js 15.4.7
+   - Local:        http://localhost:3004
+   - Network:      http://192.168.1.193:3004
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 1556ms
+[?25h

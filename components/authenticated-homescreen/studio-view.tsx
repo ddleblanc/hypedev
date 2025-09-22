@@ -4,12 +4,12 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useActiveAccount } from 'thirdweb/react';
 import { useAuth } from '@/contexts/auth-context';
-import Lottie from 'lottie-react';
-import { StudioNavbar } from "@/components/studio/studio-navbar";
+import { useStudio } from '@/contexts/studio-context';
+import { useStudioHeader } from '@/components/conditional-layout';
+// import Lottie from 'lottie-react';
 import { StudioMainContent } from "@/components/studio/studio-main-content";
-import { StudioSidebar } from "@/components/studio/studio-sidebar";
 import { StudioDashboard, StudioProjects, StudioCollections, StudioNFTs, StudioActivity } from "@/components/studio/views";
-import loadingAnimation from '/public/assets/anim/loading.json';
+// import loadingAnimation from '/public/assets/anim/loading.json';
 
 interface StudioViewProps {
   setViewMode?: (mode: 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio') => void;
@@ -88,6 +88,8 @@ export function StudioView({ setViewMode }: StudioViewProps = {}) {
   const searchParams = useSearchParams();
   const account = useActiveAccount();
   const { user, isConnected } = useAuth();
+  const { setStudioData } = useStudio();
+  const studioHeaderContext = useStudioHeader();
   
   // Core state
   const [currentView, setCurrentView] = useState<string>('dashboard');
@@ -186,6 +188,24 @@ export function StudioView({ setViewMode }: StudioViewProps = {}) {
     }
   }, [account?.address, fetchProjects, fetchCollections, fetchNFTs]);
 
+  // Update studio data for the sidebar
+  useEffect(() => {
+    setStudioData({
+      searchQuery,
+      onSearchChange: setSearchQuery,
+      viewMode: gridViewMode,
+      onViewModeChange: setGridViewMode,
+      projects,
+      collections,
+      nfts
+    });
+
+    // Cleanup when component unmounts
+    return () => {
+      setStudioData(null);
+    };
+  }, [searchQuery, gridViewMode, projects, collections, nfts, setStudioData]);
+
   // Initialize section from URL params on mount
   useEffect(() => {
     const section = searchParams.get('section');
@@ -195,13 +215,27 @@ export function StudioView({ setViewMode }: StudioViewProps = {}) {
   }, [searchParams]);
 
   // Update URL when section changes
-  const handleViewChange = (section: string) => {
+  const handleViewChange = useCallback((section: string) => {
     setCurrentView(section);
     const url = new URL(window.location.href);
     url.searchParams.set('view', 'studio');
     url.searchParams.set('section', section);
     window.history.pushState({}, '', url.toString());
-  };
+    
+    // Update the header context
+    if (studioHeaderContext) {
+      studioHeaderContext.updateCurrentStudioView(section);
+    }
+  }, [studioHeaderContext]);
+
+  // Register this component's view change handler with the header
+  useEffect(() => {
+    if (studioHeaderContext) {
+      studioHeaderContext.registerStudioViewHandler(handleViewChange);
+      // Also update current view immediately
+      studioHeaderContext.updateCurrentStudioView(currentView);
+    }
+  }, [studioHeaderContext, handleViewChange, currentView]);
 
   // Refresh data functions
   const refreshData = useCallback(() => {
@@ -264,12 +298,9 @@ export function StudioView({ setViewMode }: StudioViewProps = {}) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
-          <Lottie 
-            animationData={loadingAnimation} 
-            className="w-24 h-24 mx-auto mb-4"
-            loop={true}
-            autoplay={true}
-          />
+          <div className="w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+          </div>
         </div>
       </div>
     );
@@ -277,26 +308,16 @@ export function StudioView({ setViewMode }: StudioViewProps = {}) {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Top Navigation Bar */}
-      <StudioNavbar 
+      {/* Studio Navigation is now handled by AnimatedHeader */}
+      {/* StudioNavbar commented out as navigation is now handled by AnimatedHeader
+          <StudioNavbar 
         currentView={currentView} 
         onViewChange={handleViewChange} 
       />
+      */}
 
-      {/* Main Content Area - Now takes full width */}
-      <div className="flex-1 grid grid-cols-[1fr_3fr] gap-6 mt-4 overflow-hidden">
-        {/* Left Panel - Context & Actions */}
-        <StudioSidebar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          viewMode={gridViewMode}
-          onViewModeChange={setGridViewMode}
-          mockProjects={projects.length > 0 ? projects : []}
-          mockCollections={collections.length > 0 ? collections : []}
-          mockNFTs={nfts.length > 0 ? nfts : []}
-        />
-
-        {/* Main Content Area (Scrollable) */}
+      {/* Main Content Area - Properly spaced to match header spacing and allow scrolling */}
+      <div className="flex-1 overflow-hidden pt-16">
         <StudioMainContent currentView={currentView}>
           {currentView === 'dashboard' && (
             <StudioDashboard 

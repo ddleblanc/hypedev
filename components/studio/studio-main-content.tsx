@@ -10,7 +10,7 @@ interface StudioMainContentProps {
 
 export function StudioMainContent({ children, currentView }: StudioMainContentProps) {
   return (
-    <div className="relative h-full overflow-y-auto custom-scrollbar pr-4">
+    <div className="relative h-full overflow-y-auto overflow-x-hidden">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentView}

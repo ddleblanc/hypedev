@@ -186,11 +186,11 @@ const newReleases = [
   },
   {
     id: 10,
-    title: "Metaverse Mini Golf",
+    title: "1v1 Mini Golf",
     genre: "Sports",
     image: "https://picsum.photos/400/300?random=522",
     logo: "https://picsum.photos/100/100?random=522", 
-    description: "Play mini golf in stunning metaverse environments.",
+    description: "Compete in head-to-head mini golf duels.",
     players: "67K",
     rating: 4.6,
     tokenRewards: "$GOLF",
@@ -282,14 +282,8 @@ export function CasualGamesView({ onBack }: CasualGamesViewProps) {
 
   return (
     <div className="fixed inset-0 z-10 overflow-hidden">
-      {/* Dynamic Header Overlay - Matches marketplace style */}
-      <div className={`absolute top-0 left-0 right-0 z-20 h-32 transition-all duration-300 ${
-        hasScrolled 
-          ? 'bg-black/40 backdrop-blur-xl border-b border-white/10' 
-          : 'bg-transparent'
-      }`} />
 
-      <div className={`absolute top-32 left-0 right-0 h-8 transition-opacity duration-300 pointer-events-none z-10 ${
+      <div className={`absolute top-16 left-0 right-0 h-8 transition-opacity duration-300 pointer-events-none z-10 ${
         hasScrolled ? 'opacity-100 bg-gradient-to-b from-black/40 to-transparent' : 'opacity-0'
       }`} />
 
@@ -472,7 +466,7 @@ export function CasualGamesView({ onBack }: CasualGamesViewProps) {
         </section>
 
         {/* Sticky Search & Filter Bar + Categories */}
-        <div className={`sticky top-32 z-30 transition-all duration-300 ${
+        <div className={`sticky top-16 z-30 transition-all duration-300 ${
           hasScrolled 
             ? 'bg-black/40 backdrop-blur-xl border-b border-white/10' 
             : 'bg-transparent'
@@ -587,8 +581,8 @@ export function CasualGamesView({ onBack }: CasualGamesViewProps) {
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6">
                 <Badge className="mb-3 bg-[rgb(163,255,18)] text-black">EDITOR'S CHOICE</Badge>
-                <h3 className="text-2xl font-bold text-white mb-2">Metaverse Racing Championship</h3>
-                <p className="text-white/80">Experience the future of racing in stunning virtual worlds</p>
+                <h3 className="text-2xl font-bold text-white mb-2">1v1 Racing Championship</h3>
+                <p className="text-white/80">Experience intense head-to-head racing competitions</p>
                 <Button className="mt-4 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90">
                   <Play className="w-4 h-4 mr-2" />
                   Play Now
@@ -711,9 +705,6 @@ export function CasualGamesView({ onBack }: CasualGamesViewProps) {
         </div>
       </div>
       
-      {/* Bottom Footer */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 h-32 bg-black/40 backdrop-blur-xl border-t border-white/10" />
-      <div className="absolute bottom-32 left-0 right-0 h-8 bg-gradient-to-t from-black/40 to-transparent pointer-events-none z-10" />
     </div>
   );
 }

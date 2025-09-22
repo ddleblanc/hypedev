@@ -60,7 +60,7 @@ const CONCEPTS = [
   "Utility Focused",
   "Art Collection",
   "PFP Project",
-  "Metaverse Assets",
+  "Gaming Assets",
   "Trading Cards",
   "Music Albums",
   "Photography Series",

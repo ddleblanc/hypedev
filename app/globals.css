@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: #101010; 
+}
+ 
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #050505; 
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #222 !important; 
+}
+
 /* Grid background */
 .bg-grid-white\/\[0\.02\] {
   background-image: radial-gradient(circle, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
@@ -29,7 +48,52 @@
 
 @keyframes float {
   0%, 100% { transform: translateY(0px) scale(1); }
-  50% { transform: translateY(-20px) scale(1.05); }
+}
+
+/* Single Page App Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes hyperRushEnter {
+  0% {
+    transform: translateX(-120vw);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateX(-20vw);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(20vw);
+    opacity: 0;
+  }
 }
 
 @keyframes particle-float {
@@ -110,6 +174,17 @@
   to { 
     opacity: 1; 
     transform: translateY(0); 
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -365,7 +440,13 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    min-height: 100vh;
+  }
+  
   body {
+    min-height: 100vh;
     @apply bg-background text-foreground;
   }
 }
@@ -1028,6 +1109,10 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out;
   }
   
   .line-clamp-1 {

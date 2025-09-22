@@ -24,6 +24,7 @@ import {
   ShoppingBag
 } from "lucide-react";
 import { useBulkSelection } from "./bulk-selection-provider";
+import type { BulkSelectionNFT } from "./bulk-selection-provider";
 
 interface NFT {
   id: string;
@@ -66,7 +67,7 @@ export function ShoppingCartDrawer({
 
   const grandTotal = totalPrice + fees.marketplaceFee + fees.creatorRoyalty + fees.gasEstimate;
 
-  const handleRemoveItem = (nft: NFT) => {
+  const handleRemoveItem = (nft: BulkSelectionNFT) => {
     toggleNFT(nft);
   };
 

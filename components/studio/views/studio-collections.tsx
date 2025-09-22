@@ -63,17 +63,12 @@ export function StudioCollections({ collections, viewMode }: StudioCollectionsPr
     <>
 
       {/* Collections Grid */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className={viewMode === 'grid' ? 'grid grid-cols-2 gap-6' : 'space-y-4'}
-      >
+      <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-6' : 'space-y-4'}>
         {collections.length === 0 ? (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
             className="col-span-2 text-center py-12"
           >
             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 mx-auto">
@@ -91,10 +86,14 @@ export function StudioCollections({ collections, viewMode }: StudioCollectionsPr
           collections.map((collection, index) => (
             <motion.div
               key={collection.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 + index * 0.05 }}
-              className="group bg-black/30 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ 
+                duration: 0.3,
+                delay: index * 0.05,
+                ease: "easeOut"
+              }}
+              className="group bg-black/30 rounded-2xl border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300"
             >
               {/* Collection Banner */}
               <div className="relative h-32 overflow-hidden">
@@ -181,7 +180,7 @@ export function StudioCollections({ collections, viewMode }: StudioCollectionsPr
             </motion.div>
           ))
         )}
-      </motion.div>
+      </div>
     </>
   );
 }

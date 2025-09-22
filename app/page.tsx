@@ -43,8 +43,8 @@ import { ConnectButton } from "thirdweb/react";
 import { cn } from "@/lib/utils";
 import { client } from "@/lib/thirdweb";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { HomeRouter } from "@/components/home-router";
 import { HomeView } from "@/components/authenticated-homescreen/home-view";
-import { AuthenticatedLayout } from "@/components/layouts/authenticated-layout";
 import { useRouter } from "next/navigation";
 
 const heroNFTs = [
@@ -288,8 +288,6 @@ const categories = [
 export default function Home() {
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const { user, isLoading, isConnected } = useWalletAuthOptimized();
-
   const router = useRouter();
 
   const handleNavigate = (newMode: string) => {
@@ -307,30 +305,8 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  // If user is connected and authenticated, show the gaming homescreen immediately
-  // This prevents the loading flash when navigating back to home
-  if (user && isConnected) {
-    return (
-      <AuthenticatedLayout showFooter={false}>
-        <HomeView setViewMode={handleNavigate} />
-      </AuthenticatedLayout>
-    );
-  }
+  const publicContent = (
 
-  // Show loading state only for non-authenticated users
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-[rgb(163,255,18)] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-white text-lg">Loading HYPERCHAINX...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Otherwise show the public marketing homepage
-  return (
     <div className="flex flex-1 flex-col">
 
       {/* LUXURY VEGAS-STYLE HERO - 11/10 EXPERIENCE */}
@@ -1330,5 +1306,14 @@ export default function Home() {
         </section>
       </div>
     </div>
+  );
+  
+  const authenticatedContent = <HomeView setViewMode={handleNavigate} />;
+
+  return (
+    <HomeRouter 
+      publicContent={publicContent}
+      authenticatedContent={authenticatedContent}
+    />
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useRef, useEffect } from "react";
+import React, { createContext, useContext, useRef, useEffect, useState } from "react";
 import Image from "next/image";
-import { useAppNavigation } from "@/contexts/app-navigation-context";
+import { usePathname } from "next/navigation";
 import { useBackgroundCarousel } from "@/contexts/background-carousel-context";
 
 interface BackgroundContextType {
@@ -22,9 +22,21 @@ export function useBackgroundAnimation() {
 }
 
 export function PersistentBackground({ children }: { children: React.ReactNode }) {
-  const { navigationState } = useAppNavigation();
+  const pathname = usePathname();
   const { currentBackground } = useBackgroundCarousel();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [previousPath, setPreviousPath] = useState<string | null>(null);
+  const [navigationDirection, setNavigationDirection] = useState<'forward' | 'backward' | null>(null);
+  
+  // Convert pathname to route type
+  const getCurrentRoute = () => {
+    if (pathname === '/') return 'home';
+    if (pathname === '/lootboxes' || pathname.startsWith('/lootboxes/')) return 'lootboxes';
+    const route = pathname.split('/')[1];
+    return route || 'home';
+  };
+  
+  const currentRoute = getCurrentRoute();
 
   // Check if current background is a video (local files or URLs)
   const isVideoBackground = (() => {
@@ -44,17 +56,43 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
     return false;
   })();
 
+  // Determine navigation direction based on route depth
+  useEffect(() => {
+    const routeHierarchy: Record<string, number> = {
+      home: 0,
+      trade: 1,
+      play: 1,
+      lootboxes: 1,
+      p2p: 2,
+      marketplace: 2,
+      casual: 2,
+      launchpad: 2,
+      museum: 2,
+      studio: 2,
+    };
+    
+    if (previousPath && previousPath !== pathname) {
+      const prevRoute = previousPath === '/' ? 'home' : previousPath.split('/')[1] || 'home';
+      const currentDepth = routeHierarchy[currentRoute] || 0;
+      const prevDepth = routeHierarchy[prevRoute] || 0;
+      
+      setNavigationDirection(currentDepth > prevDepth ? 'forward' : 'backward');
+    }
+    
+    setPreviousPath(pathname);
+  }, [pathname, previousPath, currentRoute]);
+  
   // Handle video pause/play based on current route
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isVideoBackground) return;
 
-    if (navigationState.currentRoute === 'home') {
+    if (currentRoute === 'home') {
       video.play().catch(console.error);
     } else {
       video.pause();
     }
-  }, [navigationState.currentRoute, isVideoBackground]);
+  }, [currentRoute, isVideoBackground]);
 
   // Handle video background change - ensure video starts playing when selected
   useEffect(() => {
@@ -62,19 +100,23 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
     if (!video || !isVideoBackground) return;
 
     // When a video background is selected, start playing if on home screen
-    if (navigationState.currentRoute === 'home') {
+    if (currentRoute === 'home') {
       video.play().catch(console.error);
     }
-  }, [currentBackground, isVideoBackground, navigationState.currentRoute]);
+  }, [currentBackground, isVideoBackground, currentRoute]);
 
   // Calculate zoom and blur based on current route
   const getBackgroundStyles = () => {
     let scale = 'scale-100';
     let blur = 'blur-none';
     
-    switch(navigationState.currentRoute) {
+    switch(currentRoute) {
       case 'trade':
       case 'play':
+        scale = 'scale-110';
+        blur = 'blur-sm';
+        break;
+      case 'lootboxes':
         scale = 'scale-110';
         blur = 'blur-sm';
         break;
@@ -102,11 +144,12 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
 
   return (
     <BackgroundContext.Provider value={{ 
-      isNavigatingForward: navigationState.navigationDirection === 'forward', 
+      isNavigatingForward: navigationDirection === 'forward', 
       setIsNavigatingForward: () => {},
-      previousPath: null 
+      previousPath: previousPath 
     }}>
-      <div className="fixed inset-0 overflow-hidden">
+      {/* Fixed background layer */}
+      <div className="fixed inset-0 z-0">
         {/* Persistent background with animations */}
         <div className="absolute inset-0 animate-[fadeIn_0.5s_ease-out]">
           {isVideoBackground ? (
@@ -135,37 +178,42 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
             />
           )}
           <div className={`absolute inset-0 transition-all duration-500 ${
-            navigationState.currentRoute === 'p2p' ? 'bg-black/80' :
-            navigationState.currentRoute === 'marketplace' || 
-            navigationState.currentRoute === 'casual' || navigationState.currentRoute === 'launchpad' || 
-            navigationState.currentRoute === 'museum' || navigationState.currentRoute === 'studio' 
+            currentRoute === 'p2p' ? 'bg-black/80' :
+            currentRoute === 'marketplace' || 
+            currentRoute === 'casual' || currentRoute === 'launchpad' || 
+            currentRoute === 'museum' || currentRoute === 'studio' 
               ? 'bg-black/70' : 'bg-black/40'
           }`} />
           {/* Special fade-to-black overlay for marketplace and casual views */}
           <div className={`absolute inset-0 bg-black transition-all duration-1000 ${
-            navigationState.currentRoute === 'p2p' ? 'opacity-70' :
-            navigationState.currentRoute === 'marketplace' || navigationState.currentRoute === 'casual' || 
-            navigationState.currentRoute === 'launchpad' || navigationState.currentRoute === 'museum' || 
-            navigationState.currentRoute === 'studio' 
-              ? (navigationState.currentRoute === 'museum' ? 'opacity-100' : 'opacity-60') 
+            currentRoute === 'p2p' ? 'opacity-70' :
+            currentRoute === 'marketplace' || currentRoute === 'casual' || 
+            currentRoute === 'launchpad' || currentRoute === 'museum' || 
+            currentRoute === 'studio' 
+              ? (currentRoute === 'museum' ? 'opacity-100' : 'opacity-60') 
               : 'opacity-0'
           }`} />
           <div className={`absolute inset-0 bg-gradient-to-br from-transparent via-black/20 to-black/60 transition-all duration-500 ${
-            navigationState.currentRoute === 'trade' ? 'opacity-80' : 
-            navigationState.currentRoute === 'play' ? 'opacity-80' : 
-            navigationState.currentRoute === 'p2p' ? 'opacity-95' : 
-            navigationState.currentRoute === 'marketplace' ? 'opacity-90' : 
-            navigationState.currentRoute === 'casual' ? 'opacity-90' : 
-            navigationState.currentRoute === 'launchpad' ? 'opacity-90' : 
-            navigationState.currentRoute === 'museum' ? 'opacity-0' : 
-            navigationState.currentRoute === 'studio' ? 'opacity-90' : 'opacity-100'
+            currentRoute === 'trade' ? 'opacity-80' : 
+            currentRoute === 'play' ? 'opacity-80' : 
+            currentRoute === 'p2p' ? 'opacity-95' : 
+            currentRoute === 'marketplace' ? 'opacity-90' : 
+            currentRoute === 'casual' ? 'opacity-90' : 
+            currentRoute === 'launchpad' ? 'opacity-90' : 
+            currentRoute === 'museum' ? 'opacity-0' : 
+            currentRoute === 'studio' ? 'opacity-90' : 'opacity-100'
           }`} />
         </div>
-        
-        {/* Content */}
-        <div className="relative z-10 h-full">
-          {children}
-        </div>
+      </div>
+      
+      {/* Lootbox Black Overlay - sits above the regular background */}
+      {currentRoute === 'lootboxes' && (
+        <div className="fixed inset-0 z-5 bg-black transition-all duration-1000" />
+      )}
+      
+      {/* Scrollable content layer */}
+      <div className="relative z-10 min-h-screen">
+        {children}
       </div>
     </BackgroundContext.Provider>
   );

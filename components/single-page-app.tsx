@@ -116,14 +116,14 @@ export function SinglePageApp() {
     <>
       <AuthenticatedLayout
         showFooter={shouldShowFooter}
-        footerContent={
-          shouldShowFooter ? (
-            <AppFooter 
-              viewMode={navigationState.currentRoute}
-              onNavigate={handleNavigate}
-            />
-          ) : null
-        }
+        // footerContent={
+        //   shouldShowFooter ? (
+        //     <AppFooter 
+        //       viewMode={navigationState.currentRoute}
+        //       onNavigate={handleNavigate}
+        //     />
+        //   ) : null
+        // }
       >
         {renderCurrentView()}
       </AuthenticatedLayout>

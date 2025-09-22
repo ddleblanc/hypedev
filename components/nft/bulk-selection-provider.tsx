@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback } from "react";
 
-interface BulkSelectionNFT {
+export interface BulkSelectionNFT {
   id: string;
   name: string;
   image: string;

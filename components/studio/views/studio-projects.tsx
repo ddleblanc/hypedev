@@ -21,19 +21,18 @@ export function StudioProjects({ mockProjects, viewMode }: StudioProjectsProps) 
     <>
 
       {/* Projects Grid */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className={viewMode === 'grid' ? 'grid grid-cols-2 gap-6' : 'space-y-4'}
-      >
+      <div className={viewMode === 'grid' ? 'grid grid-cols-2 gap-6' : 'space-y-4'}>
         {mockProjects.map((project, index) => (
           <motion.div
             key={project.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 + index * 0.05 }}
-            className="group bg-black/30 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ 
+              duration: 0.3,
+              delay: index * 0.05,
+              ease: "easeOut"
+            }}
+            className="group bg-black/30 rounded-2xl border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300"
           >
             {/* Project Banner */}
             <div className="relative h-32 overflow-hidden">
@@ -80,7 +79,7 @@ export function StudioProjects({ mockProjects, viewMode }: StudioProjectsProps) 
             </div>
           </motion.div>
         ))}
-      </motion.div>
+      </div>
     </>
   );
 }

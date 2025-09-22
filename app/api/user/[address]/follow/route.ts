@@ -4,8 +4,9 @@ import { prisma } from '@/lib/prisma'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { address: string } }
+  context: { params: Promise<{ address: string }> }
 ) {
+  const params = await context.params;
   try {
     const { address } = params
     const { followerAddress } = await request.json()
@@ -98,8 +99,9 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { address: string } }
+  context: { params: Promise<{ address: string }> }
 ) {
+  const params = await context.params;
   try {
     const { address } = params
     const { followerAddress } = await request.json()
@@ -186,8 +188,9 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { address: string } }
+  context: { params: Promise<{ address: string }> }
 ) {
+  const params = await context.params;
   try {
     const { address } = params
     const { searchParams } = new URL(request.url)

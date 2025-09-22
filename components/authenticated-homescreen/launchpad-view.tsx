@@ -65,10 +65,10 @@ const featuredDrops = [
   },
   {
     id: 2,
-    name: "MetaVerse Warriors",
+    name: "1v1 Champions",
     collection: "MVW Genesis",
     creator: "GameForge Labs",
-    description: "Epic battle royale in the metaverse with P2E mechanics",
+    description: "Intense 1v1 competitive dueling with P2E mechanics",
     image: "https://picsum.photos/800/800?random=101",
     
     mintPhases: [
@@ -115,7 +115,7 @@ const categories = [
   { id: "live", name: "Live & Upcoming", icon: Activity, count: "23", active: true },
   { id: "featured", name: "Featured", icon: Crown, count: "8" },
   { id: "gaming", name: "Gaming", icon: Play, count: "67" },
-  { id: "metaverse", name: "Metaverse", icon: Zap, count: "23" },
+  { id: "1v1", name: "1v1 Gaming", icon: Zap, count: "23" },
   { id: "defi", name: "DeFi", icon: TrendingUp, count: "18" },
   { id: "ai", name: "AI & Tech", icon: Gem, count: "16" }
 ];
@@ -164,14 +164,8 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
 
   return (
     <div className="fixed inset-0 z-10 overflow-hidden">
-      {/* Dynamic Header Overlay - Matches marketplace style */}
-      <div className={`absolute top-0 left-0 right-0 z-20 h-32 transition-all duration-300 ${
-        hasScrolled 
-          ? 'bg-black/40 backdrop-blur-xl border-b border-white/10' 
-          : 'bg-transparent'
-      }`} />
       
-      <div className={`absolute top-32 left-0 right-0 h-8 transition-opacity duration-300 pointer-events-none z-10 ${
+      <div className={`absolute top-16 left-0 right-0 h-8 transition-opacity duration-300 pointer-events-none z-10 ${
         hasScrolled ? 'opacity-100 bg-gradient-to-b from-black/40 to-transparent' : 'opacity-0'
       }`} />
 
@@ -331,7 +325,7 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
         </section>
 
         {/* Sticky Category Navigation */}
-        <div className={`sticky top-32 z-30 transition-all duration-300 ${
+        <div className={`sticky top-16 z-30 transition-all duration-300 ${
           hasScrolled 
             ? 'bg-black/40 backdrop-blur-xl border-b border-white/10' 
             : 'bg-transparent'

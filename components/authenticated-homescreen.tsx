@@ -6,7 +6,7 @@ import { useWalletAuth, AuthUser } from "@/hooks/use-wallet-auth";
 import { HomeView } from "./authenticated-homescreen/home-view";
 import { TradeView } from "./authenticated-homescreen/trade-view";
 import { P2PView } from "./authenticated-homescreen/p2p-view";
-import { MarketplaceView } from "./authenticated-homescreen/marketplace-view";
+import { MarketplaceContainer } from "./marketplace-container";
 import { PlayView } from "./authenticated-homescreen/play-view";
 import { CasualGamesView } from "./authenticated-homescreen/casual-games-view";
 import { LaunchpadView } from "./authenticated-homescreen/launchpad-view";
@@ -36,8 +36,8 @@ export function AuthenticatedHomescreen({ user }: AuthenticatedHomescreenProps) 
   }, [searchParams]);
 
   // Update URL when view mode changes
-  const handleViewModeChange = (newMode: 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio') => {
-    setViewMode(newMode);
+  const handleViewModeChange = (newMode: string) => {
+    setViewMode(newMode as 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio');
     
     // Update URL without page reload
     const newUrl = newMode === 'home' ? '/' : `/?view=${newMode}`;
@@ -108,14 +108,6 @@ export function AuthenticatedHomescreen({ user }: AuthenticatedHomescreenProps) 
       <AppLayout 
         viewMode={viewMode}
         showFooter={shouldShowFooter}
-        footerContent={
-          shouldShowFooter ? (
-            <AppFooter 
-              viewMode={viewMode}
-              onNavigate={handleViewModeChange}
-            />
-          ) : null
-        }
       >
         {viewMode === 'home' ? (
           <HomeView setViewMode={handleViewModeChange} />
@@ -134,7 +126,7 @@ export function AuthenticatedHomescreen({ user }: AuthenticatedHomescreenProps) 
         ) : viewMode === 'studio' ? (
           <StudioView setViewMode={handleViewModeChange} />
         ) : (
-          <MarketplaceView setViewMode={handleViewModeChange} />
+          <MarketplaceContainer setViewMode={handleViewModeChange} />
         )}
       </AppLayout>
       <BackgroundCarousel />
