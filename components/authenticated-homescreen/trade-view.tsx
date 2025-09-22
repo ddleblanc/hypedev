@@ -56,20 +56,18 @@ const tradeOptions: GameOption[] = [
   }
 ];
 
-type TradeViewProps = {
-  setViewMode: (mode: string) => void;
-};
+type TradeViewProps = {};
 
-export function TradeView({ setViewMode }: TradeViewProps) {
+export function TradeView({}: TradeViewProps) {
   const { user } = useWalletAuthOptimized();
 
   const handleOptionClick = (option: GameOption) => {
     if (option.id === 'p2p') {
-      setViewMode('p2p');
+      window.location.href = '/p2p';
     } else if (option.id === 'marketplace') {
-      setViewMode('marketplace');
+      window.location.href = '/marketplace';
     } else if (option.id === 'launchpad') {
-      setViewMode('launchpad');
+      window.location.href = '/launchpad';
     } else if (option.id === 'lootboxes') {
       window.location.href = '/lootboxes/reveal';
     } else if (option.href) {

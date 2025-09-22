@@ -39,16 +39,14 @@ const playOptions: GameOption[] = [
   }
 ];
 
-type PlayViewProps = {
-  setViewMode: (mode: string) => void;
-};
+type PlayViewProps = {};
 
-export function PlayView({ setViewMode }: PlayViewProps) {
+export function PlayView({}: PlayViewProps) {
   const { user } = useWalletAuth();
 
   const handleOptionClick = (option: GameOption) => {
     // Navigate to nested play routes
-    setViewMode(`play/${option.id}`);
+    window.location.href = `/play/${option.id}`;
   };
 
   return (

@@ -22,7 +22,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 interface MarketplaceViewProps {
-  setViewMode: (mode: string) => void;
   onCollectionClick?: (collectionId: string) => void;
 }
 

@@ -28,11 +28,9 @@ import { MuseumHeroSection } from "@/components/museum/hero-section";
 import { MuseumGallery } from "@/components/museum/gallery-section";
 import { LegendDetailModal } from "@/components/museum/legend-detail-modal";
 
-type MuseumViewProps = {
-  setViewMode: (mode: string) => void;
-};
+type MuseumViewProps = {};
 
-export function MuseumView({ setViewMode }: MuseumViewProps) {
+export function MuseumView({}: MuseumViewProps) {
   const [selectedLegend, setSelectedLegend] = useState<string | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);

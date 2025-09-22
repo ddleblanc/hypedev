@@ -7,11 +7,9 @@ import { useP2PTrading } from "@/contexts/p2p-trading-context";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type P2PViewProps = {
-  setViewMode: (mode: string) => void;
-};
+type P2PViewProps = {};
 
-export function P2PView({ setViewMode }: P2PViewProps) {
+export function P2PView({}: P2PViewProps) {
   const { userBoardNFTs, traderBoardNFTs, removeUserNFTFromBoard, removeTraderNFTFromBoard } = useP2PTrading();
 
   return (
