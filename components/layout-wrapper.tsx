@@ -62,10 +62,6 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
     '/collection'
   ].some(route => pathname === route || pathname.startsWith(route));
 
-  // Studio routes have their own layout
-  if (isStudioRoute) {
-    return <>{children}</>;
-  }
 
   // Collection routes use authenticated layout if user is connected
   if (isCollectionRoute && user && isConnected) {
@@ -86,8 +82,8 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
     );
   }
 
-  // Authenticated routes use progressive UI
-  if (isAuthenticatedRoute && user && isConnected) {
+  // Authenticated routes use progressive UI, or studio route (even when not authenticated)
+  if ((isAuthenticatedRoute && user && isConnected) || isStudioRoute) {
     return <ProgressiveUIWrapper>{children}</ProgressiveUIWrapper>;
   }
 

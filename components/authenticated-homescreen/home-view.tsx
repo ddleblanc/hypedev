@@ -98,11 +98,9 @@ const activeMissions = [
   { id: 4, title: "Weekly Challenge", progress: 90, reward: "500 HYP", status: "completing" }
 ];
 
-type HomeViewProps = {
-  setViewMode: (mode: string) => void;
-};
+type HomeViewProps = {};
 
-export function HomeView({ setViewMode }: HomeViewProps) {
+export function HomeView({}: HomeViewProps) {
   const { user: walletUser } = useWalletAuthOptimized();
   const { user } = useAuth();
   const { showCarousel, isCarouselVisible, hideCarousel } = useBackgroundCarousel();
@@ -269,11 +267,11 @@ export function HomeView({ setViewMode }: HomeViewProps) {
                 }}
                 onClick={() => {
                   if (item.label === 'TRADE') {
-                    setViewMode('trade');
+                    window.location.href = '/trade';
                   } else if (item.label === 'PLAY') {
-                    setViewMode('play');
+                    window.location.href = '/play';
                   } else if (item.label === 'MUSEUM') {
-                    setViewMode('museum');
+                    window.location.href = '/museum';
                   } else {
                     null;
                   }
@@ -351,7 +349,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
             {secondaryNavigation.map((item) => {
               const handleClick = () => {
                 if (!item.external && item.href === "/studio") {
-                  setViewMode('studio');
+                  window.location.href = '/studio';
                 }
               };
 

@@ -120,11 +120,9 @@ const categories = [
   { id: "ai", name: "AI & Tech", icon: Gem, count: "16" }
 ];
 
-type LaunchpadViewProps = {
-  setViewMode: (mode: string) => void;
-};
+type LaunchpadViewProps = {};
 
-export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
+export function LaunchpadView({}: LaunchpadViewProps) {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState("live");
   const [viewType, setViewType] = useState<"grid" | "list">("grid");

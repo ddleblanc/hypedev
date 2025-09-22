@@ -301,9 +301,11 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
 
   // Check if user is authenticated and on an app route
   const isAuthenticatedAppRoute = user && isConnected && isAppRoute;
+  
+  const shouldUseProgressiveUI = isAuthenticatedAppRoute || pathname === '/studio';
 
-  // For authenticated app routes, use single-page app with persistent background and progressive UI
-  if (isAuthenticatedAppRoute) {
+  // For authenticated app routes or studio route, use single-page app with persistent background and progressive UI
+  if (shouldUseProgressiveUI) {
     return (
       <AppNavigationProvider>
         <StudioProvider>
@@ -317,8 +319,8 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
     );
   }
 
-  // For studio routes, collection pages, and homepage when not authenticated
-  if (isStudioRoute || isCollectionRoute || pathname === '/') {
+  // For collection pages and homepage when not authenticated
+  if (isCollectionRoute || pathname === '/') {
     return <>{children}</>;
   }
 

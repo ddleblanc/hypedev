@@ -18,10 +18,6 @@ import { BackgroundCarousel } from "@/components/background-carousel";
 export function SinglePageApp() {
   const { navigationState, navigateToRoute, getCurrentRoute } = useAppNavigation();
 
-  const handleNavigate = (newMode: string) => {
-    navigateToRoute(newMode as any);
-  };
-
   const handleBack = (destination: string) => {
     navigateToRoute(destination as any);
   };
@@ -88,25 +84,25 @@ export function SinglePageApp() {
     
     switch (currentRoute) {
       case 'home':
-        return <HomeView setViewMode={handleNavigate} />;
+        return <HomeView />;
       case 'trade':
-        return <TradeView setViewMode={handleNavigate} />;
+        return <TradeView />;
       case 'play':
-        return <PlayView setViewMode={handleNavigate} />;
+        return <PlayView />;
       case 'p2p':
-        return <P2PView setViewMode={handleNavigate} />;
+        return <P2PView />;
       case 'marketplace':
-        return <MarketplaceView setViewMode={handleNavigate} />;
+        return <MarketplaceView />;
       case 'casual':
         return <CasualGamesView onBack={() => handleBack('play')} />;
       case 'launchpad':
-        return <LaunchpadView setViewMode={handleNavigate} />;
+        return <LaunchpadView />;
       case 'museum':
-        return <MuseumView setViewMode={handleNavigate} />;
+        return <MuseumView />;
       case 'studio':
-        return <StudioView setViewMode={handleNavigate} />;
+        return <StudioView />;
       default:
-        return <HomeView setViewMode={handleNavigate} />;
+        return <HomeView />;
     }
   };
 

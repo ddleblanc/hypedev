@@ -11,9 +11,7 @@ import { StudioMainContent } from "@/components/studio/studio-main-content";
 import { StudioDashboard, StudioProjects, StudioCollections, StudioNFTs, StudioActivity } from "@/components/studio/views";
 // import loadingAnimation from '/public/assets/anim/loading.json';
 
-interface StudioViewProps {
-  setViewMode?: (mode: 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio') => void;
-}
+interface StudioViewProps {}
 
 // Types from the old studio
 interface Project {
@@ -84,7 +82,7 @@ interface NFT {
   }>;
 }
 
-export function StudioView({ setViewMode }: StudioViewProps = {}) {
+export function StudioView({}: StudioViewProps) {
   const searchParams = useSearchParams();
   const account = useActiveAccount();
   const { user, isConnected } = useAuth();
@@ -246,65 +244,8 @@ export function StudioView({ setViewMode }: StudioViewProps = {}) {
     }
   }, [account?.address, fetchProjects, fetchCollections, fetchNFTs]);
 
-  // Handle auth state
-  if (!isConnected || !account?.address) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4 mx-auto">
-            <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold mb-2">Connect Wallet Required</h3>
-          <p className="text-sm text-muted-foreground">
-            Please connect your wallet to access the studio
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4 mx-auto">
-            <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold mb-2">Error Loading Studio</h3>
-          <p className="text-sm text-muted-foreground mb-4">{error}</p>
-          <button 
-            onClick={() => {
-              setError(null);
-              fetchProjects();
-              fetchCollections();
-              fetchNFTs();
-            }}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading state if data is loading and we don't have any data yet
-  if (isLoadingData && projects.length === 0 && currentView === 'dashboard') {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-24 h-24 mx-auto mb-4 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Handle auth state - show connect wallet message within the main content area instead of replacing entire component
+  const showConnectWallet = !isConnected || !account?.address;
 
   return (
     <div className="h-full flex flex-col">
@@ -319,37 +260,86 @@ export function StudioView({ setViewMode }: StudioViewProps = {}) {
       {/* Main Content Area - Properly spaced to match header spacing and allow scrolling */}
       <div className="flex-1 overflow-hidden pt-16">
         <StudioMainContent currentView={currentView}>
-          {currentView === 'dashboard' && (
-            <StudioDashboard 
-              mockProjects={projects.length > 0 ? projects : []}
-              mockCollections={collections.length > 0 ? collections : []}
-              mockNFTs={nfts.length > 0 ? nfts : []}
-            />
+          {showConnectWallet ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-4 mx-auto">
+                  <svg className="w-8 h-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Connect Wallet Required</h3>
+                <p className="text-sm text-muted-foreground">
+                  Please connect your wallet to access the studio
+                </p>
+              </div>
+            </div>
+          ) : error ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4 mx-auto">
+                  <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Error Loading Studio</h3>
+                <p className="text-sm text-muted-foreground mb-4">{error}</p>
+                <button 
+                  onClick={() => {
+                    setError(null);
+                    fetchProjects();
+                    fetchCollections();
+                    fetchNFTs();
+                  }}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          ) : isLoadingData && projects.length === 0 && currentView === 'dashboard' ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {currentView === 'dashboard' && (
+                <StudioDashboard 
+                  mockProjects={projects.length > 0 ? projects : []}
+                  mockCollections={collections.length > 0 ? collections : []}
+                  mockNFTs={nfts.length > 0 ? nfts : []}
+                />
+              )}
+              {currentView === 'projects' && (
+                <StudioProjects 
+                  mockProjects={projects.length > 0 ? projects : []}
+                  viewMode={gridViewMode}
+                />
+              )}
+              {currentView === 'collections' && (
+                <StudioCollections 
+                  collections={collections.length > 0 ? collections : []}
+                  viewMode={gridViewMode}
+                />
+              )}
+              {currentView === 'nfts' && (
+                <StudioNFTs 
+                  nfts={nfts.length > 0 ? nfts : []}
+                  viewMode={gridViewMode}
+                />
+              )}
+              {currentView === 'activity' && (
+                <StudioActivity 
+                  viewMode={gridViewMode}
+                />
+              )}
+              {/* Add other views here */}
+            </>
           )}
-          {currentView === 'projects' && (
-            <StudioProjects 
-              mockProjects={projects.length > 0 ? projects : []}
-              viewMode={gridViewMode}
-            />
-          )}
-          {currentView === 'collections' && (
-            <StudioCollections 
-              collections={collections.length > 0 ? collections : []}
-              viewMode={gridViewMode}
-            />
-          )}
-          {currentView === 'nfts' && (
-            <StudioNFTs 
-              nfts={nfts.length > 0 ? nfts : []}
-              viewMode={gridViewMode}
-            />
-          )}
-          {currentView === 'activity' && (
-            <StudioActivity 
-              viewMode={gridViewMode}
-            />
-          )}
-          {/* Add other views here */}
         </StudioMainContent>
       </div>
     </div>
