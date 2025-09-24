@@ -1,0 +1,1030 @@
+"use client";
+
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { usePathname, useRouter } from 'next/navigation';
+import { 
+  ChevronRight,
+  Gamepad2,
+  Trophy,
+  Sword,
+  Shield,
+  Crown,
+  Gem,
+  Sparkles,
+  Star,
+  TrendingUp,
+  Filter,
+  Grid3x3,
+  List,
+  SlidersHorizontal,
+  Search,
+  Box,
+  Layers,
+  Users,
+  Handshake,
+  ArrowRightLeft,
+  Plus,
+  Minus,
+  CheckCircle2
+  , Edit3, Zap
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { useP2PTrading } from "@/contexts/p2p-trading-context";
+import { GameCommandCard } from "@/components/ui/game-command-card";
+
+interface AnimatedSidebarProps {
+  show: boolean;
+  currentRoute?: string;
+  studioData?: {
+    searchQuery: string;
+    onSearchChange: (query: string) => void;
+    viewMode: 'grid' | 'list';
+    onViewModeChange: (mode: 'grid' | 'list') => void;
+    projects: any[];
+    collections: any[];
+    nfts: any[];
+  };
+  p2pData?: {
+    searchQuery: string;
+    onSearchChange: (query: string) => void;
+    gridViewMode: 'grid' | 'list';
+    onGridViewModeChange: (mode: 'grid' | 'list') => void;
+  };
+  lootboxData?: {
+    availableLootboxes: Array<{
+      id: string;
+      name: string;
+      collection: string;
+      image: string;
+      price: number;
+      discountPrice?: number | null;
+      discountPercent: number;
+      rarity: string;
+      totalSupply: number;
+      remaining: number;
+      category: string;
+      accentColor: string;
+    }>;
+  };
+  onNavigate?: (route: string) => void;
+}
+
+export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, onNavigate }: AnimatedSidebarProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { 
+    userNFTs, 
+    selectedTrader, 
+    toggleUserNFTSelection, 
+    confirmUserNFTs 
+  } = currentRoute === 'p2p' ? useP2PTrading() : {
+    userNFTs: [],
+    selectedTrader: null,
+    toggleUserNFTSelection: () => {},
+    confirmUserNFTs: () => {}
+  };
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['gaming']);
+  const [priceRange, setPriceRange] = useState([0, 100]);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
+
+  const categories = [
+    {
+      id: 'gaming',
+      name: 'Gaming',
+      icon: Gamepad2,
+      count: 15234,
+      subcategories: [
+        { id: 'action', name: 'Action Games', count: 3421 },
+        { id: 'rpg', name: 'RPG', count: 2156 },
+        { id: 'strategy', name: 'Strategy', count: 1893 },
+        { id: 'sports', name: 'Sports', count: 1654 },
+        { id: 'racing', name: 'Racing', count: 987 }
+      ]
+    },
+    {
+      id: 'collectibles',
+      name: 'Collectibles',
+      icon: Trophy,
+      count: 8976,
+      subcategories: [
+        { id: 'cards', name: 'Trading Cards', count: 2345 },
+        { id: 'figures', name: 'Figures', count: 1876 },
+        { id: 'comics', name: 'Comics', count: 1234 }
+      ]
+    },
+    {
+      id: 'weapons',
+      name: 'Weapons',
+      icon: Sword,
+      count: 6543,
+      subcategories: [
+        { id: 'swords', name: 'Swords', count: 2134 },
+        { id: 'guns', name: 'Guns', count: 1987 },
+        { id: 'magic', name: 'Magic Items', count: 1654 }
+      ]
+    },
+    {
+      id: 'armor',
+      name: 'Armor',
+      icon: Shield,
+      count: 5432,
+      subcategories: [
+        { id: 'helmets', name: 'Helmets', count: 1234 },
+        { id: 'body', name: 'Body Armor', count: 1876 },
+        { id: 'accessories', name: 'Accessories', count: 987 }
+      ]
+    },
+    {
+      id: 'premium',
+      name: 'Premium',
+      icon: Crown,
+      count: 2341,
+      badge: 'HOT'
+    },
+    {
+      id: 'rare',
+      name: 'Rare Items',
+      icon: Gem,
+      count: 1234
+    }
+  ];
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ x: -320, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: -320, opacity: 0 }}
+          transition={{ 
+            type: "spring",
+            stiffness: 260,
+            damping: 30,
+            duration: 0.4
+          }}
+          className="fixed left-0 top-16 bottom-[44.6px] w-80 bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 overflow-hidden flex flex-col"
+        >
+          {/* Header */}
+          <div className="p-6 border-b border-white/10">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              {currentRoute === 'studio' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Search className="h-5 w-5" />
+                    Studio
+                  </h2>
+                  <p className="text-sm text-white/60">Create & Manage</p>
+                </>
+              ) : currentRoute === 'p2p' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <ArrowRightLeft className="h-5 w-5" />
+                    P2P Trading
+                  </h2>
+                  <p className="text-sm text-white/60">Search & Filter</p>
+                </>
+              ) : currentRoute === 'play-casual' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-green-400" />
+                    Casual Zone
+                  </h2>
+                  <p className="text-sm text-white/60">Relax & Enjoy</p>
+                </>
+              ) : currentRoute === 'play-competitive' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-orange-400" />
+                    Competitive Arena
+                  </h2>
+                  <p className="text-sm text-white/60">Climb the Ranks</p>
+                </>
+              ) : currentRoute === 'play-casino' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Crown className="h-5 w-5 text-purple-400" />
+                    High Stakes Casino
+                  </h2>
+                  <p className="text-sm text-white/60">Fortune Awaits</p>
+                </>
+              ) : currentRoute === 'play-1v1' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Gem className="h-5 w-5 text-cyan-400" />
+                    1v1 Arena Hub
+                  </h2>
+                  <p className="text-sm text-white/60">Challenge Players</p>
+                </>
+              ) : currentRoute === 'lootboxes-detail' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Box className="h-5 w-5 text-purple-400" />
+                    Lootbox Collection
+                  </h2>
+                  <p className="text-sm text-white/60">Explore & Discover</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Marketplace
+                  </h2>
+                  <p className="text-sm text-white/60">Browse 50,000+ items</p>
+                </>
+              )}
+            </motion.div>
+
+            {/* View Controls */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="flex items-center justify-between mt-4"
+            >
+              {currentRoute === 'studio' && studioData ? (
+                <div className="w-full space-y-3">
+                  <Input
+                    placeholder="Search everything..."
+                    value={studioData.searchQuery}
+                    onChange={(e) => studioData.onSearchChange(e.target.value)}
+                    className="bg-black/30 border-white/20 text-white placeholder:text-white/40"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant={studioData.viewMode === 'grid' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => studioData.onViewModeChange('grid')}
+                      className="flex-1"
+                    >
+                      <Grid3x3 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={studioData.viewMode === 'list' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => studioData.onViewModeChange('list')}
+                      className="flex-1"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : currentRoute?.startsWith('play-') ? (
+                <div className="w-full space-y-3">
+                  <Input
+                    placeholder={`Search ${currentRoute?.split('-')[1]} games...`}
+                    className="bg-black/30 border-white/20 text-white placeholder:text-white/40"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant={viewMode === 'grid' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setViewMode('grid')}
+                      className="flex-1"
+                    >
+                      <Grid3x3 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={viewMode === 'list' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setViewMode('list')}
+                      className="flex-1"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : currentRoute === 'p2p' && p2pData ? (
+                <div className="w-full space-y-3">
+                  <Input
+                    placeholder="Search traders..."
+                    value={p2pData.searchQuery}
+                    onChange={(e) => p2pData.onSearchChange(e.target.value)}
+                    className="bg-black/30 border-white/20 text-white placeholder:text-white/40"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      variant={p2pData.gridViewMode === 'grid' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => p2pData.onGridViewModeChange('grid')}
+                      className="flex-1"
+                    >
+                      <Grid3x3 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant={p2pData.gridViewMode === 'list' ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => p2pData.onGridViewModeChange('list')}
+                      className="flex-1"
+                    >
+                      <List className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : currentRoute === 'lootboxes-detail' ? (
+                <div className="w-full space-y-3">
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2"
+                    >
+                      <Filter className="w-3 h-3" />
+                      Rarity
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2"
+                    >
+                      <TrendingUp className="w-3 h-3" />
+                      Price
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                      onClick={() => setViewMode('grid')}
+                      className="p-2"
+                    >
+                      <Grid3x3 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={viewMode === 'list' ? 'default' : 'ghost'}
+                      onClick={() => setViewMode('list')}
+                      className="p-2"
+                    >
+                      <List className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <Button size="sm" variant="outline" className="gap-2">
+                    <Filter className="w-3 h-3" />
+                    Filters
+                  </Button>
+                </>
+              )}
+            </motion.div>
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto">
+            {(pathname?.startsWith('/studio') || currentRoute === 'studio') ? (
+              <>
+                {/* Studio Stats (only when studioData is available) */}
+                {studioData && (
+                  <div className="p-6 border-b border-white/10">
+                    <motion.h3
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-sm font-semibold text-white/80 mb-4"
+                    >
+                      STUDIO STATS
+                    </motion.h3>
+                    <div className="space-y-4">
+                      {[
+                        { label: 'Projects', value: studioData.projects.length, icon: Box },
+                        { label: 'Collections', value: studioData.collections.length, icon: Layers },
+                        { label: 'NFTs', value: studioData.nfts.length, icon: Sparkles },
+                      ].map(({ label, value, icon: Icon }, index) => (
+                        <motion.div
+                          key={label}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.3 + index * 0.05 }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <span className="text-white/80 text-sm">{label}</span>
+                          </div>
+                          <Badge className="bg-white/10 text-white border-white/20">
+                            {value}
+                          </Badge>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Actions */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    QUICK ACTIONS
+                  </motion.h3>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="space-y-2"
+                  >
+                    {/* If we're on a studio collection page, show collection-specific quick actions */}
+                    {pathname && pathname.startsWith('/studio/collections/') ? (
+                      (() => {
+                        const m = pathname.match(/^\/studio\/collections\/([^\/]+)/);
+                        const collectionId = m ? m[1] : null;
+                        return (
+                          <>
+                            <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold" onClick={() => collectionId && router.push(`/studio/collections/${collectionId}/edit`)}>
+                              <Edit3 className="w-4 h-4 mr-2" /> Edit Metadata
+                            </Button>
+                            <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10" onClick={() => collectionId && router.push(`/studio/collections/${collectionId}/airdrop`)}>
+                              <Zap className="w-4 h-4 mr-2" /> Airdrop
+                            </Button>
+                            <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10" onClick={() => collectionId && router.push(`/studio/collections/${collectionId}/mint`)}>
+                              <Plus className="w-4 h-4 mr-2" /> Quick Mint
+                            </Button>
+                          </>
+                        );
+                      })()
+                    ) : (
+                      <>
+                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                          Create Project
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          Import Collection
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          Bulk Upload
+                        </Button>
+                      </>
+                    )}
+                  </motion.div>
+                </div>
+
+                {/* Resources & Help */}
+                <div className="p-6">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    RESOURCES
+                  </motion.h3>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.55 }}
+                    className="space-y-3"
+                  >
+                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                      📚 Documentation
+                    </a>
+                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                      🎥 Video Tutorials
+                    </a>
+                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                      💡 Best Practices
+                    </a>
+                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                      🚀 API Reference
+                    </a>
+                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                      💬 Community Forum
+                    </a>
+                  </motion.div>
+                </div>
+              </>
+            ) : currentRoute === 'lootboxes-detail' && lootboxData ? (
+              <>
+                {/* Lootbox Collection */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    AVAILABLE LOOTBOXES ({lootboxData.availableLootboxes.length})
+                  </motion.h3>
+                  
+                  <div className="space-y-3">
+                    {lootboxData.availableLootboxes.map((lootbox, index) => (
+                      <motion.div
+                        key={lootbox.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 + index * 0.05 }}
+                      >
+                        <GameCommandCard
+                          option={{
+                            id: lootbox.id,
+                            title: lootbox.name,
+                            description: `${lootbox.collection} • ${lootbox.discountPrice || lootbox.price} ETH`,
+                            image: lootbox.image,
+                            category: lootbox.rarity,
+                            accentColor: lootbox.accentColor as any
+                          }}
+                          corner="topRight"
+                          onClick={() => onNavigate && onNavigate(`lootbox-${lootbox.id}`)}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : currentRoute === 'p2p' ? (
+              <>
+                {/* My NFT Collection for P2P Trading */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    MY NFTS ({userNFTs.length})
+                  </motion.h3>
+                  
+                  {/* Search and Filter */}
+                  <div className="mb-4 space-y-3">
+                    <Input
+                      placeholder="Search your NFTs..."
+                      className="bg-black/30 border-white/20 text-white placeholder:text-white/40"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-white/20 text-white/70 hover:bg-white/10"
+                      >
+                        <Filter className="h-3 w-3 mr-1" />
+                        Filter
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-white/20 text-white/70 hover:bg-white/10"
+                      >
+                        <SlidersHorizontal className="h-3 w-3 mr-1" />
+                        Sort
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* NFT List */}
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {userNFTs.map((nft, index) => (
+                      <motion.div
+                        key={nft.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.05 }}
+                        className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group"
+                        onClick={() => toggleUserNFTSelection(nft.id)}
+                      >
+                        <div className="relative">
+                          <img 
+                            src={nft.image} 
+                            alt={nft.name} 
+                            className="w-12 h-12 rounded-lg object-cover"
+                          />
+                          {nft.selected && (
+                            <div className="absolute inset-0 bg-[rgb(163,255,18)]/20 rounded-lg flex items-center justify-center">
+                              <CheckCircle2 className="w-6 h-6 text-[rgb(163,255,18)]" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{nft.name}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-[rgb(163,255,18)] font-mono">{nft.value} ETH</span>
+                            {nft.rarity && (
+                              <Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-purple-500/30">
+                                {nft.rarity}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleUserNFTSelection(nft.id);
+                          }}
+                        >
+                          {nft.selected ? (
+                            <Minus className="h-4 w-4 text-red-400" />
+                          ) : (
+                            <Plus className="h-4 w-4 text-[rgb(163,255,18)]" />
+                          )}
+                        </Button>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trade Summary */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    TRADE SUMMARY
+                  </motion.h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/60">Selected NFTs</span>
+                      <span className="text-sm font-bold text-white">{userNFTs.filter(nft => nft.selected).length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/60">Total Value</span>
+                      <span className="text-sm font-bold text-[rgb(163,255,18)]">
+                        {userNFTs.filter(nft => nft.selected).reduce((sum, nft) => sum + nft.value, 0).toFixed(1)} ETH
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white/60">Trader Selected</span>
+                      <span className="text-sm font-bold text-white">{selectedTrader?.name || 'None'}</span>
+                    </div>
+                  </div>
+                  <Button 
+                    className="w-full mt-4 bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold"
+                    disabled={userNFTs.filter(nft => nft.selected).length === 0}
+                    onClick={confirmUserNFTs}
+                  >
+                    {userNFTs.filter(nft => nft.selected).length > 0 
+                      ? `Confirm ${userNFTs.filter(nft => nft.selected).length} NFTs` 
+                      : 'Select NFTs First'
+                    }
+                  </Button>
+                </div>
+
+                {/* Quick Stats */}
+                <div className="p-6">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    MY STATS
+                  </motion.h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white/5 rounded-lg p-2">
+                      <div className="text-xs text-white/60">Total NFTs</div>
+                      <div className="text-lg font-bold text-white">{userNFTs.length}</div>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-2">
+                      <div className="text-xs text-white/60">Portfolio</div>
+                      <div className="text-lg font-bold text-[rgb(163,255,18)]">42.8 ETH</div>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-2">
+                      <div className="text-xs text-white/60">Trades</div>
+                      <div className="text-lg font-bold text-white">127</div>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-2">
+                      <div className="text-xs text-white/60">Success</div>
+                      <div className="text-lg font-bold text-[rgb(163,255,18)]">94%</div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Play-specific content */}
+                {currentRoute?.startsWith('play-') && (
+                  <div className="p-6 border-b border-white/10">
+                    <motion.h3
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-sm font-semibold text-white/80 mb-4"
+                    >
+                      {currentRoute === 'play-casual' && 'CASUAL GAMES'}
+                      {currentRoute === 'play-competitive' && 'TOURNAMENTS'}
+                      {currentRoute === 'play-casino' && 'CASINO GAMES'}
+                      {currentRoute === 'play-1v1' && '1V1'}
+                    </motion.h3>
+                    <div className="space-y-4">
+                      {currentRoute === 'play-casual' && [
+                        { label: 'Active Games', value: '47', icon: Gamepad2 },
+                        { label: 'Players Online', value: '12,543', icon: Users },
+                        { label: 'Rewards Pool', value: '2,451 HYP', icon: Trophy },
+                      ].map(({ label, value, icon: Icon }, index) => (
+                        <motion.div
+                          key={label}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.3 + index * 0.05 }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <span className="text-white/80 text-sm">{label}</span>
+                          </div>
+                          <Badge className="bg-white/10 text-white border-white/20">
+                            {value}
+                          </Badge>
+                        </motion.div>
+                      ))}
+                      
+                      {currentRoute === 'play-competitive' && [
+                        { label: 'Live Tournaments', value: '8', icon: Trophy },
+                        { label: 'Prize Pool', value: '15,000 USDC', icon: Crown },
+                        { label: 'Competitors', value: '1,247', icon: Users },
+                      ].map(({ label, value, icon: Icon }, index) => (
+                        <motion.div
+                          key={label}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.3 + index * 0.05 }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <span className="text-white/80 text-sm">{label}</span>
+                          </div>
+                          <Badge className="bg-white/10 text-white border-white/20">
+                            {value}
+                          </Badge>
+                        </motion.div>
+                      ))}
+                      
+                      {currentRoute === 'play-casino' && [
+                        { label: 'Live Tables', value: '23', icon: Sparkles },
+                        { label: 'Jackpot Pool', value: '87.5 ETH', icon: Gem },
+                        { label: 'Active Players', value: '3,891', icon: Users },
+                      ].map(({ label, value, icon: Icon }, index) => (
+                        <motion.div
+                          key={label}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.3 + index * 0.05 }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <span className="text-white/80 text-sm">{label}</span>
+                          </div>
+                          <Badge className="bg-white/10 text-white border-white/20">
+                            {value}
+                          </Badge>
+                        </motion.div>
+                      ))}
+                      
+                      {currentRoute === 'play-1v1' && [
+                        { label: 'Active Worlds', value: '12', icon: Sparkles },
+                        { label: 'Concurrent Users', value: '8,764', icon: Users },
+                        { label: 'Land Parcels', value: '1,247', icon: Box },
+                      ].map(({ label, value, icon: Icon }, index) => (
+                        <motion.div
+                          key={label}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.3 + index * 0.05 }}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <span className="text-white/80 text-sm">{label}</span>
+                          </div>
+                          <Badge className="bg-white/10 text-white border-white/20">
+                            {value}
+                          </Badge>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Categories */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    CATEGORIES
+                  </motion.h3>
+                  
+                  <div className="space-y-1">
+                    {categories.map((category, index) => {
+                      const Icon = category.icon;
+                      const isExpanded = expandedCategories.includes(category.id);
+                      
+                      return (
+                        <motion.div
+                          key={category.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.3 + index * 0.05 }}
+                        >
+                          <button
+                            onClick={() => toggleCategory(category.id)}
+                            className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Icon className="w-4 h-4 text-white/70 group-hover:text-[rgb(163,255,18)]" />
+                              <span className="text-sm text-white/90">{category.name}</span>
+                              {category.badge && (
+                                <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30">
+                                  {category.badge}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-white/40">{category.count.toLocaleString()}</span>
+                              {category.subcategories && (
+                                <ChevronRight className={`w-3 h-3 text-white/40 transition-transform ${
+                                  isExpanded ? 'rotate-90' : ''
+                                }`} />
+                              )}
+                            </div>
+                          </button>
+                          
+                          {/* Subcategories */}
+                          <AnimatePresence>
+                            {isExpanded && category.subcategories && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="ml-6 overflow-hidden"
+                              >
+                                {category.subcategories.map((sub) => (
+                                  <button
+                                    key={sub.id}
+                                    className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors"
+                                  >
+                                    <span className="text-xs text-white/60">{sub.name}</span>
+                                    <span className="text-xs text-white/30">{sub.count.toLocaleString()}</span>
+                                  </button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Price Range */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    <h3 className="text-sm font-semibold text-white/80 mb-4">PRICE RANGE</h3>
+                    <div className="space-y-4">
+                      <Slider
+                        value={priceRange}
+                        onValueChange={setPriceRange}
+                        max={100}
+                        step={1}
+                        className="w-full"
+                      />
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-white/60">0 ETH</span>
+                        <span className="text-sm font-bold text-[rgb(163,255,18)]">
+                          {priceRange[0]} - {priceRange[1]} ETH
+                        </span>
+                        <span className="text-xs text-white/60">100+ ETH</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Additional Filters */}
+                <div className="p-6">
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.55 }}
+                    className="space-y-4"
+                  >
+                    <h3 className="text-sm font-semibold text-white/80 mb-4">FILTERS</h3>
+                    
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="verified" className="text-sm text-white/70 flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-[rgb(163,255,18)]" />
+                        Verified Only
+                      </Label>
+                      <Switch
+                        id="verified"
+                        checked={showVerifiedOnly}
+                        onCheckedChange={setShowVerifiedOnly}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Button className="w-full justify-start gap-2" variant="outline" size="sm">
+                        <Star className="w-4 h-4" />
+                        Featured Items
+                      </Button>
+                      <Button className="w-full justify-start gap-2" variant="outline" size="sm">
+                        <TrendingUp className="w-4 h-4" />
+                        Recently Listed
+                      </Button>
+                      <Button className="w-full justify-start gap-2" variant="outline" size="sm">
+                        <Sparkles className="w-4 h-4" />
+                        Ending Soon
+                      </Button>
+                    </div>
+                  </motion.div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          {currentRoute === 'studio' ? (
+            <div className="p-4 border-t border-white/10 bg-black/50">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="text-center"
+              >
+                <p className="text-xs text-white/40">
+                  Studio v1.0
+                </p>
+              </motion.div>
+            </div>
+          ) : currentRoute === 'lootboxes-detail' ? (
+            <div className="p-4 border-t border-white/10 bg-black/50">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="text-center"
+              >
+                <p className="text-xs text-white/40">
+                  Lootbox Explorer v1.0
+                </p>
+              </motion.div>
+            </div>
+          ) : currentRoute === 'p2p' ? (
+            <div className="p-4 border-t border-white/10 bg-black/50">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="text-center"
+              >
+                <p className="text-xs text-white/40">
+                  P2P Trading v1.0
+                </p>
+              </motion.div>
+            </div>
+          ) : (
+            <div className="p-4 border-t border-white/10 bg-black/50">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="flex items-center gap-2"
+              >
+                <Button variant="ghost" size="sm" className="flex-1">
+                  Clear All
+                </Button>
+                <Button size="sm" className="flex-1 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90">
+                  Apply Filters
+                </Button>
+              </motion.div>
+            </div>
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
