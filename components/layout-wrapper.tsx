@@ -471,7 +471,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       <AnimatedSidebar 
         show={uiState.showSidebar} 
         currentRoute={currentRoute}
-        studioData={studioData || undefined}
+        studioData={studioData ? {
+          searchQuery: studioData.searchQuery || '',
+          onSearchChange: studioData.onSearchChange || (() => {}),
+          viewMode: studioData.viewMode || 'grid',
+          onViewModeChange: studioData.onViewModeChange || (() => {}),
+          projects: studioData.projects || [],
+          collections: studioData.collections || [],
+          nfts: studioData.nfts || []
+        } : undefined}
         p2pData={p2pData}
         lootboxData={lootboxData}
         onNavigate={handleNavigate}
