@@ -3,13 +3,15 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface StudioData {
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  viewMode: 'grid' | 'list';
-  onViewModeChange: (mode: 'grid' | 'list') => void;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  viewMode?: 'grid' | 'list';
+  onViewModeChange?: (mode: 'grid' | 'list') => void;
   projects: any[];
   collections: any[];
   nfts: any[];
+  isLoading?: boolean;
+  error?: string | null;
 }
 
 interface StudioContextType {
