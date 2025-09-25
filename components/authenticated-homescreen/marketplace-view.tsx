@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import React, { useState, useRef, useEffect } from "react";
+import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { 
   Play,
@@ -15,14 +15,21 @@ import {
   Volume2,
   VolumeX,
   MoreHorizontal,
-  ArrowUpRight
+  ArrowUpRight,
+  Menu,
+  X,
+  Home,
+  ShoppingCart,
+  Rocket,
+  Coins,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 interface MarketplaceViewProps {
-  setViewMode: (mode: string) => void;
+  setViewMode?: (mode: string) => void;
   onCollectionClick?: (collectionId: string) => void;
 }
 
@@ -104,6 +111,13 @@ const mockCollections = {
       creator: "UrbanLabs"
     }
   ],
+  categories: [
+    { id: "new", name: "New & Popular", collections: 45, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/69281ee0-9883-441a-9a8e-e43ff4e05ad0/original=true,quality=90/94617017.jpeg" },
+    { id: "gaming", name: "Gaming", collections: 234, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/c51fe7d8-e94f-45ed-b23e-d584c8998118/anim=false,width=450,optimized=true/00586-3019206393.jpeg" },
+    { id: "art", name: "Digital Art", collections: 156, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/5683b6d8-fa8c-4d5f-8fdb-b6e98801c82a/anim=false,width=450,optimized=true/01959-1721753241.jpeg" },
+    { id: "collectibles", name: "Collectibles", collections: 89, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/50d09e0b-f10b-400b-9354-2fa908865565/anim=false,width=450,optimized=true/00015-2320167257.jpeg" },
+    { id: "premium", name: "Premium", collections: 23, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1351be80-e8bd-4d05-8d60-31ced9a024ce/original=true,quality=90/96222521.jpeg" }
+  ],
   trending: [
     { id: "dragon-knights", title: "Dragon Knights", image: "/api/placeholder/300/450", floor: "1.2 ETH", change: "+156%" },
     { id: "pixel-heroes", title: "Pixel Heroes", image: "/api/placeholder/300/450", floor: "0.8 ETH", change: "+89%" },
@@ -111,19 +125,14 @@ const mockCollections = {
     { id: "crypto-cats", title: "Crypto Cats", image: "/api/placeholder/300/450", floor: "0.5 ETH", change: "+234%" },
     { id: "void-hunters", title: "Void Hunters", image: "/api/placeholder/300/450", floor: "2.7 ETH", change: "+45%" },
     { id: "crystal-mages", title: "Crystal Mages", image: "/api/placeholder/300/450", floor: "1.9 ETH", change: "+78%" }
-  ],
-  categories: [
-    { id: "new", name: "New & Popular", collections: 45, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/69281ee0-9883-441a-9a8e-e43ff4e05ad0/original=true,quality=90/94617017.jpeg" },
-    { id: "gaming", name: "Gaming", collections: 234, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/c51fe7d8-e94f-45ed-b23e-d584c8998118/anim=false,width=450,optimized=true/00586-3019206393.jpeg" },
-    { id: "art", name: "Digital Art", collections: 156, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/5683b6d8-fa8c-4d5f-8fdb-b6e98801c82a/anim=false,width=450,optimized=true/01959-1721753241.jpeg" },
-    { id: "collectibles", name: "Collectibles", collections: 89, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/50d09e0b-f10b-400b-9354-2fa908865565/anim=false,width=450,optimized=true/00015-2320167257.jpeg" },
-    { id: "premium", name: "Premium", collections: 23, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1351be80-e8bd-4d05-8d60-31ced9a024ce/original=true,quality=90/96222521.jpeg" }
   ]
 };
 
 export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMuted, setIsMuted] = useState(true);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [activeTab, setActiveTab] = useState("featured");
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef });
   const router = useRouter();
@@ -133,7 +142,6 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   const handleCollectionClick = (collectionId: string) => {
-    // Navigate to collection detail page
     router.push(`/collection/${collectionId}`);
   };
 
@@ -153,7 +161,298 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
       transition={{ duration: 0.5 }}
       className="w-full overflow-hidden bg-black"
     >
-      <div className="relative">
+      {/* Mobile Layout */}
+      <div className="md:hidden relative">
+        {/* Mobile Hero - Not sticky, scrolls away */}
+        <div className="relative h-[50vh]">
+          <video
+            className="w-full h-full object-cover"
+            autoPlay
+            muted={isMuted}
+            loop
+            playsInline
+          >
+            <source src={mockCollections.hero.image} type="video/webm" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
+          
+          {/* Hero Content */}
+          <div className="absolute bottom-0 left-0 right-0 p-4">
+            <Badge className="bg-[rgb(163,255,18)] text-black text-xs font-bold mb-2">
+              #1 Collection
+            </Badge>
+            <h2 className="text-2xl font-black text-white mb-1">
+              {mockCollections.hero.title}
+            </h2>
+            <p className="text-sm text-white/70 mb-3 line-clamp-2">
+              {mockCollections.hero.description}
+            </p>
+            
+            <div className="flex gap-2">
+              <Button 
+                size="sm"
+                className="flex-1 bg-white text-black hover:bg-white/90 font-bold"
+                onClick={() => handleCollectionClick(mockCollections.hero.id)}
+              >
+                Explore
+              </Button>
+              <Button 
+                size="icon"
+                variant="ghost"
+                className="text-white"
+                onClick={() => setIsMuted(!isMuted)}
+              >
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </Button>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="flex gap-4 mt-3">
+              <div>
+                <p className="text-[10px] text-white/60">Floor</p>
+                <p className="text-xs font-bold text-white">{mockCollections.hero.floor}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-white/60">Volume</p>
+                <p className="text-xs font-bold text-white">{mockCollections.hero.volume}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-white/60">Items</p>
+                <p className="text-xs font-bold text-white">{mockCollections.hero.items.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sticky Container */}
+        <div className="relative">
+          {/* Sticky Header with Search and Tabs */}
+          <div className="sticky top-0 z-50 bg-black border-b border-white/10">
+            {/* Search Bar */}
+            <div className="p-4 bg-black">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 w-4 h-4" />
+                <Input
+                  placeholder="Search collections..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                />
+              </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex overflow-x-auto scrollbar-hide border-t border-white/10 bg-black">
+              {["Featured", "Trending", "New", "Categories"].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab.toLowerCase())}
+                  className={`flex-shrink-0 px-6 py-3 text-sm font-medium capitalize transition-colors relative ${
+                    activeTab === tab.toLowerCase()
+                      ? 'text-[rgb(163,255,18)]' 
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  {tab}
+                  {activeTab === tab.toLowerCase() && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(163,255,18)]" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tab Content - Scrolls under sticky header */}
+          <div className="min-h-screen pb-20">
+
+          {/* Tab Content */}
+          <div className="p-4">
+            {activeTab === "featured" && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-white mb-3">Featured Collections</h3>
+                {mockCollections.featured.map((collection) => (
+                  <motion.div
+                    key={collection.id}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleCollectionClick(collection.id)}
+                    className="bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden flex gap-3 p-3"
+                  >
+                    <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                      <video
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                      >
+                        <source src={collection.image} type="video/webm" />
+                      </video>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-sm font-bold text-white truncate">{collection.title}</h3>
+                        {collection.isNew && (
+                          <Badge className="bg-[rgb(163,255,18)] text-black text-[9px] px-1 py-0">
+                            NEW
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-white/60 mb-2">{collection.subtitle}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-white/80">Floor: {collection.floor}</span>
+                        <Badge variant="secondary" className="text-[10px] bg-green-500/20 text-green-400 border-0">
+                          {collection.trending}
+                        </Badge>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "trending" && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-white mb-3">Trending Now</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {mockCollections.trending.map((collection, index) => (
+                    <motion.div
+                      key={collection.id}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => handleCollectionClick(collection.id)}
+                      className="bg-white/5 rounded-xl overflow-hidden"
+                    >
+                      <div className="aspect-[3/4] relative bg-white/10">
+                        <div className="absolute top-2 right-2 z-10">
+                          <Badge className="bg-green-500 text-white text-[10px] px-1">
+                            {collection.change}
+                          </Badge>
+                        </div>
+                        <div className="absolute top-2 left-2 z-10">
+                          <div className="bg-black/60 backdrop-blur rounded-full w-5 h-5 flex items-center justify-center">
+                            <span className="text-[10px] text-white font-bold">#{index + 1}</span>
+                          </div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-3">
+                          <h4 className="text-sm font-bold text-white truncate">{collection.title}</h4>
+                          <p className="text-xs text-white/70">{collection.floor}</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "new" && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-bold text-white mb-3">New Collections</h3>
+                {mockCollections.featured.filter(c => c.isNew).map((collection) => (
+                  <motion.div
+                    key={collection.id}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleCollectionClick(collection.id)}
+                    className="bg-white/5 rounded-lg p-3 flex items-center gap-3"
+                  >
+                    <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                      <video
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                      >
+                        <source src={collection.image} type="video/webm" />
+                      </video>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-bold text-white">{collection.title}</h4>
+                      <p className="text-xs text-white/60">by {collection.creator}</p>
+                      <div className="flex gap-3 mt-1">
+                        <span className="text-xs text-white/80">{collection.floor}</span>
+                        <span className="text-xs text-green-400">{collection.trending}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === "categories" && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-white mb-3">Browse Categories</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {mockCollections.categories.map((category) => (
+                    <motion.div
+                      key={category.id}
+                      whileTap={{ scale: 0.98 }}
+                      className="relative rounded-xl overflow-hidden aspect-square"
+                    >
+                      <img 
+                        src={category.image} 
+                        alt={category.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                      <div className="absolute bottom-3 left-3">
+                        <h4 className="text-sm font-bold text-white">{category.name}</h4>
+                        <p className="text-xs text-white/60">{category.collections} items</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        </div> {/* Close sticky container */}
+
+        {/* Mobile Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-white/10">
+          <div className="grid grid-cols-5">
+            <button
+              onClick={() => router.push('/')}
+              className="flex flex-col items-center py-3 text-white/60 hover:text-[rgb(163,255,18)] active:text-[rgb(163,255,18)] transition-colors"
+            >
+              <Home className="w-5 h-5 mb-1" />
+              {/* <span className="text-[10px] font-medium">HOME</span> */}
+            </button>
+            
+            <button
+              className="flex flex-col items-center py-3 text-[rgb(163,255,18)] transition-colors"
+            >
+              <ShoppingCart className="w-5 h-5 mb-1" />
+              {/* <span className="text-[10px] font-medium">MARKET</span> */}
+            </button>
+
+            <button
+              onClick={() => router.push('/launchpad')}
+              className="flex flex-col items-center py-3 text-white/60 hover:text-[rgb(163,255,18)] active:text-[rgb(163,255,18)] transition-colors"
+            >
+              <Rocket className="w-5 h-5 mb-1" />
+              {/* <span className="text-[10px] font-medium">LAUNCH</span> */}
+            </button>
+
+            <button
+              onClick={() => router.push('/tokens')}
+              className="flex flex-col items-center py-3 text-white/60 hover:text-[rgb(163,255,18)] active:text-[rgb(163,255,18)] transition-colors"
+            >
+              <Coins className="w-5 h-5 mb-1" />
+              {/* <span className="text-[10px] font-medium">TOKENS</span> */}
+            </button>
+
+            <button
+              onClick={() => router.push('/p2p')}
+              className="flex flex-col items-center py-3 text-white/60 hover:text-[rgb(163,255,18)] active:text-[rgb(163,255,18)] transition-colors"
+            >
+              <Users className="w-5 h-5 mb-1" />
+              {/* <span className="text-[10px] font-medium">P2P</span> */}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden md:block relative">
         {/* Hero Banner */}
         <motion.div
           ref={heroRef}
@@ -625,7 +924,6 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
             </Button>
           </div>
         </motion.section>
-
       </div>
     </motion.div>
   );

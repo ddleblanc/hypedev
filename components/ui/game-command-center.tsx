@@ -1,7 +1,20 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { 
+  ChevronRight, 
+  ChevronLeft, 
+  Home,
+  ShoppingCart,
+  Rocket,
+  Gift,
+  Users,
+  Coffee,
+  Trophy,
+  Dices,
+  Swords,
+  Gamepad2
+} from "lucide-react";
 
 export interface GameOption {
   id: string;
@@ -51,7 +64,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
 
   // Mobile Layout - Clean implementation
   const MobileLayout = () => (
-    <div className="relative h-screen bg-black overflow-hidden">
+    <div className="relative h-[100dvh] bg-black overflow-hidden flex flex-col">
       {/* Background Layer - Static video background */}
       {mounted && (
         <div className="absolute inset-0">
@@ -65,14 +78,14 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
             className="w-full h-full object-cover"
           />
           {/* Gradient for readability */}
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/95" />
+          {/* <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/95" /> */}
         </div>
       )}
 
       {/* Content Layer */}
-      <div className="relative z-10 h-full flex flex-col">
-        {/* Main Content Area (65%) */}
-        <div className="flex-1 flex flex-col justify-end p-6 pb-4">
+      <div className="relative z-10 h-full flex flex-col pb-[72px]">
+        {/* Main Content Area - Takes remaining space */}
+        <div className="flex-1 flex flex-col justify-end p-5 pb-4">
           {/* Category */}
           <div className="flex items-center gap-2 mb-3">
             <div className={`w-2 h-2 ${colorClasses.bg} rounded-full`} />
@@ -87,7 +100,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
           </h1>
 
           {/* Description */}
-          <p className="text-white/80 text-sm sm:text-base mb-6 leading-relaxed">
+          <p className="text-white/80 text-sm sm:text-base mb-5 leading-relaxed">
             {selected.description}
           </p>
 
@@ -95,82 +108,78 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
           <button
             onClick={() => onOptionClick(selected)}
             className={`
-              w-full py-3 sm:py-4 rounded-xl
+              w-full py-3.5 rounded-xl
               bg-white/10 backdrop-blur-md
               border ${colorClasses.border}
-              flex items-center justify-between px-5 sm:px-6
+              flex items-center justify-between px-5
               active:scale-[0.98] transition-transform duration-150
             `}
           >
-            <span className="text-white font-bold text-base sm:text-lg uppercase tracking-wider">Enter</span>
-            <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <span className="text-white font-bold text-base uppercase tracking-wider">Enter</span>
+            <ChevronRight className="w-5 h-5 text-white" />
           </button>
         </div>
 
-        {/* Bottom Navigation (35%) - More compact */}
-        <div className="bg-black/80 backdrop-blur-xl border-t border-white/20 pb-safe">
-          {/* Navigation Controls */}
-          <div className="flex items-center justify-between px-4 py-2">
-            <button
-              onClick={handlePrevious}
-              className="p-1.5 text-white/60 hover:text-white active:scale-90 transition-all"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <div className="flex-1 px-3">
-              <div className="text-center">
-                <p className="text-white/60 text-[10px] mb-0.5">
-                  {selectedIndex + 1} of {options.length}
-                </p>
-                <h3 className="text-white text-sm font-bold">
-                  {selected.title}
-                </h3>
-              </div>
+        {/* Bottom Navigation - Fixed tab bar */}
+        <div className="fixed bottom-0 left-0 right-0 z-30">
+          <div className="bg-black/60 backdrop-blur-xl border-t border-white/10">
+            <div className="grid grid-cols-5">
+              {/* Home Button */}
+              <button
+                onClick={() => {
+                  // Navigate to home or back
+                  window.history.back();
+                }}
+                className="flex flex-col items-center py-3 text-white/60 active:text-[rgb(163,255,18)] transition-colors group"
+              >
+                <Home className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />
+                {/* <span className="text-[10px] font-bold uppercase tracking-wider">HOME</span> */}
+              </button>
+              
+              {/* Option Navigation Items */}
+              {options.map((option, index) => {
+                const optionColors = accentColorClasses[option.accentColor];
+                const isSelected = index === selectedIndex;
+                
+                // Icon mapping based on option id
+                const getIcon = () => {
+                  switch(option.id) {
+                    case 'marketplace': return ShoppingCart;
+                    case 'launchpad': return Rocket;
+                    case 'lootboxes': return Gift;
+                    case 'p2p': return Users;
+                    case 'casual': return Coffee;
+                    case 'competitive': return Trophy;
+                    case 'casino': return Dices;
+                    case '1v1': return Swords;
+                    default: return Gamepad2;
+                  }
+                };
+                const Icon = getIcon();
+                
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => {
+                      if (isSelected) {
+                        onOptionClick(option);
+                      } else {
+                        setSelectedIndex(index);
+                      }
+                    }}
+                    className={`
+                      flex flex-col items-center py-3 transition-colors group
+                      ${isSelected ? 'text-[rgb(163,255,18)]' : 'text-white/60 active:text-[rgb(163,255,18)]'}
+                    `}
+                  >
+                    <Icon className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />
+                    {/* <span className="text-[9px] font-bold uppercase tracking-wider">
+                      {option.title}
+                    </span> */}
+                  </button>
+                );
+              })}
             </div>
-
-            <button
-              onClick={handleNext}
-              className="p-1.5 text-white/60 hover:text-white active:scale-90 transition-all"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Option Pills */}
-          <div className="px-4 pb-2">
-            <div className="flex gap-1.5 justify-center">
-              {options.map((option, index) => (
-                <button
-                  key={option.id}
-                  onClick={() => setSelectedIndex(index)}
-                  className={`
-                    px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider
-                    transition-all duration-200
-                    ${index === selectedIndex 
-                      ? 'bg-white text-black scale-105' 
-                      : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white'}
-                  `}
-                >
-                  {option.title.slice(0, 3)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Dots Indicator */}
-          <div className="flex justify-center gap-1.5 pb-3">
-            {options.map((_, index) => (
-              <div
-                key={`dot-${index}`}
-                className={`
-                  h-0.5 rounded-full transition-all duration-300
-                  ${index === selectedIndex 
-                    ? 'w-6 bg-white' 
-                    : 'w-1.5 bg-white/30'}
-                `}
-              />
-            ))}
           </div>
         </div>
       </div>
@@ -208,7 +217,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
                   onMouseEnter={(e) => e.currentTarget.play()}
                   onMouseLeave={(e) => e.currentTarget.pause()}
                 />
-                <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-black/60" />
+                {/* <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-black/60" /> */}
               </div>
               
               <div className="relative z-10 h-full flex flex-col justify-between p-8">

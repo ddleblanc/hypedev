@@ -712,7 +712,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
                   className="flex flex-col items-center py-3 text-[rgb(163,255,18)] transition-colors group"
                 >
                   <Home className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">HOME</span>
+                  {/* <span className="text-[10px] font-bold uppercase tracking-wider">HOME</span> */}
                 </motion.button>
                 
                 {/* Main Navigation Items */}
@@ -735,7 +735,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
                     {item.label === 'PLAY' && <Gamepad2 className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />}
                     {item.label === 'MUSEUM' && <ImageIcon className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />}
                     {item.label === 'COLLECTION' && <User className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />}
-                    <span className="text-[9px] font-bold uppercase tracking-wider">{item.label.slice(0, 5)}</span>
+                    {/* <span className="text-[9px] font-bold uppercase tracking-wider">{item.label.slice(0, 5)}</span> */}
                   </motion.button>
                 ))}
               </div>

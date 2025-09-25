@@ -63,8 +63,6 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
   ].some(route => pathname === route || pathname.startsWith(route));
 
   // Studio routes have their own layout
-  // Mount Studio inside the ProgressiveUIWrapper so global AnimatedHeader/AnimatedSidebar
-  // are active for Studio pages and preserve the fluid persistent animations.
   if (isStudioRoute) {
     return <ProgressiveUIWrapper>{children}</ProgressiveUIWrapper>;
   }
@@ -103,7 +101,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   
-  // Calculate initial UI state based on current route to prevent transitions
+  // Calculate initial UI state based on current route
   const getInitialUIState = (): ProgressiveUIState => {
     const segments = pathname.split('/').filter(Boolean);
     let currentRoute = 'home';
@@ -124,34 +122,88 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       currentRoute = segments[0] || 'home';
     }
 
+    // Check if mobile on initial load
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     const isPlaySubRoute = currentRoute.startsWith('play-');
     
     if (currentRoute === 'home') {
       return { showHeader: false, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: null };
     } else if (currentRoute === 'trade') {
-      return { showHeader: true, showFooter: true, showSidebar: false, showRightSidebar: false, navigationDepth: 1, previousRoute: 'home' };
-    } else if (['marketplace', 'studio'].includes(currentRoute)) {
-      return { showHeader: true, showFooter: true, showSidebar: true, showRightSidebar: false, navigationDepth: 2, previousRoute: 'home' };
+      return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 1, previousRoute: 'home' };
+    } else if (currentRoute === 'marketplace') {
+      return { 
+        showHeader: !isMobile, 
+        showFooter: !isMobile, 
+        showSidebar: !isMobile, 
+        showRightSidebar: false, 
+        navigationDepth: 2, 
+        previousRoute: 'home' 
+      };
+    } else if (currentRoute === 'studio') {
+      return { 
+        showHeader: true, 
+        showFooter: !isMobile, 
+        showSidebar: !isMobile, 
+        showRightSidebar: false, 
+        navigationDepth: 2, 
+        previousRoute: 'home' 
+      };
     } else if (currentRoute === 'p2p') {
-      return { showHeader: true, showFooter: true, showSidebar: true, showRightSidebar: true, navigationDepth: 2, previousRoute: 'home' };
+      return { 
+        showHeader: true, 
+        showFooter: !isMobile, 
+        showSidebar: !isMobile, 
+        showRightSidebar: !isMobile, 
+        navigationDepth: 2, 
+        previousRoute: 'home' 
+      };
     } else if (isPlaySubRoute) {
-      return { showHeader: true, showFooter: true, showSidebar: true, showRightSidebar: false, navigationDepth: 2, previousRoute: 'play' };
+      return { 
+        showHeader: true, 
+        showFooter: !isMobile, 
+        showSidebar: !isMobile, 
+        showRightSidebar: false, 
+        navigationDepth: 2, 
+        previousRoute: 'play' 
+      };
     } else if (currentRoute === 'lootboxes') {
       return { showHeader: false, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: 'home' };
     } else if (currentRoute === 'lootboxes-reveal') {
       return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 1, previousRoute: 'home' };
     } else if (currentRoute === 'lootboxes-detail') {
-      return { showHeader: true, showFooter: false, showSidebar: true, showRightSidebar: false, navigationDepth: 2, previousRoute: 'lootboxes-reveal' };
+      return { 
+        showHeader: true, 
+        showFooter: false, 
+        showSidebar: !isMobile, 
+        showRightSidebar: false, 
+        navigationDepth: 2, 
+        previousRoute: 'lootboxes-reveal' 
+      };
     } else if (currentRoute === 'collection') {
-      return { showHeader: true, showFooter: true, showSidebar: false, showRightSidebar: false, navigationDepth: 2, previousRoute: 'marketplace' };
+      return { 
+        showHeader: true, 
+        showFooter: !isMobile, 
+        showSidebar: false, 
+        showRightSidebar: false, 
+        navigationDepth: 2, 
+        previousRoute: 'marketplace' 
+      };
     } else if (['play', 'launchpad', 'museum'].includes(currentRoute)) {
-      return { showHeader: true, showFooter: true, showSidebar: false, showRightSidebar: false, navigationDepth: 1, previousRoute: 'home' };
+      return { 
+        showHeader: true, 
+        showFooter: !isMobile, 
+        showSidebar: false, 
+        showRightSidebar: false, 
+        navigationDepth: 1, 
+        previousRoute: 'home' 
+      };
     }
     
     return { showHeader: false, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: null };
   };
   
   const [uiState, setUiState] = useState<ProgressiveUIState>(getInitialUIState());
+  const [isMobile, setIsMobile] = useState(false);
   
   const [currentStudioView, setCurrentStudioView] = useState<string>('dashboard');
   const [studioViewChangeHandler, setStudioViewChangeHandler] = useState<((view: string) => void) | null>(null);
@@ -167,7 +219,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     trustScore: 4.8
   });
 
-  // Lootbox sidebar data - extended from the main page data
+  // Lootbox sidebar data
   const [lootboxData] = useState({
     availableLootboxes: [
       {
@@ -225,56 +277,38 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         remaining: 8234,
         category: 'Rare',
         accentColor: 'blue'
-      },
-      {
-        id: '5',
-        name: "Dragon Hoard",
-        collection: "MYTHICAL COLLECTION",
-        image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/dragon-hoard.jpeg",
-        price: 0.75,
-        discountPrice: 0.65,
-        discountPercent: 13,
-        rarity: "Mythic",
-        totalSupply: 2500,
-        remaining: 1456,
-        category: 'Mythic',
-        accentColor: 'orange'
-      },
-      {
-        id: '6',
-        name: "Ocean's Depth",
-        collection: "AQUATIC COLLECTION",
-        image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/ocean-depth.jpeg",
-        price: 0.28,
-        discountPrice: null,
-        discountPercent: 0,
-        rarity: "Epic",
-        totalSupply: 8000,
-        remaining: 4721,
-        category: 'Epic',
-        accentColor: 'cyan'
       }
     ]
   });
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Convert pathname to route for UI state management
   const getCurrentRoute = () => {
     if (pathname === '/') return 'home';
     const segments = pathname.split('/').filter(Boolean);
     
-    // Handle nested play routes (e.g., /play/casual -> 'play-casual')
     if (segments[0] === 'play' && segments[1]) {
       return `play-${segments[1]}`;
     }
     
-    // Handle lootbox routes - differentiate reveal page vs detail pages
     if (segments[0] === 'lootboxes') {
       if (segments[1] === 'reveal') {
-        return 'lootboxes-reveal'; // /lootboxes/reveal - reveal page
+        return 'lootboxes-reveal';
       } else if (segments[1]) {
-        return 'lootboxes-detail'; // /lootboxes/[id] - detail page
+        return 'lootboxes-detail';
       } else {
-        return 'lootboxes'; // /lootboxes - base route (if needed)
+        return 'lootboxes';
       }
     }
     
@@ -284,12 +318,11 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   const currentRoute = getCurrentRoute();
   const isPlaySubRoute = currentRoute.startsWith('play-');
 
-  // Update UI state based on current route
+  // Update UI state based on current route and mobile status
   useEffect(() => {
     let newState: Partial<ProgressiveUIState> = {};
     
     if (currentRoute === 'home') {
-      // Home: No UI elements shown
       newState = {
         showHeader: false,
         showFooter: false,
@@ -299,7 +332,6 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: 'home'
       };
     } else if (['trade', 'play'].includes(currentRoute)) {
-      // Trade: Show header and footer only
       newState = {
         showHeader: true,
         showFooter: false,
@@ -308,38 +340,44 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 1,
         previousRoute: 'home'
       };
-    } else if (['marketplace', 'studio'].includes(currentRoute)) {
-      // Marketplace/Studio: Show header, footer, and sidebar
+    } else if (currentRoute === 'marketplace') {
+      // Marketplace: Hide sidebars on mobile, show on desktop
+      newState = {
+        showHeader: !isMobile, // Hide global header on mobile (marketplace has its own)
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'home'
+      };
+    } else if (currentRoute === 'studio') {
       newState = {
         showHeader: true,
-        showFooter: true,
-        showSidebar: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'home'
       };
     } else if (currentRoute === 'p2p') {
-      // P2P: Show header, footer, left sidebar, and RIGHT sidebar
       newState = {
         showHeader: true,
-        showFooter: true,
-        showSidebar: true,
-        showRightSidebar: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: !isMobile,
         navigationDepth: 2,
         previousRoute: 'home'
       };
     } else if (isPlaySubRoute) {
-      // Play sub-routes: Show header, footer, and sidebar
       newState = {
         showHeader: true,
-        showFooter: true,
-        showSidebar: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'play'
       };
     } else if (currentRoute === 'lootboxes') {
-      // Lootboxes base route: No UI elements (if this route is used)
       newState = {
         showHeader: false,
         showFooter: false,
@@ -349,7 +387,6 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: 'home'
       };
     } else if (currentRoute === 'lootboxes-reveal') {
-      // Lootboxes reveal page: Show header for navigation
       newState = {
         showHeader: true,
         showFooter: false,
@@ -359,30 +396,27 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: 'home'
       };
     } else if (currentRoute === 'lootboxes-detail') {
-      // Lootbox detail pages: Show header and sidebar
       newState = {
         showHeader: true,
         showFooter: false,
-        showSidebar: true,
+        showSidebar: !isMobile,
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'lootboxes-reveal'
       };
     } else if (currentRoute === 'collection') {
-      // Collection: Show header, footer, and sidebar
       newState = {
         showHeader: true,
-        showFooter: true,
+        showFooter: !isMobile,
         showSidebar: false,
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'marketplace'
       };
     } else if (['launchpad', 'museum'].includes(currentRoute)) {
-      // Other views: Show header and footer, but no sidebar
       newState = {
         showHeader: true,
-        showFooter: true,
+        showFooter: !isMobile,
         showSidebar: false,
         showRightSidebar: false,
         navigationDepth: 1,
@@ -397,22 +431,12 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       );
       
       if (!hasChanges) {
-        return prev; // Return previous state to prevent unnecessary re-render
-      }
-      
-      // Debug logging for header issues
-      if (newState.showHeader !== prev.showHeader) {
-        console.log('Header state changing:', { 
-          from: prev.showHeader, 
-          to: newState.showHeader, 
-          currentRoute,
-          timestamp: Date.now() 
-        });
+        return prev;
       }
       
       return { ...prev, ...newState };
     });
-  }, [currentRoute, isPlaySubRoute]);
+  }, [currentRoute, isPlaySubRoute, isMobile]);
 
   // Handle studio view changes from AnimatedHeader
   const handleStudioViewChange = useCallback((view: string) => {
@@ -422,12 +446,12 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     }
   }, [studioViewChangeHandler]);
 
-  // Function to register studio view change handler from StudioView component
+  // Function to register studio view change handler
   const registerStudioViewHandler = useCallback((handler: (view: string) => void) => {
     setStudioViewChangeHandler(() => handler);
   }, []);
 
-  // Function to update current studio view (called from StudioView)
+  // Function to update current studio view
   const updateCurrentStudioView = useCallback((view: string) => {
     setCurrentStudioView(view);
   }, []);
@@ -449,7 +473,6 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     if (route === 'home') {
       router.push('/');
     } else if (route.startsWith('lootbox-')) {
-      // Handle lootbox detail navigation (e.g., 'lootbox-1' -> '/lootboxes/1')
       const lootboxId = route.replace('lootbox-', '');
       router.push(`/lootboxes/${lootboxId}`);
     } else {
@@ -493,8 +516,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       {/* Main content with padding adjustments */}
       <div className={`
         transition-all duration-300 ease-in-out
-        ${uiState.showSidebar ? 'pl-80' : 'pl-0'}
-        ${uiState.showRightSidebar ? 'pr-80' : 'pr-0'}
+        ${uiState.showSidebar ? 'md:pl-80' : 'pl-0'}
+        ${uiState.showRightSidebar ? 'md:pr-80' : 'pr-0'}
       `}>
         <StudioHeaderContext.Provider value={studioHeaderContextValue}>
           {children}

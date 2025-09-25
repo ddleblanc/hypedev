@@ -89,9 +89,6 @@ export function TradeView({ setViewMode }: TradeViewProps) {
             centerLabel="TRADE"
           />
         </div>
-
-        {/* Mobile Bottom Gradient */}
-        <div className="fixed bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black to-transparent pointer-events-none z-30" />
       </div>
 
       {/* Desktop Layout - Original */}
