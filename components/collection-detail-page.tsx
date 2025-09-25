@@ -31,15 +31,262 @@ import {
   X,
   ExternalLink,
   Copy,
-  Check
+  Check,
+  SlidersHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface CollectionDetailPageProps {
   slug: string;
 }
+
+// Filter Sidebar Component
+const FilterSidebar = ({ 
+  show, 
+  onClose, 
+  onApply,
+  filterRarity,
+  setFilterRarity,
+  sortBy,
+  setSortBy,
+  priceRange,
+  setPriceRange,
+  selectedTraits,
+  setSelectedTraits,
+  collection
+}: any) => {
+  const [localFilterRarity, setLocalFilterRarity] = useState(filterRarity);
+  const [localSortBy, setLocalSortBy] = useState(sortBy);
+  const [localPriceRange, setLocalPriceRange] = useState(priceRange);
+  const [localSelectedTraits, setLocalSelectedTraits] = useState(selectedTraits);
+
+  const handleApply = () => {
+    setFilterRarity(localFilterRarity);
+    setSortBy(localSortBy);
+    setPriceRange(localPriceRange);
+    setSelectedTraits(localSelectedTraits);
+    onApply();
+  };
+
+  const handleReset = () => {
+    setLocalFilterRarity('all');
+    setLocalSortBy('price-low');
+    setLocalPriceRange([0, 100]);
+    setLocalSelectedTraits([]);
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+            onClick={onClose}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Sidebar */}
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            initial={{ x: -320 }}
+            animate={{ x: 0 }}
+            exit={{ x: -320 }}
+            transition={{ 
+              type: "spring",
+              stiffness: 260,
+              damping: 30,
+              duration: 0.4
+            }}
+            className="fixed left-0 top-0 bottom-0 w-80 bg-black/95 backdrop-blur-xl border-r border-white/10 z-50 overflow-hidden flex flex-col md:hidden"
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Filter className="h-5 w-5" />
+                  Filters
+                </h2>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-white/70 hover:text-white"
+                  onClick={onClose}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              <p className="text-sm text-white/60">Refine your search</p>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Sort By */}
+              <div>
+                <h3 className="text-sm font-semibold text-white/80 mb-3">SORT BY</h3>
+                <select 
+                  value={localSortBy} 
+                  onChange={(e) => setLocalSortBy(e.target.value)}
+                  className="w-full bg-black/40 border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                  <option value="recently-listed">Recently Listed</option>
+                  <option value="most-liked">Most Liked</option>
+                  <option value="ending-soon">Ending Soon</option>
+                </select>
+              </div>
+
+              {/* Rarity Filter */}
+              <div>
+                <h3 className="text-sm font-semibold text-white/80 mb-3">RARITY</h3>
+                <div className="space-y-2">
+                  {['All', 'Common', 'Rare', 'Epic', 'Legendary', 'Mythic'].map((rarity) => (
+                    <button
+                      key={rarity}
+                      onClick={() => setLocalFilterRarity(rarity.toLowerCase())}
+                      className={`w-full text-left px-4 py-2 rounded-lg transition-all ${
+                        localFilterRarity === rarity.toLowerCase() 
+                          ? 'bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)] border border-[rgb(163,255,18)]/30'
+                          : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{rarity}</span>
+                        {rarity !== 'All' && (
+                          <Badge className={`text-[10px] ${
+                            rarity === 'Mythic' ? 'bg-purple-500/20 text-purple-400' :
+                            rarity === 'Legendary' ? 'bg-orange-500/20 text-orange-400' :
+                            rarity === 'Epic' ? 'bg-purple-400/20 text-purple-300' :
+                            rarity === 'Rare' ? 'bg-blue-500/20 text-blue-400' :
+                            'bg-gray-500/20 text-gray-400'
+                          }`}>
+                            {Math.floor(Math.random() * 1000)}
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Price Range */}
+              <div>
+                <h3 className="text-sm font-semibold text-white/80 mb-3">PRICE RANGE (ETH)</h3>
+                <div className="space-y-4">
+                  <Slider
+                    value={localPriceRange}
+                    onValueChange={setLocalPriceRange}
+                    max={100}
+                    step={1}
+                    className="w-full"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/60">0 ETH</span>
+                    <span className="text-sm font-bold text-[rgb(163,255,18)]">
+                      {localPriceRange[0]} - {localPriceRange[1]} ETH
+                    </span>
+                    <span className="text-xs text-white/60">100+ ETH</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Traits */}
+              <div>
+                <h3 className="text-sm font-semibold text-white/80 mb-3">TRAITS</h3>
+                <div className="space-y-2">
+                  {collection?.traits?.map((trait: any) => (
+                    <div key={trait.name} className="flex items-center justify-between p-2">
+                      <Label htmlFor={trait.name} className="text-sm text-white/70 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-[rgb(163,255,18)]" />
+                        {trait.name}
+                      </Label>
+                      <Switch
+                        id={trait.name}
+                        checked={localSelectedTraits.includes(trait.name)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setLocalSelectedTraits([...localSelectedTraits, trait.name]);
+                          } else {
+                            setLocalSelectedTraits(localSelectedTraits.filter((t: string) => t !== trait.name));
+                          }
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Additional Filters */}
+              <div>
+                <h3 className="text-sm font-semibold text-white/80 mb-3">STATUS</h3>
+                <div className="space-y-2">
+                  <button className="w-full text-left px-4 py-2 bg-white/5 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">Buy Now</span>
+                      <Badge className="bg-green-500/20 text-green-400 text-[10px]">
+                        Available
+                      </Badge>
+                    </div>
+                  </button>
+                  <button className="w-full text-left px-4 py-2 bg-white/5 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">On Auction</span>
+                      <Badge className="bg-blue-500/20 text-blue-400 text-[10px]">
+                        Live
+                      </Badge>
+                    </div>
+                  </button>
+                  <button className="w-full text-left px-4 py-2 bg-white/5 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-all">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm">New Listings</span>
+                      <Badge className="bg-purple-500/20 text-purple-400 text-[10px]">
+                        24h
+                      </Badge>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-white/10 bg-black/50 space-y-2">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-white/20 text-white hover:bg-white/10"
+                  onClick={handleReset}
+                >
+                  Reset
+                </Button>
+                <Button
+                  className="flex-1 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold"
+                  onClick={handleApply}
+                >
+                  Apply Filters
+                </Button>
+              </div>
+              <p className="text-xs text-center text-white/40">
+                {Math.floor(Math.random() * 500) + 100} items match your filters
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
 
 // Mobile-specific components
 const MobileItemCard = ({ item, onClick }: { item: any; onClick: () => void }) => (
@@ -306,7 +553,7 @@ const mockCollection = {
   title: "Cyber Legends",
   subtitle: "Futuristic warriors collection",
   description: "Step into the neon-lit streets of Neo Tokyo where cyber-enhanced warriors battle for supremacy.",
-  longDescription: "The Cyber Legends collection brings together the most elite warriors from across the digital frontier. Born from the convergence of advanced cybernetics and ancient martial arts, these legendary fighters have transcended the boundaries between the physical and virtual worlds. Each piece tells a story of honor, technology, and the eternal struggle between order and chaos in a world where data flows like blood through silicon veins.",
+  longDescription: "The Cyber Legends collection brings together the most elite warriors from across the digital frontier. Born from the convergence of advanced cybernetics and ancient martial arts, these legendary fighters have transcended the boundaries between the physical and virtual worlds.",
   videoUrl: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/9c5398c1-dcde-4d7c-ac6a-33fa6ff5d948/transcode=true,width=450,optimized=true/0e178c0604244fb9a44d5b87c6b2a815.webm",
   bannerImage: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/9c5398c1-dcde-4d7c-ac6a-33fa6ff5d948/original=true,quality=90/cyber-legends-banner.jpg",
   logo: "/api/placeholder/120/60",
@@ -338,7 +585,9 @@ const mockCollection = {
     { id: 3, name: "Data Knight #892", price: "22.1 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber3.jpg", rarity: "Mythic", likes: 521, lastSale: "18.9 ETH" },
     { id: 4, name: "Pixel Ronin #445", price: "12.3 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber4.jpg", rarity: "Rare", likes: 341, lastSale: "10.8 ETH" },
     { id: 5, name: "Chrome Ninja #223", price: "6.7 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber5.jpg", rarity: "Common", likes: 198, lastSale: "5.9 ETH" },
-    { id: 6, name: "Quantum Ghost #667", price: "31.2 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber6.jpg", rarity: "Mythic", likes: 672, lastSale: "28.4 ETH" }
+    { id: 6, name: "Quantum Ghost #667", price: "31.2 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber6.jpg", rarity: "Mythic", likes: 672, lastSale: "28.4 ETH" },
+    { id: 7, name: "Binary Blade #334", price: "18.5 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber7.jpg", rarity: "Legendary", likes: 456, lastSale: "16.2 ETH" },
+    { id: 8, name: "Circuit Breaker #778", price: "9.3 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber8.jpg", rarity: "Epic", likes: 298, lastSale: "8.1 ETH" }
   ]
 };
 
@@ -351,9 +600,10 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
   const [filterRarity, setFilterRarity] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSticky, setIsSticky] = useState(false);
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [showFilterSidebar, setShowFilterSidebar] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [showStats, setShowStats] = useState(false);
+  const [priceRange, setPriceRange] = useState([0, 100]);
+  const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
 
   const router = useRouter();
   const heroRef = useRef<HTMLDivElement>(null);
@@ -408,6 +658,12 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
     }
   };
 
+  const handleFilterApply = () => {
+    setShowFilterSidebar(false);
+    // Apply filter logic here
+    console.log('Filters applied:', { filterRarity, sortBy, priceRange, selectedTraits });
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -416,6 +672,22 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
       transition={{ duration: 0.5 }}
       className="w-full min-h-screen bg-black"
     >
+      {/* Filter Sidebar (Mobile Only) */}
+      <FilterSidebar
+        show={showFilterSidebar}
+        onClose={() => setShowFilterSidebar(false)}
+        onApply={handleFilterApply}
+        filterRarity={filterRarity}
+        setFilterRarity={setFilterRarity}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        priceRange={priceRange}
+        setPriceRange={setPriceRange}
+        selectedTraits={selectedTraits}
+        setSelectedTraits={setSelectedTraits}
+        collection={mockCollection}
+      />
+
       {isMobile ? (
         // Mobile Layout - Cinematic
         <div className="relative">
@@ -553,7 +825,7 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
                     size="sm"
                     variant="outline"
                     className="border-white/20 text-white text-xs"
-                    onClick={() => setShowMobileFilters(!showMobileFilters)}
+                    onClick={() => setShowFilterSidebar(true)}
                   >
                     <Filter className="w-3 h-3 mr-1" />
                     Filter
@@ -724,7 +996,7 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
 
               {/* Tab Navigation */}
               <nav className="flex items-center gap-1 border-b border-white/10">
-                {['items', 'activity', 'about', 'offers', 'holders', 'traits'].map((tab) => (
+                {['items', 'activity', 'about'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
