@@ -35,6 +35,44 @@ interface MarketplaceViewProps {
   onCollectionClick?: (collectionId: string) => void;
 }
 
+interface BaseCollection {
+  id: string;
+  title: string;
+  subtitle: string;
+  image: string;
+  items: number;
+  floor: string;
+  volume: string;
+  creator: string;
+  isNew: boolean;
+}
+
+interface HeroCollection extends BaseCollection {
+  description: string;
+  logo: string;
+  rating: number;
+  tags: string[];
+}
+
+interface FeaturedCollection extends BaseCollection {
+  trending: string;
+}
+
+interface TrendingCollection {
+  id: string;
+  title: string;
+  image: string;
+  floor: string;
+  change: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  collections: number;
+  image: string;
+}
+
 const mockCollections = {
   hero: {
     id: "legendary-warriors",
@@ -50,7 +88,7 @@ const mockCollections = {
     rating: 4.9,
     isNew: false,
     tags: ["Action", "RPG", "Collectibles"]
-  },
+  } as HeroCollection,
   featured: [
     {
       id: "cyber-legends",
@@ -112,14 +150,14 @@ const mockCollections = {
       trending: "+45%",
       creator: "UrbanLabs"
     }
-  ],
+  ] as FeaturedCollection[],
   categories: [
     { id: "new", name: "New & Popular", collections: 45, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/69281ee0-9883-441a-9a8e-e43ff4e05ad0/original=true,quality=90/94617017.jpeg" },
     { id: "gaming", name: "Gaming", collections: 234, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/c51fe7d8-e94f-45ed-b23e-d584c8998118/anim=false,width=450,optimized=true/00586-3019206393.jpeg" },
     { id: "art", name: "Digital Art", collections: 156, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/5683b6d8-fa8c-4d5f-8fdb-b6e98801c82a/anim=false,width=450,optimized=true/01959-1721753241.jpeg" },
     { id: "collectibles", name: "Collectibles", collections: 89, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/50d09e0b-f10b-400b-9354-2fa908865565/anim=false,width=450,optimized=true/00015-2320167257.jpeg" },
     { id: "premium", name: "Premium", collections: 23, image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1351be80-e8bd-4d05-8d60-31ced9a024ce/original=true,quality=90/96222521.jpeg" }
-  ],
+  ] as Category[],
   trending: [
     { id: "dragon-knights", title: "Dragon Knights", image: "/api/placeholder/300/450", floor: "1.2 ETH", change: "+156%" },
     { id: "pixel-heroes", title: "Pixel Heroes", image: "/api/placeholder/300/450", floor: "0.8 ETH", change: "+89%" },
@@ -127,7 +165,7 @@ const mockCollections = {
     { id: "crypto-cats", title: "Crypto Cats", image: "/api/placeholder/300/450", floor: "0.5 ETH", change: "+234%" },
     { id: "void-hunters", title: "Void Hunters", image: "/api/placeholder/300/450", floor: "2.7 ETH", change: "+45%" },
     { id: "crystal-mages", title: "Crystal Mages", image: "/api/placeholder/300/450", floor: "1.9 ETH", change: "+78%" }
-  ]
+  ] as TrendingCollection[]
 };
 
 export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
@@ -143,7 +181,10 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   // Combine hero with featured for mobile carousel
-  const mobileHeroItems = [mockCollections.hero, ...mockCollections.featured];
+  const mobileHeroItems = [
+    { ...mockCollections.hero, trending: null },
+    ...mockCollections.featured
+  ];
 
   const handleCollectionClick = (collectionId: string) => {
     router.push(`/collection/${collectionId}`);
@@ -237,7 +278,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 loop
                 playsInline
               >
-                <source src={mobileHeroItems[currentHeroIndex].image || mockCollections.hero.image} type="video/webm" />
+                <source src={mobileHeroItems[currentHeroIndex].image} type="video/webm" />
               </video>
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
             </motion.div>
@@ -279,7 +320,10 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 
                 {/* Subtitle */}
                 <p className="text-lg text-white/80 mb-4">
-                  {mobileHeroItems[currentHeroIndex].subtitle || mobileHeroItems[currentHeroIndex].description?.slice(0, 50) + '...'}
+                  {mobileHeroItems[currentHeroIndex].subtitle || 
+                   ('description' in mobileHeroItems[currentHeroIndex] 
+                    ? (mobileHeroItems[currentHeroIndex] as any).description?.slice(0, 50) + '...'
+                    : '')}
                 </p>
 
                 {/* Stats */}
@@ -939,7 +983,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
               >
                 <div className="relative overflow-hidden rounded-xl">
                   <div className="aspect-[3/4]">
-                    {collection.image.endsWith('.webm') ? (
+                    {'image' in collection && collection.image.endsWith('.webm') ? (
                       <video
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         autoPlay
@@ -951,7 +995,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                       </video>
                     ) : (
                       <img 
-                        src={collection.image} 
+                        src={'image' in collection ? collection.image : '/api/placeholder/300/400'} 
                         alt={collection.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
@@ -961,15 +1005,15 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                     <div className="absolute bottom-3 md:bottom-4 left-3 md:left-4 right-3 md:right-4">
                       <h3 className="text-white font-bold text-sm md:text-lg mb-1">{collection.title}</h3>
                       <p className="text-white/80 text-xs md:text-sm mb-1 md:mb-2">
-                        {'creator' in collection ? `by ${collection.creator}` : `Floor ${collection.floor}`}
+                        {'creator' in collection ? `by ${(collection as any).creator}` : `Floor ${collection.floor}`}
                       </p>
                       <div className="flex items-center justify-between">
                         <div className="text-white/70 text-xs">
-                          {'items' in collection ? `${collection.items.toLocaleString()} items` : 'Collection'}
+                          {'items' in collection ? `${(collection as any).items?.toLocaleString()} items` : 'Collection'}
                         </div>
                         {'trending' in collection && (
                           <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1 md:px-2 py-1">
-                            {collection.trending}
+                            {(collection as any).trending}
                           </Badge>
                         )}
                       </div>
