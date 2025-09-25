@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { 
   Play,
@@ -19,11 +19,19 @@ import {
   Zap,
   Crown,
   ChevronDown,
+  ChevronUp,
   Search,
   Filter,
   Grid3x3,
   List,
-  MoreHorizontal
+  MoreHorizontal,
+  ArrowLeft,
+  Sparkles,
+  Activity,
+  X,
+  ExternalLink,
+  Copy,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,224 +41,258 @@ interface CollectionDetailPageProps {
   slug: string;
 }
 
-// Tab content components
-const AboutTab = ({ collection }: { collection: any }) => (
-  <div className="space-y-6">
-    <div className="grid md:grid-cols-2 gap-8">
-      <div>
-        <h3 className="text-xl font-bold text-white mb-4">Description</h3>
-        <p className="text-white/80 leading-relaxed">{collection.longDescription}</p>
-      </div>
-      <div>
-        <h3 className="text-xl font-bold text-white mb-4">Details</h3>
-        <div className="space-y-3">
-          <div className="flex justify-between">
-            <span className="text-white/60">Contract Address</span>
-            <span className="text-white font-mono text-sm">0x1234...5678</span>
+// Mobile-specific components
+const MobileItemCard = ({ item, onClick }: { item: any; onClick: () => void }) => (
+  <motion.div
+    whileTap={{ scale: 0.98 }}
+    onClick={onClick}
+    className="relative aspect-square rounded-2xl overflow-hidden"
+  >
+    <img 
+      src={item.image} 
+      alt={item.name}
+      className="w-full h-full object-cover"
+    />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+    
+    {/* Rarity Badge */}
+    <div className="absolute top-2 left-2">
+      <Badge className={`text-[10px] px-2 py-0.5 font-bold ${
+        item.rarity === 'Mythic' ? 'bg-purple-500 text-white' :
+        item.rarity === 'Legendary' ? 'bg-orange-500 text-white' :
+        item.rarity === 'Epic' ? 'bg-purple-400 text-white' :
+        item.rarity === 'Rare' ? 'bg-blue-500 text-white' :
+        'bg-gray-500 text-white'
+      }`}>
+        {item.rarity}
+      </Badge>
+    </div>
+
+    {/* Item Info */}
+    <div className="absolute bottom-2 left-2 right-2">
+      <p className="text-white font-bold text-xs truncate">{item.name}</p>
+      <p className="text-[rgb(163,255,18)] font-bold text-sm">{item.price}</p>
+    </div>
+  </motion.div>
+);
+
+// Tab content components (enhanced for mobile)
+const AboutTab = ({ collection, isMobile }: { collection: any; isMobile: boolean }) => (
+  <div className={`space-y-6 ${isMobile ? 'px-4' : ''}`}>
+    {isMobile ? (
+      // Mobile Layout
+      <div className="space-y-8">
+        <div>
+          <h3 className="text-xl font-bold text-white mb-3">About</h3>
+          <p className="text-white/80 leading-relaxed text-sm">{collection.longDescription}</p>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white/5 rounded-xl p-4">
+            <p className="text-white/60 text-xs mb-1">Contract</p>
+            <p className="text-white text-sm font-mono">0x1234...5678</p>
           </div>
-          <div className="flex justify-between">
-            <span className="text-white/60">Token Standard</span>
-            <span className="text-white">ERC-721</span>
+          <div className="bg-white/5 rounded-xl p-4">
+            <p className="text-white/60 text-xs mb-1">Standard</p>
+            <p className="text-white text-sm font-bold">ERC-721</p>
           </div>
-          <div className="flex justify-between">
-            <span className="text-white/60">Blockchain</span>
-            <span className="text-white">Ethereum</span>
+          <div className="bg-white/5 rounded-xl p-4">
+            <p className="text-white/60 text-xs mb-1">Blockchain</p>
+            <p className="text-white text-sm font-bold">Ethereum</p>
           </div>
-          <div className="flex justify-between">
-            <span className="text-white/60">Created</span>
-            <span className="text-white">Jan 2024</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-white/60">Royalty</span>
-            <span className="text-white">5%</span>
+          <div className="bg-white/5 rounded-xl p-4">
+            <p className="text-white/60 text-xs mb-1">Royalty</p>
+            <p className="text-white text-sm font-bold">5%</p>
           </div>
         </div>
       </div>
-    </div>
+    ) : (
+      // Desktop Layout (original)
+      <div className="grid md:grid-cols-2 gap-8">
+        <div>
+          <h3 className="text-xl font-bold text-white mb-4">Description</h3>
+          <p className="text-white/80 leading-relaxed">{collection.longDescription}</p>
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-white mb-4">Details</h3>
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-white/60">Contract Address</span>
+              <span className="text-white font-mono text-sm">0x1234...5678</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-white/60">Token Standard</span>
+              <span className="text-white">ERC-721</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-white/60">Blockchain</span>
+              <span className="text-white">Ethereum</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-white/60">Created</span>
+              <span className="text-white">Jan 2024</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-white/60">Royalty</span>
+              <span className="text-white">5%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
   </div>
 );
 
-const ItemsTab = ({ collection, searchQuery, sortBy, filterRarity, viewMode, setSearchQuery, setSortBy, setFilterRarity, setViewMode }: any) => (
-  <div className="space-y-6">
-    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-      <p className="text-white/70">{collection.items.length} items available</p>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 h-4 w-4" />
-          <Input
-            placeholder="Search items..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-4 py-2 bg-black/40 border-white/20 text-white placeholder:text-white/60 w-64"
+const ItemsTab = ({ collection, searchQuery, sortBy, filterRarity, viewMode, setSearchQuery, setSortBy, setFilterRarity, setViewMode, isMobile }: any) => (
+  <div className={`space-y-6 ${isMobile ? '' : ''}`}>
+    {!isMobile && (
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <p className="text-white/70">{collection.items.length} items available</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 h-4 w-4" />
+            <Input
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-2 bg-black/40 border-white/20 text-white placeholder:text-white/60 w-64"
+            />
+          </div>
+          <select 
+            value={filterRarity} 
+            onChange={(e) => setFilterRarity(e.target.value)}
+            className="bg-black/40 border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="all">All Rarities</option>
+            <option value="common">Common</option>
+            <option value="rare">Rare</option>
+            <option value="epic">Epic</option>
+            <option value="legendary">Legendary</option>
+          </select>
+          <select 
+            value={sortBy} 
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-black/40 border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="price-low">Price: Low to High</option>
+            <option value="price-high">Price: High to Low</option>
+            <option value="rarity">Rarity</option>
+            <option value="likes">Most Liked</option>
+          </select>
+          <div className="flex items-center gap-1">
+            <Button 
+              variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+              size="icon" 
+              className="text-white"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid3x3 className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'list' ? 'default' : 'ghost'} 
+              size="icon" 
+              className="text-white"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {isMobile ? (
+      // Mobile Grid - Always 2 columns, visual-first
+      <div className="grid grid-cols-2 gap-3 px-4">
+        {collection.items.map((item: any, index: number) => (
+          <MobileItemCard 
+            key={item.id} 
+            item={item} 
+            onClick={() => console.log('Open item:', item.id)}
           />
-        </div>
-        <select 
-          value={filterRarity} 
-          onChange={(e) => setFilterRarity(e.target.value)}
-          className="bg-black/40 border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
-        >
-          <option value="all">All Rarities</option>
-          <option value="common">Common</option>
-          <option value="rare">Rare</option>
-          <option value="epic">Epic</option>
-          <option value="legendary">Legendary</option>
-        </select>
-        <select 
-          value={sortBy} 
-          onChange={(e) => setSortBy(e.target.value)}
-          className="bg-black/40 border border-white/20 text-white rounded-lg px-3 py-2 text-sm"
-        >
-          <option value="price-low">Price: Low to High</option>
-          <option value="price-high">Price: High to Low</option>
-          <option value="rarity">Rarity</option>
-          <option value="likes">Most Liked</option>
-        </select>
-        <div className="flex items-center gap-1">
-          <Button 
-            variant={viewMode === 'grid' ? 'default' : 'ghost'} 
-            size="icon" 
-            className="text-white"
-            onClick={() => setViewMode('grid')}
-          >
-            <Grid3x3 className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant={viewMode === 'list' ? 'default' : 'ghost'} 
-            size="icon" 
-            className="text-white"
-            onClick={() => setViewMode('list')}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </div>
-
-    <div className={`grid gap-4 ${
-      viewMode === 'grid' 
-        ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' 
-        : 'grid-cols-1'
-    }`}>
-      {collection.items.map((item: any, index: number) => (
-        <motion.div
-          key={item.id}
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 * index, duration: 0.6 }}
-          className="group cursor-pointer"
-        >
-          <div className={`bg-black/40 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all duration-300 rounded-xl overflow-hidden ${
-            viewMode === 'list' ? 'flex items-center p-4 gap-4' : ''
-          }`}>
-            <div className={`relative ${viewMode === 'grid' ? 'aspect-square' : 'w-20 h-20 flex-shrink-0'}`}>
-              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-              <div className="absolute top-2 left-2">
-                <Badge className={`text-xs px-2 py-1 ${
-                  item.rarity === 'Mythic' ? 'bg-purple-500/90 text-white' :
-                  item.rarity === 'Legendary' ? 'bg-orange-500/90 text-white' :
-                  item.rarity === 'Epic' ? 'bg-purple-400/90 text-white' :
-                  item.rarity === 'Rare' ? 'bg-blue-500/90 text-white' :
-                  'bg-gray-500/90 text-white'
-                }`}>
-                  {item.rarity}
-                </Badge>
-              </div>
-            </div>
-            <div className={`${viewMode === 'grid' ? 'p-4' : 'flex-1'}`}>
-              <h3 className="font-bold text-white text-sm md:text-base truncate">{item.name}</h3>
-              <p className="text-white/60 text-xs mb-2">Last sale: {item.lastSale}</p>
-              <div className="flex items-center justify-between">
-                <p className="text-[rgb(163,255,18)] font-bold text-sm md:text-lg">{item.price}</p>
-                <Button size="sm" className="bg-white text-black hover:bg-white/90 text-xs md:text-sm">
-                  Buy Now
-                </Button>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      ))}
-    </div>
-  </div>
-);
-
-const OffersTab = () => (
-  <div className="space-y-4">
-    <div className="text-center py-12">
-      <h3 className="text-xl font-bold text-white mb-2">No offers yet</h3>
-      <p className="text-white/60 mb-6">Be the first to make an offer on this collection</p>
-      <Button className="bg-white text-black hover:bg-white/90">
-        Make Offer
-      </Button>
-    </div>
-  </div>
-);
-
-const HoldersTab = () => (
-  <div className="space-y-4">
-    <div className="text-white">
-      <h3 className="text-xl font-bold mb-4">Top Holders</h3>
-      <div className="space-y-3">
-        {[...Array(10)].map((_, i) => (
-          <div key={i} className="flex items-center justify-between p-3 bg-black/40 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full" />
-              <div>
-                <p className="text-white font-medium">Holder #{i + 1}</p>
-                <p className="text-white/60 text-sm">0x1234...5678</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-white font-bold">{Math.floor(Math.random() * 50) + 1} items</p>
-              <p className="text-white/60 text-sm">{((Math.random() * 10) + 1).toFixed(2)}%</p>
-            </div>
-          </div>
         ))}
       </div>
-    </div>
+    ) : (
+      // Desktop Grid (original)
+      <div className={`grid gap-4 ${
+        viewMode === 'grid' 
+          ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' 
+          : 'grid-cols-1'
+      }`}>
+        {collection.items.map((item: any, index: number) => (
+          <motion.div
+            key={item.id}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 * index, duration: 0.6 }}
+            className="group cursor-pointer"
+          >
+            <div className={`bg-black/40 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all duration-300 rounded-xl overflow-hidden ${
+              viewMode === 'list' ? 'flex items-center p-4 gap-4' : ''
+            }`}>
+              <div className={`relative ${viewMode === 'grid' ? 'aspect-square' : 'w-20 h-20 flex-shrink-0'}`}>
+                <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                <div className="absolute top-2 left-2">
+                  <Badge className={`text-xs px-2 py-1 ${
+                    item.rarity === 'Mythic' ? 'bg-purple-500/90 text-white' :
+                    item.rarity === 'Legendary' ? 'bg-orange-500/90 text-white' :
+                    item.rarity === 'Epic' ? 'bg-purple-400/90 text-white' :
+                    item.rarity === 'Rare' ? 'bg-blue-500/90 text-white' :
+                    'bg-gray-500/90 text-white'
+                  }`}>
+                    {item.rarity}
+                  </Badge>
+                </div>
+              </div>
+              <div className={`${viewMode === 'grid' ? 'p-4' : 'flex-1'}`}>
+                <h3 className="font-bold text-white text-sm md:text-base truncate">{item.name}</h3>
+                <p className="text-white/60 text-xs mb-2">Last sale: {item.lastSale}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[rgb(163,255,18)] font-bold text-sm md:text-lg">{item.price}</p>
+                  <Button size="sm" className="bg-white text-black hover:bg-white/90 text-xs md:text-sm">
+                    Buy Now
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    )}
   </div>
 );
 
-const TraitsTab = ({ collection }: { collection: any }) => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {collection.traits.map((trait: any, index: number) => (
-        <div key={trait.name} className="bg-black/40 backdrop-blur-sm border border-white/10 rounded-xl p-4">
-          <h4 className="text-white font-bold mb-2">{trait.name}</h4>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-white/80">Rarity</span>
-              <span className="text-white">{trait.rarity}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-white/80">Percentage</span>
-              <span className="text-[rgb(163,255,18)]">{trait.percentage}</span>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const ActivityTab = () => (
-  <div className="space-y-4">
+const ActivityTab = ({ isMobile }: { isMobile: boolean }) => (
+  <div className={`space-y-4 ${isMobile ? 'px-4' : ''}`}>
     <div className="text-white">
-      <h3 className="text-xl font-bold mb-4">Recent Activity</h3>
+      {!isMobile && <h3 className="text-xl font-bold mb-4">Recent Activity</h3>}
       <div className="space-y-3">
         {[...Array(10)].map((_, i) => (
-          <div key={i} className="flex items-center justify-between p-4 bg-black/40 rounded-lg">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg" />
+          <div key={i} className={`flex items-center justify-between ${
+            isMobile ? 'p-3' : 'p-4'
+          } bg-black/40 rounded-lg`}>
+            <div className="flex items-center gap-3">
+              <div className={`${
+                isMobile ? 'w-10 h-10' : 'w-12 h-12'
+              } bg-gradient-to-r from-green-500 to-blue-500 rounded-lg`} />
               <div>
-                <p className="text-white font-medium">Item #{Math.floor(Math.random() * 1000)}</p>
-                <p className="text-white/60 text-sm">2 hours ago</p>
+                <p className={`text-white font-medium ${isMobile ? 'text-sm' : ''}`}>
+                  Item #{Math.floor(Math.random() * 1000)}
+                </p>
+                <p className={`text-white/60 ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                  2 hours ago
+                </p>
               </div>
             </div>
             <div className="text-right">
-              <Badge className="bg-green-500/20 text-green-400 mb-1">
+              <Badge className={`bg-green-500/20 text-green-400 mb-1 ${
+                isMobile ? 'text-[10px]' : ''
+              }`}>
                 {i % 3 === 0 ? 'Sale' : i % 3 === 1 ? 'Transfer' : 'List'}
               </Badge>
-              <p className="text-white font-bold">{(Math.random() * 5 + 0.1).toFixed(2)} ETH</p>
+              <p className={`text-white font-bold ${isMobile ? 'text-sm' : ''}`}>
+                {(Math.random() * 5 + 0.1).toFixed(2)} ETH
+              </p>
             </div>
           </div>
         ))}
@@ -291,12 +333,12 @@ const mockCollection = {
     { name: "Aura Effect", rarity: "Legendary", percentage: "0.5%" }
   ],
   items: [
-    { id: 1, name: "Cyber Samurai #001", price: "15.7 ETH", image: "/api/placeholder/400/400", rarity: "Legendary", likes: 392, lastSale: "12.1 ETH" },
-    { id: 2, name: "Neon Warrior #156", price: "8.9 ETH", image: "/api/placeholder/400/400", rarity: "Epic", likes: 287, lastSale: "7.2 ETH" },
-    { id: 3, name: "Data Knight #892", price: "22.1 ETH", image: "/api/placeholder/400/400", rarity: "Mythic", likes: 521, lastSale: "18.9 ETH" },
-    { id: 4, name: "Pixel Ronin #445", price: "12.3 ETH", image: "/api/placeholder/400/400", rarity: "Rare", likes: 341, lastSale: "10.8 ETH" },
-    { id: 5, name: "Chrome Ninja #223", price: "6.7 ETH", image: "/api/placeholder/400/400", rarity: "Common", likes: 198, lastSale: "5.9 ETH" },
-    { id: 6, name: "Quantum Ghost #667", price: "31.2 ETH", image: "/api/placeholder/400/400", rarity: "Mythic", likes: 672, lastSale: "28.4 ETH" }
+    { id: 1, name: "Cyber Samurai #001", price: "15.7 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber1.jpg", rarity: "Legendary", likes: 392, lastSale: "12.1 ETH" },
+    { id: 2, name: "Neon Warrior #156", price: "8.9 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber2.jpg", rarity: "Epic", likes: 287, lastSale: "7.2 ETH" },
+    { id: 3, name: "Data Knight #892", price: "22.1 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber3.jpg", rarity: "Mythic", likes: 521, lastSale: "18.9 ETH" },
+    { id: 4, name: "Pixel Ronin #445", price: "12.3 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber4.jpg", rarity: "Rare", likes: 341, lastSale: "10.8 ETH" },
+    { id: 5, name: "Chrome Ninja #223", price: "6.7 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber5.jpg", rarity: "Common", likes: 198, lastSale: "5.9 ETH" },
+    { id: 6, name: "Quantum Ghost #667", price: "31.2 ETH", image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/cyber6.jpg", rarity: "Mythic", likes: 672, lastSale: "28.4 ETH" }
   ]
 };
 
@@ -309,6 +351,9 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
   const [filterRarity, setFilterRarity] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSticky, setIsSticky] = useState(false);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   const router = useRouter();
   const heroRef = useRef<HTMLDivElement>(null);
@@ -319,19 +364,24 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   const tabs = [
-    { id: 'about', label: 'About', component: AboutTab },
-    { id: 'items', label: 'Items', component: ItemsTab },
-    { id: 'offers', label: 'Offers', component: OffersTab },
-    { id: 'holders', label: 'Holders', component: HoldersTab },
-    { id: 'traits', label: 'Traits', component: TraitsTab },
-    { id: 'activity', label: 'Activity', component: ActivityTab }
+    { id: 'items', label: 'Items' },
+    { id: 'activity', label: 'Activity' },
+    { id: 'about', label: 'About' }
   ];
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
       if (heroRef.current) {
         const heroRect = heroRef.current.getBoundingClientRect();
-        // Stick when hero section is 80% scrolled out of view
         setIsSticky(heroRect.bottom <= window.innerHeight * 0.2);
       }
     };
@@ -358,7 +408,6 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
     }
   };
 
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -367,14 +416,11 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
       transition={{ duration: 0.5 }}
       className="w-full min-h-screen bg-black"
     >
-      <div className="relative">
-        {/* Hero Section */}
-        <motion.div
-          ref={heroRef}
-          className="relative h-[40vh] overflow-hidden"
-          style={{ scale: heroScale }}
-        >
-          <div className="absolute inset-0">
+      {isMobile ? (
+        // Mobile Layout - Cinematic
+        <div className="relative">
+          {/* Mobile Hero - Fullscreen Video */}
+          <div className="relative h-[70vh] overflow-hidden">
             <video
               ref={videoRef}
               className="w-full h-full object-cover"
@@ -385,163 +431,342 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
             >
               <source src={mockCollection.videoUrl} type="video/webm" />
             </video>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-          </div>
-
-          {/* Hero Content */}
-          <motion.div
-            style={{ opacity: heroOpacity }}
-            className="absolute bottom-0 left-0 right-0 p-4 md:p-8 pb-8"
-          >
-            <div className="max-w-4xl">
-              <motion.h1
-                initial={{ x: -50, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.4, duration: 0.8 }}
-                className="text-4xl md:text-6xl font-bold text-white mb-4"
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+            
+            {/* Mobile Header Overlay */}
+            <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between">
+              <Button
+                size="icon"
+                variant="ghost"
+                className="bg-black/40 backdrop-blur text-white"
+                onClick={() => router.back()}
               >
-                {mockCollection.title}
-              </motion.h1>
-              <motion.p
-                initial={{ x: -50, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.6, duration: 0.8 }}
-                className="text-lg text-white/90 mb-6 max-w-3xl"
-              >
-                {mockCollection.description}
-              </motion.p>
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
               
-              {/* Action buttons in hero */}
-              <motion.div
-                initial={{ x: -50, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 0.8, duration: 0.8 }}
-                className="flex items-center gap-4"
-              >
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-white hover:bg-white/20 rounded-full p-3"
-                  onClick={togglePlayPause}
-                >
-                  {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" fill="currentColor" />}
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-white hover:bg-white/20 rounded-full p-3"
+              <div className="flex gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="bg-black/40 backdrop-blur text-white"
                   onClick={toggleMute}
                 >
-                  {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                  {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                 </Button>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 rounded-full p-3">
-                  <Share2 className="h-5 w-5" />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="bg-black/40 backdrop-blur text-white"
+                >
+                  <Share2 className="w-5 h-5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 rounded-full p-3">
-                  <Heart className="h-5 w-5" />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="bg-black/40 backdrop-blur text-white"
+                >
+                  <Heart className="w-5 h-5" />
                 </Button>
-              </motion.div>
+              </div>
             </div>
-          </motion.div>
-        </motion.div>
 
-        {/* Sticky Profile Info & Toolbar */}
-        <div ref={stickyRef} className={`sticky top-0 z-30 transition-all duration-300 ${
-          isSticky ? 'bg-black/95 backdrop-blur-lg border-b border-white/10 shadow-lg' : 'bg-transparent'
-        }`}>
-          <div className="px-4 md:px-8 py-4">
-            {/* Collection Profile */}
-            <div className="flex items-center gap-6 mb-6">
-              <div className="relative">
-                <img 
-                  src={mockCollection.logo} 
-                  alt={mockCollection.title}
-                  className="h-16 w-16 md:h-20 md:w-20 object-cover rounded-xl border border-white/20"
-                />
+            {/* Mobile Hero Content */}
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Badge className="bg-[rgb(163,255,18)] text-black font-bold text-xs">
+                  TRENDING
+                </Badge>
+                <Badge className="bg-blue-500 text-white font-bold text-xs">
+                  {mockCollection.stats.volumeChange}
+                </Badge>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2">
-                  <h2 className="text-2xl md:text-3xl font-bold text-white">{mockCollection.title}</h2>
-                  <Crown className="h-6 w-6 text-[rgb(163,255,18)]" />
+              
+              <h1 className="text-4xl font-black text-white mb-2">
+                {mockCollection.title}
+              </h1>
+              <p className="text-white/80 text-sm mb-4 line-clamp-2">
+                {mockCollection.description}
+              </p>
+
+              {/* Mobile Stats Grid */}
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                <div className="text-center">
+                  <p className="text-[10px] text-white/60 uppercase">Floor</p>
+                  <p className="text-sm font-bold text-[rgb(163,255,18)]">{mockCollection.stats.floorPrice}</p>
                 </div>
-                <div className="flex items-center gap-6 text-white/80">
-                  <div>
-                    <span className="text-sm text-white/60">Floor</span>
-                    <p className="font-bold text-[rgb(163,255,18)]">{mockCollection.stats.floorPrice}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-white/60">Volume</span>
-                    <p className="font-bold">{mockCollection.stats.volume}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-white/60">Items</span>
-                    <p className="font-bold">{mockCollection.stats.totalSupply.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm text-white/60">Owners</span>
-                    <p className="font-bold">{mockCollection.stats.owners.toLocaleString()}</p>
-                  </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-white/60 uppercase">Volume</p>
+                  <p className="text-sm font-bold text-white">{mockCollection.stats.volume}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-white/60 uppercase">Items</p>
+                  <p className="text-sm font-bold text-white">{mockCollection.stats.totalSupply.toLocaleString()}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] text-white/60 uppercase">Owners</p>
+                  <p className="text-sm font-bold text-white">{mockCollection.stats.owners.toLocaleString()}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Button className="bg-white text-black hover:bg-white/90 font-bold px-6 py-3 flex items-center gap-2">
-                  <ShoppingCart className="h-4 w-4" />
+
+              {/* Mobile CTA */}
+              <div className="flex gap-2">
+                <Button className="flex-1 bg-white text-black hover:bg-white/90 font-bold">
+                  <ShoppingCart className="w-4 h-4 mr-2" />
                   Buy Now
                 </Button>
-                <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 font-bold px-6 py-3 flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Watchlist
+                <Button variant="outline" className="border-white/30 text-white hover:bg-white/10">
+                  <Plus className="w-4 h-4" />
                 </Button>
               </div>
             </div>
+          </div>
 
-            {/* Tab Navigation */}
-            <nav className="flex items-center gap-1 border-b border-white/10">
+          {/* Mobile Tabs - Sticky */}
+          <div className="sticky top-0 z-30 bg-black border-b border-white/10">
+            <div className="flex">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-3 font-medium transition-all duration-200 border-b-2 ${
+                  className={`flex-1 py-4 text-sm font-medium transition-all relative ${
                     activeTab === tab.id
-                      ? 'text-white border-[rgb(163,255,18)]'
-                      : 'text-white/60 border-transparent hover:text-white hover:border-white/30'
+                      ? 'text-white'
+                      : 'text-white/60'
                   }`}
                 >
                   {tab.label}
+                  {activeTab === tab.id && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(163,255,18)]" />
+                  )}
                 </button>
               ))}
-            </nav>
+            </div>
+          </div>
+
+          {/* Mobile Filters (for Items tab) */}
+          {activeTab === 'items' && (
+            <div className="sticky top-[57px] z-20 bg-black/95 backdrop-blur border-b border-white/10 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-white/70 text-sm">{mockCollection.items.length} items</p>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-white/20 text-white text-xs"
+                    onClick={() => setShowMobileFilters(!showMobileFilters)}
+                  >
+                    <Filter className="w-3 h-3 mr-1" />
+                    Filter
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-white/20 text-white text-xs"
+                  >
+                    <TrendingUp className="w-3 h-3 mr-1" />
+                    Price
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Tab Content */}
+          <div className="min-h-screen pb-20 bg-black">
+            {activeTab === 'items' && (
+              <ItemsTab 
+                collection={mockCollection}
+                searchQuery={searchQuery}
+                sortBy={sortBy}
+                filterRarity={filterRarity}
+                viewMode={viewMode}
+                setSearchQuery={setSearchQuery}
+                setSortBy={setSortBy}
+                setFilterRarity={setFilterRarity}
+                setViewMode={setViewMode}
+                isMobile={true}
+              />
+            )}
+            {activeTab === 'activity' && <ActivityTab isMobile={true} />}
+            {activeTab === 'about' && <AboutTab collection={mockCollection} isMobile={true} />}
           </div>
         </div>
+      ) : (
+        // Desktop Layout (original)
+        <div className="relative">
+          {/* Hero Section */}
+          <motion.div
+            ref={heroRef}
+            className="relative h-[40vh] overflow-hidden"
+            style={{ scale: heroScale }}
+          >
+            <div className="absolute inset-0">
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                autoPlay
+                muted={isMuted}
+                loop
+                playsInline
+              >
+                <source src={mockCollection.videoUrl} type="video/webm" />
+              </video>
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+            </div>
 
-        {/* Tab Content */}
-        <motion.section
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="px-4 md:px-8 py-8 min-h-screen"
-        >
-          {activeTab === 'items' && (
-            <ItemsTab 
-              collection={mockCollection}
-              searchQuery={searchQuery}
-              sortBy={sortBy}
-              filterRarity={filterRarity}
-              viewMode={viewMode}
-              setSearchQuery={setSearchQuery}
-              setSortBy={setSortBy}
-              setFilterRarity={setFilterRarity}
-              setViewMode={setViewMode}
-            />
-          )}
-          {activeTab === 'about' && <AboutTab collection={mockCollection} />}
-          {activeTab === 'offers' && <OffersTab />}
-          {activeTab === 'holders' && <HoldersTab />}
-          {activeTab === 'traits' && <TraitsTab collection={mockCollection} />}
-          {activeTab === 'activity' && <ActivityTab />}
-        </motion.section>
-      </div>
+            {/* Hero Content */}
+            <motion.div
+              style={{ opacity: heroOpacity }}
+              className="absolute bottom-0 left-0 right-0 p-4 md:p-8 pb-8"
+            >
+              <div className="max-w-4xl">
+                <motion.h1
+                  initial={{ x: -50, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.4, duration: 0.8 }}
+                  className="text-4xl md:text-6xl font-bold text-white mb-4"
+                >
+                  {mockCollection.title}
+                </motion.h1>
+                <motion.p
+                  initial={{ x: -50, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.6, duration: 0.8 }}
+                  className="text-lg text-white/90 mb-6 max-w-3xl"
+                >
+                  {mockCollection.description}
+                </motion.p>
+                
+                {/* Action buttons in hero */}
+                <motion.div
+                  initial={{ x: -50, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.8, duration: 0.8 }}
+                  className="flex items-center gap-4"
+                >
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-white hover:bg-white/20 rounded-full p-3"
+                    onClick={togglePlayPause}
+                  >
+                    {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" fill="currentColor" />}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-white hover:bg-white/20 rounded-full p-3"
+                    onClick={toggleMute}
+                  >
+                    {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 rounded-full p-3">
+                    <Share2 className="h-5 w-5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 rounded-full p-3">
+                    <Heart className="h-5 w-5" />
+                  </Button>
+                </motion.div>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* Sticky Profile Info & Toolbar */}
+          <div ref={stickyRef} className={`sticky top-0 z-30 transition-all duration-300 ${
+            isSticky ? 'bg-black/95 backdrop-blur-lg border-b border-white/10 shadow-lg' : 'bg-transparent'
+          }`}>
+            <div className="px-4 md:px-8 py-4">
+              {/* Collection Profile */}
+              <div className="flex items-center gap-6 mb-6">
+                <div className="relative">
+                  <img 
+                    src={mockCollection.logo} 
+                    alt={mockCollection.title}
+                    className="h-16 w-16 md:h-20 md:w-20 object-cover rounded-xl border border-white/20"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h2 className="text-2xl md:text-3xl font-bold text-white">{mockCollection.title}</h2>
+                    <Crown className="h-6 w-6 text-[rgb(163,255,18)]" />
+                  </div>
+                  <div className="flex items-center gap-6 text-white/80">
+                    <div>
+                      <span className="text-sm text-white/60">Floor</span>
+                      <p className="font-bold text-[rgb(163,255,18)]">{mockCollection.stats.floorPrice}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-white/60">Volume</span>
+                      <p className="font-bold">{mockCollection.stats.volume}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-white/60">Items</span>
+                      <p className="font-bold">{mockCollection.stats.totalSupply.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <span className="text-sm text-white/60">Owners</span>
+                      <p className="font-bold">{mockCollection.stats.owners.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button className="bg-white text-black hover:bg-white/90 font-bold px-6 py-3 flex items-center gap-2">
+                    <ShoppingCart className="h-4 w-4" />
+                    Buy Now
+                  </Button>
+                  <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 font-bold px-6 py-3 flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Watchlist
+                  </Button>
+                </div>
+              </div>
+
+              {/* Tab Navigation */}
+              <nav className="flex items-center gap-1 border-b border-white/10">
+                {['items', 'activity', 'about', 'offers', 'holders', 'traits'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-3 font-medium transition-all duration-200 border-b-2 capitalize ${
+                      activeTab === tab
+                        ? 'text-white border-[rgb(163,255,18)]'
+                        : 'text-white/60 border-transparent hover:text-white hover:border-white/30'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          <motion.section
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="px-4 md:px-8 py-8 min-h-screen"
+          >
+            {activeTab === 'items' && (
+              <ItemsTab 
+                collection={mockCollection}
+                searchQuery={searchQuery}
+                sortBy={sortBy}
+                filterRarity={filterRarity}
+                viewMode={viewMode}
+                setSearchQuery={setSearchQuery}
+                setSortBy={setSortBy}
+                setFilterRarity={setFilterRarity}
+                setViewMode={setViewMode}
+                isMobile={false}
+              />
+            )}
+            {activeTab === 'about' && <AboutTab collection={mockCollection} isMobile={false} />}
+            {activeTab === 'activity' && <ActivityTab isMobile={false} />}
+          </motion.section>
+        </div>
+      )}
     </motion.div>
   );
 }
