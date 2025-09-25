@@ -22,7 +22,9 @@ import {
   ShoppingCart,
   Rocket,
   Coins,
-  Users
+  Users,
+  Filter,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -131,15 +133,17 @@ const mockCollections = {
 export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMuted, setIsMuted] = useState(true);
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const [activeTab, setActiveTab] = useState("featured");
+  const [showSearch, setShowSearch] = useState(false);
+  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef });
   const router = useRouter();
   
-  console.log('MarketplaceView rendered with onCollectionClick:', onCollectionClick);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+
+  // Combine hero with featured for mobile carousel
+  const mobileHeroItems = [mockCollections.hero, ...mockCollections.featured];
 
   const handleCollectionClick = (collectionId: string) => {
     router.push(`/collection/${collectionId}`);
@@ -153,6 +157,14 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
     }
   };
 
+  // Auto-rotate hero on mobile
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentHeroIndex((prev) => (prev + 1) % mobileHeroItems.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [mobileHeroItems.length]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -161,267 +173,320 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
       transition={{ duration: 0.5 }}
       className="w-full overflow-hidden bg-black"
     >
-      {/* Mobile Layout */}
+      {/* Mobile Layout - Cinematic */}
       <div className="md:hidden relative">
-        {/* Mobile Hero - Not sticky, scrolls away */}
-        <div className="relative h-[50vh]">
-          <video
-            className="w-full h-full object-cover"
-            autoPlay
-            muted={isMuted}
-            loop
-            playsInline
-          >
-            <source src={mockCollections.hero.image} type="video/webm" />
-          </video>
-          <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent" />
-          
-          {/* Hero Content */}
-          <div className="absolute bottom-0 left-0 right-0 p-4">
-            <Badge className="bg-[rgb(163,255,18)] text-black text-xs font-bold mb-2">
-              #1 Collection
-            </Badge>
-            <h2 className="text-2xl font-black text-white mb-1">
-              {mockCollections.hero.title}
-            </h2>
-            <p className="text-sm text-white/70 mb-3 line-clamp-2">
-              {mockCollections.hero.description}
-            </p>
-            
-            <div className="flex gap-2">
-              <Button 
-                size="sm"
-                className="flex-1 bg-white text-black hover:bg-white/90 font-bold"
-                onClick={() => handleCollectionClick(mockCollections.hero.id)}
-              >
-                Explore
-              </Button>
-              <Button 
-                size="icon"
-                variant="ghost"
-                className="text-white"
-                onClick={() => setIsMuted(!isMuted)}
-              >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </Button>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="flex gap-4 mt-3">
-              <div>
-                <p className="text-[10px] text-white/60">Floor</p>
-                <p className="text-xs font-bold text-white">{mockCollections.hero.floor}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-white/60">Volume</p>
-                <p className="text-xs font-bold text-white">{mockCollections.hero.volume}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-white/60">Items</p>
-                <p className="text-xs font-bold text-white">{mockCollections.hero.items.toLocaleString()}</p>
-              </div>
-            </div>
+        
+        {/* Mobile Header - Minimal, overlaid */}
+        <div className="fixed top-0 left-0 right-0 z-50 p-4 flex items-center justify-between">
+          <h1 className="text-lg font-bold text-white">Marketplace</h1>
+          <div className="flex gap-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="bg-black/40 backdrop-blur text-white"
+              onClick={() => setShowSearch(!showSearch)}
+            >
+              {showSearch ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="bg-black/40 backdrop-blur text-white"
+            >
+              <Filter className="w-5 h-5" />
+            </Button>
           </div>
         </div>
 
-        {/* Sticky Container */}
-        <div className="relative">
-          {/* Sticky Header with Search and Tabs */}
-          <div className="sticky top-0 z-50 bg-black border-b border-white/10">
-            {/* Search Bar */}
-            <div className="p-4 bg-black">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60 w-4 h-4" />
-                <Input
-                  placeholder="Search collections..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 bg-white/10 border-white/20 text-white placeholder:text-white/60"
-                />
-              </div>
-            </div>
+        {/* Search Overlay */}
+        <AnimatePresence>
+          {showSearch && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="fixed top-16 left-0 right-0 z-40 p-4 bg-black/95 backdrop-blur-xl"
+            >
+              <Input
+                placeholder="Search collections..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                autoFocus
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            {/* Tab Navigation */}
-            <div className="flex overflow-x-auto scrollbar-hide border-t border-white/10 bg-black">
-              {["Featured", "Trending", "New", "Categories"].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab.toLowerCase())}
-                  className={`flex-shrink-0 px-6 py-3 text-sm font-medium capitalize transition-colors relative ${
-                    activeTab === tab.toLowerCase()
-                      ? 'text-[rgb(163,255,18)]' 
-                      : 'text-white/60 hover:text-white'
-                  }`}
-                >
-                  {tab}
-                  {activeTab === tab.toLowerCase() && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(163,255,18)]" />
+        {/* Fullscreen Hero Carousel */}
+        <div className="relative h-screen w-full overflow-hidden">
+          {/* Video Background */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentHeroIndex}
+              initial={{ opacity: 0, scale: 1.1 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.7 }}
+              className="absolute inset-0"
+            >
+              <video
+                className="w-full h-full object-cover"
+                autoPlay
+                muted={isMuted}
+                loop
+                playsInline
+              >
+                <source src={mobileHeroItems[currentHeroIndex].image || mockCollections.hero.image} type="video/webm" />
+              </video>
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Content Overlay */}
+          <div className="absolute bottom-0 left-0 right-0 p-6 pb-24">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentHeroIndex}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -30 }}
+                transition={{ duration: 0.5 }}
+              >
+                {/* Badges */}
+                <div className="flex gap-2 mb-3">
+                  {currentHeroIndex === 0 && (
+                    <Badge className="bg-[rgb(163,255,18)] text-black font-bold">
+                      #1 Collection
+                    </Badge>
                   )}
-                </button>
+                  {mobileHeroItems[currentHeroIndex].isNew && (
+                    <Badge className="bg-blue-500 text-white font-bold">
+                      NEW
+                    </Badge>
+                  )}
+                  {mobileHeroItems[currentHeroIndex].trending && (
+                    <Badge className="bg-green-500/20 text-green-400 border border-green-500/30">
+                      {mobileHeroItems[currentHeroIndex].trending}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Title */}
+                <h2 className="text-4xl font-black text-white mb-2">
+                  {mobileHeroItems[currentHeroIndex].title}
+                </h2>
+                
+                {/* Subtitle */}
+                <p className="text-lg text-white/80 mb-4">
+                  {mobileHeroItems[currentHeroIndex].subtitle || mobileHeroItems[currentHeroIndex].description?.slice(0, 50) + '...'}
+                </p>
+
+                {/* Stats */}
+                <div className="flex gap-6 mb-6">
+                  <div>
+                    <p className="text-sm text-white/60">Floor</p>
+                    <p className="text-lg font-bold text-white">{mobileHeroItems[currentHeroIndex].floor}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-white/60">Volume</p>
+                    <p className="text-lg font-bold text-white">{mobileHeroItems[currentHeroIndex].volume}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-white/60">Items</p>
+                    <p className="text-lg font-bold text-white">
+                      {mobileHeroItems[currentHeroIndex].items?.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* CTA Button */}
+                <Button 
+                  size="lg"
+                  className="w-full bg-white text-black hover:bg-white/90 font-bold"
+                  onClick={() => handleCollectionClick(mobileHeroItems[currentHeroIndex].id)}
+                >
+                  <Play className="w-5 h-5 mr-2" fill="currentColor" />
+                  Explore Collection
+                </Button>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* Carousel Navigation Dots */}
+          <div className="absolute bottom-32 left-0 right-0 flex justify-center gap-2 px-6">
+            {mobileHeroItems.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentHeroIndex(index)}
+                className={`h-1 transition-all duration-300 ${
+                  index === currentHeroIndex 
+                    ? 'w-8 bg-white' 
+                    : 'w-1 bg-white/40 hover:bg-white/60'
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Swipe Navigation Buttons */}
+          <button
+            onClick={() => setCurrentHeroIndex((prev) => (prev - 1 + mobileHeroItems.length) % mobileHeroItems.length)}
+            className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 backdrop-blur rounded-full text-white"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <button
+            onClick={() => setCurrentHeroIndex((prev) => (prev + 1) % mobileHeroItems.length)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-black/40 backdrop-blur rounded-full text-white"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+
+          {/* Sound Toggle */}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="absolute top-20 right-4 bg-black/40 backdrop-blur text-white"
+            onClick={() => setIsMuted(!isMuted)}
+          >
+            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          </Button>
+        </div>
+
+        {/* Scrollable Content Below Hero */}
+        <div className="bg-black pb-20">
+          
+          {/* Categories - Horizontal Scroll */}
+          <section className="py-8">
+            <h3 className="text-2xl font-bold text-white mb-4 px-6">Categories</h3>
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide px-6">
+              {mockCollections.categories.map((category) => (
+                <motion.div
+                  key={category.id}
+                  whileTap={{ scale: 0.98 }}
+                  className="relative flex-shrink-0 w-32 aspect-square rounded-xl overflow-hidden"
+                >
+                  <img 
+                    src={category.image} 
+                    alt={category.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                  <div className="absolute bottom-2 left-2 right-2">
+                    <p className="text-white font-bold text-xs">{category.name}</p>
+                    <p className="text-white/60 text-[10px]">{category.collections} items</p>
+                  </div>
+                </motion.div>
               ))}
             </div>
-          </div>
+          </section>
 
-          {/* Tab Content - Scrolls under sticky header */}
-          <div className="min-h-screen pb-20">
-
-          {/* Tab Content */}
-          <div className="p-4">
-            {activeTab === "featured" && (
-              <div className="space-y-3">
-                <h3 className="text-lg font-bold text-white mb-3">Featured Collections</h3>
-                {mockCollections.featured.map((collection) => (
-                  <motion.div
-                    key={collection.id}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleCollectionClick(collection.id)}
-                    className="bg-white/5 backdrop-blur-sm rounded-xl overflow-hidden flex gap-3 p-3"
-                  >
-                    <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                      <video
-                        className="w-full h-full object-cover"
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                      >
-                        <source src={collection.image} type="video/webm" />
-                      </video>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-bold text-white truncate">{collection.title}</h3>
-                        {collection.isNew && (
-                          <Badge className="bg-[rgb(163,255,18)] text-black text-[9px] px-1 py-0">
-                            NEW
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-white/60 mb-2">{collection.subtitle}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-white/80">Floor: {collection.floor}</span>
-                        <Badge variant="secondary" className="text-[10px] bg-green-500/20 text-green-400 border-0">
-                          {collection.trending}
+          {/* Trending - Vertical Cards */}
+          <section className="py-8">
+            <div className="flex items-center justify-between mb-4 px-6">
+              <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                <TrendingUp className="w-6 h-6 text-[rgb(163,255,18)]" />
+                Trending Now
+              </h3>
+              <Button variant="ghost" size="sm" className="text-white/60">
+                View All
+                <ArrowUpRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+            
+            <div className="space-y-1">
+              {mockCollections.trending.slice(0, 4).map((collection, index) => (
+                <motion.div
+                  key={collection.id}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleCollectionClick(collection.id)}
+                  className="relative h-48 overflow-hidden"
+                >
+                  {/* Full-width background image */}
+                  <div className="absolute inset-0">
+                    <div className="w-full h-full bg-gradient-to-br from-purple-900/20 to-blue-900/20" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent" />
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="relative h-full flex items-center justify-between p-6">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center">
+                          <span className="text-white text-sm font-bold">#{index + 1}</span>
+                        </div>
+                        <Badge className="bg-green-500 text-white text-xs">
+                          {collection.change}
                         </Badge>
                       </div>
+                      <h4 className="text-2xl font-bold text-white mb-1">{collection.title}</h4>
+                      <p className="text-lg text-white/80">Floor: {collection.floor}</p>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
+                    
+                    {/* Play icon on hover/tap */}
+                    <div className="w-16 h-16 bg-white/10 backdrop-blur rounded-full flex items-center justify-center">
+                      <Play className="w-8 h-8 text-white" fill="currentColor" />
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </section>
 
-            {activeTab === "trending" && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-white mb-3">Trending Now</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {mockCollections.trending.map((collection, index) => (
-                    <motion.div
-                      key={collection.id}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleCollectionClick(collection.id)}
-                      className="bg-white/5 rounded-xl overflow-hidden"
-                    >
-                      <div className="aspect-[3/4] relative bg-white/10">
-                        <div className="absolute top-2 right-2 z-10">
-                          <Badge className="bg-green-500 text-white text-[10px] px-1">
-                            {collection.change}
-                          </Badge>
-                        </div>
-                        <div className="absolute top-2 left-2 z-10">
-                          <div className="bg-black/60 backdrop-blur rounded-full w-5 h-5 flex items-center justify-center">
-                            <span className="text-[10px] text-white font-bold">#{index + 1}</span>
-                          </div>
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-3">
-                          <h4 className="text-sm font-bold text-white truncate">{collection.title}</h4>
-                          <p className="text-xs text-white/70">{collection.floor}</p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "new" && (
-              <div className="space-y-3">
-                <h3 className="text-lg font-bold text-white mb-3">New Collections</h3>
-                {mockCollections.featured.filter(c => c.isNew).map((collection) => (
-                  <motion.div
-                    key={collection.id}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleCollectionClick(collection.id)}
-                    className="bg-white/5 rounded-lg p-3 flex items-center gap-3"
+          {/* New Collections - Stories Style */}
+          <section className="py-8">
+            <h3 className="text-2xl font-bold text-white mb-4 px-6">New Drops</h3>
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide px-6">
+              {mockCollections.featured.filter(c => c.isNew).map((collection) => (
+                <motion.div
+                  key={collection.id}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleCollectionClick(collection.id)}
+                  className="relative flex-shrink-0 w-28 h-48 rounded-2xl overflow-hidden"
+                >
+                  <video
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
                   >
-                    <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                      <video
-                        className="w-full h-full object-cover"
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                      >
-                        <source src={collection.image} type="video/webm" />
-                      </video>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-bold text-white">{collection.title}</h4>
-                      <p className="text-xs text-white/60">by {collection.creator}</p>
-                      <div className="flex gap-3 mt-1">
-                        <span className="text-xs text-white/80">{collection.floor}</span>
-                        <span className="text-xs text-green-400">{collection.trending}</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {activeTab === "categories" && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-white mb-3">Browse Categories</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {mockCollections.categories.map((category) => (
-                    <motion.div
-                      key={category.id}
-                      whileTap={{ scale: 0.98 }}
-                      className="relative rounded-xl overflow-hidden aspect-square"
-                    >
-                      <img 
-                        src={category.image} 
-                        alt={category.name}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                      <div className="absolute bottom-3 left-3">
-                        <h4 className="text-sm font-bold text-white">{category.name}</h4>
-                        <p className="text-xs text-white/60">{category.collections} items</p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+                    <source src={collection.image} type="video/webm" />
+                  </video>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                  
+                  <div className="absolute top-3 left-3 right-3">
+                    <Badge className="bg-[rgb(163,255,18)] text-black text-[10px] font-bold">
+                      NEW
+                    </Badge>
+                  </div>
+                  
+                  <div className="absolute bottom-3 left-3 right-3">
+                    <p className="text-white font-bold text-xs truncate">{collection.title}</p>
+                    <p className="text-white/70 text-[10px]">{collection.floor}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </section>
         </div>
-        </div> {/* Close sticky container */}
 
         {/* Mobile Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-white/10">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-white/10">
           <div className="grid grid-cols-5">
             <button
               onClick={() => router.push('/')}
               className="flex flex-col items-center py-3 text-white/60 hover:text-[rgb(163,255,18)] active:text-[rgb(163,255,18)] transition-colors"
             >
               <Home className="w-5 h-5 mb-1" />
-              {/* <span className="text-[10px] font-medium">HOME</span> */}
+              <span className="text-[10px] font-medium">HOME</span>
             </button>
             
             <button
               className="flex flex-col items-center py-3 text-[rgb(163,255,18)] transition-colors"
             >
               <ShoppingCart className="w-5 h-5 mb-1" />
-              {/* <span className="text-[10px] font-medium">MARKET</span> */}
+              <span className="text-[10px] font-medium">MARKET</span>
             </button>
 
             <button
@@ -429,7 +494,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
               className="flex flex-col items-center py-3 text-white/60 hover:text-[rgb(163,255,18)] active:text-[rgb(163,255,18)] transition-colors"
             >
               <Rocket className="w-5 h-5 mb-1" />
-              {/* <span className="text-[10px] font-medium">LAUNCH</span> */}
+              <span className="text-[10px] font-medium">LAUNCH</span>
             </button>
 
             <button
@@ -437,7 +502,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
               className="flex flex-col items-center py-3 text-white/60 hover:text-[rgb(163,255,18)] active:text-[rgb(163,255,18)] transition-colors"
             >
               <Coins className="w-5 h-5 mb-1" />
-              {/* <span className="text-[10px] font-medium">TOKENS</span> */}
+              <span className="text-[10px] font-medium">TOKENS</span>
             </button>
 
             <button
@@ -445,13 +510,13 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
               className="flex flex-col items-center py-3 text-white/60 hover:text-[rgb(163,255,18)] active:text-[rgb(163,255,18)] transition-colors"
             >
               <Users className="w-5 h-5 mb-1" />
-              {/* <span className="text-[10px] font-medium">P2P</span> */}
+              <span className="text-[10px] font-medium">P2P</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Desktop Layout */}
+      {/* Desktop Layout - Original Cinematic Design */}
       <div className="hidden md:block relative">
         {/* Hero Banner */}
         <motion.div
