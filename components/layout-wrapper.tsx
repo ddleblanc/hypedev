@@ -298,11 +298,11 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 0,
         previousRoute: 'home'
       };
-    } else if (currentRoute === 'trade') {
+    } else if (['trade', 'play'].includes(currentRoute)) {
       // Trade: Show header and footer only
       newState = {
         showHeader: true,
-        showFooter: true,
+        showFooter: false,
         showSidebar: false,
         showRightSidebar: false,
         navigationDepth: 1,
@@ -378,7 +378,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 2,
         previousRoute: 'marketplace'
       };
-    } else if (['play', 'launchpad', 'museum'].includes(currentRoute)) {
+    } else if (['launchpad', 'museum'].includes(currentRoute)) {
       // Other views: Show header and footer, but no sidebar
       newState = {
         showHeader: true,

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { ArrowLeft } from "lucide-react";
 import { useWalletAuth } from "@/hooks/use-wallet-auth";
 import { GameCommandCenter, type GameOption } from "@/components/ui/game-command-center";
 
@@ -52,14 +53,46 @@ export function PlayView({ setViewMode }: PlayViewProps) {
   };
 
   return (
-    <div className="w-full h-screen flex items-center justify-center pt-16 pb-12">
-      <div className="px-8">
-        <GameCommandCenter 
-          options={playOptions}
-          onOptionClick={handleOptionClick}
-          centerLabel="PLAY"
-        />
+    <>
+      {/* Mobile Layout */}
+      <div className="md:hidden w-full">
+
+        {/* Mobile Content - Accounts for 63px top only */}
+        <div>
+          <GameCommandCenter 
+            options={playOptions}
+            onOptionClick={handleOptionClick}
+            centerLabel="PLAY"
+          />
+        </div>
       </div>
-    </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden md:flex w-full h-screen items-center justify-center">
+        {/* Desktop Header */}
+        <div className="fixed top-0 left-0 right-0 z-40 px-8 py-6">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setViewMode('home')}
+              className="flex items-center gap-2 text-white/60 hover:text-white transition-colors group"
+            >
+              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm font-bold tracking-wider">BACK</span>
+            </button>
+            <h1 className="text-white text-2xl font-black tracking-wider">PLAY HUB</h1>
+            <div className="w-20" /> {/* Spacer for centering */}
+          </div>
+        </div>
+
+        {/* Desktop Content */}
+        <div className="px-8 pt-16 pb-12">
+          <GameCommandCenter 
+            options={playOptions}
+            onOptionClick={handleOptionClick}
+            centerLabel="PLAY"
+          />
+        </div>
+      </div>
+    </>
   );
 }

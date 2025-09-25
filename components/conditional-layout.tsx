@@ -116,7 +116,7 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
       // Trade: Add header and footer
       setUiState(prev => ({
         showHeader: true,
-        showFooter: true,
+        showFooter: false,
         showSidebar: false,
         showRightSidebar: false,
         navigationDepth: 1,

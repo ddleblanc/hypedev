@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Crown } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { GameCommandCenter, type GameOption } from "@/components/ui/game-command-center";
 
@@ -78,14 +78,48 @@ export function TradeView({ setViewMode }: TradeViewProps) {
   };
 
   return (
-    <div className="w-full h-screen flex items-center justify-center pt-16 pb-12">
-      <div className="px-8">
-        <GameCommandCenter 
-          options={tradeOptions}
-          onOptionClick={handleOptionClick}
-          centerLabel="TRADE"
-        />
+    <>
+      {/* Mobile Layout */}
+      <div className="md:hidden w-full min-h-screen">
+        {/* Mobile Content - Accounts for 63px top only */}
+        <div>
+          <GameCommandCenter 
+            options={tradeOptions}
+            onOptionClick={handleOptionClick}
+            centerLabel="TRADE"
+          />
+        </div>
+
+        {/* Mobile Bottom Gradient */}
+        <div className="fixed bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black to-transparent pointer-events-none z-30" />
       </div>
-    </div>
+
+      {/* Desktop Layout - Original */}
+      <div className="hidden md:flex w-full h-screen items-center justify-center">
+        {/* Desktop Header */}
+        <div className="fixed top-0 left-0 right-0 z-40 px-8 py-6">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setViewMode('home')}
+              className="flex items-center gap-2 text-white/60 hover:text-white transition-colors group"
+            >
+              <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm font-bold tracking-wider">BACK</span>
+            </button>
+            <h1 className="text-white text-2xl font-black tracking-wider">TRADE HUB</h1>
+            <div className="w-20" /> {/* Spacer for centering */}
+          </div>
+        </div>
+
+        {/* Desktop Content */}
+        <div className="px-8 pt-16 pb-12">
+          <GameCommandCenter 
+            options={tradeOptions}
+            onOptionClick={handleOptionClick}
+            centerLabel="TRADE"
+          />
+        </div>
+      </div>
+    </>
   );
 }
