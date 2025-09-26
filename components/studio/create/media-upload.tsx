@@ -75,7 +75,7 @@ interface MediaUploadGridProps {
   collectionImage: string;
   bannerImage: string;
   uploadingField: string | null;
-  onImageUpload: (type: 'image' | 'bannerImage') => void;
+  onImageUpload: (type: 'image' | 'bannerImage' | 'projectBanner') => void;
   isMobile?: boolean;
 }
 
@@ -129,7 +129,7 @@ export function ProjectBannerUpload({
 }: {
   value: string;
   isUploading: boolean;
-  onUpload: (type: 'projectBanner') => void;
+  onUpload: (type: 'image' | 'bannerImage' | 'projectBanner') => void;
   className?: string;
 }) {
   return (
