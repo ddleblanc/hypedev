@@ -26,8 +26,19 @@ import {
   ArrowRightLeft,
   Plus,
   Minus,
-  CheckCircle2
-  , Edit3, Zap
+  CheckCircle2,
+  Edit3,
+  Zap,
+  Upload,
+  Settings,
+  BarChart3,
+  DollarSign,
+  Image,
+  Calendar,
+  Share,
+  Archive,
+  ShoppingCart,
+  Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -72,10 +83,20 @@ interface AnimatedSidebarProps {
       accentColor: string;
     }>;
   };
+  collectionData?: {
+    id: string;
+    name: string;
+    totalSupply: number;
+    owners: number;
+    floorPrice: string;
+    volume: string;
+    listed: string;
+    isOwner: boolean;
+  };
   onNavigate?: (route: string) => void;
 }
 
-export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, onNavigate }: AnimatedSidebarProps) {
+export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, collectionData, onNavigate }: AnimatedSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { 
@@ -242,6 +263,14 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                   </h2>
                   <p className="text-sm text-white/60">Explore & Discover</p>
                 </>
+              ) : (pathname?.startsWith('/collection/') || currentRoute === 'collection') ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-cyan-400" />
+                    Collection Manager
+                  </h2>
+                  <p className="text-sm text-white/60">Manage your collection</p>
+                </>
               ) : (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
@@ -360,6 +389,27 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     </Button>
                   </div>
                 </div>
+              ) : (pathname?.startsWith('/collection/') || currentRoute === 'collection') && collectionData ? (
+                <div className="w-full space-y-3">
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2 border-white/20 text-white hover:bg-white/10"
+                    >
+                      <BarChart3 className="w-3 h-3" />
+                      Analytics
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2 border-white/20 text-white hover:bg-white/10"
+                    >
+                      <Settings className="w-3 h-3" />
+                      Settings
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <>
                   <div className="flex items-center gap-2">
@@ -380,7 +430,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                       <List className="w-4 h-4" />
                     </Button>
                   </div>
-                  
+
                   <Button size="sm" variant="outline" className="gap-2">
                     <Filter className="w-3 h-3" />
                     Filters
@@ -552,6 +602,170 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                       </motion.div>
                     ))}
                   </div>
+                </div>
+              </>
+            ) : (pathname?.startsWith('/collection/') || currentRoute === 'collection') && collectionData ? (
+              <>
+                {/* Collection Stats */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    COLLECTION STATS
+                  </motion.h3>
+                  <div className="space-y-4">
+                    {[
+                      { label: 'Total Supply', value: collectionData.totalSupply.toLocaleString(), icon: Box },
+                      { label: 'Owners', value: collectionData.owners.toLocaleString(), icon: Users },
+                      { label: 'Floor Price', value: collectionData.floorPrice, icon: TrendingUp },
+                      { label: 'Volume', value: collectionData.volume, icon: BarChart3 },
+                    ].map(({ label, value, icon: Icon }, index) => (
+                      <motion.div
+                        key={label}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.05 }}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4 text-cyan-400" />
+                          <span className="text-white/80 text-sm">{label}</span>
+                        </div>
+                        <Badge className="bg-white/10 text-white border-white/20">
+                          {value}
+                        </Badge>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Collection Management Tools */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    MANAGEMENT TOOLS
+                  </motion.h3>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="space-y-2"
+                  >
+                    {collectionData.isOwner ? (
+                      <>
+                        <Button className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-blue-500 hover:to-cyan-400 text-black font-bold">
+                          <Upload className="w-4 h-4 mr-2" />
+                          Add New NFTs
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Edit3 className="w-4 h-4 mr-2" />
+                          Edit Collection
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Settings className="w-4 h-4 mr-2" />
+                          Collection Settings
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <DollarSign className="w-4 h-4 mr-2" />
+                          Pricing & Royalties
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-blue-500 hover:to-cyan-400 text-black font-bold">
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          Browse Items
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Heart className="w-4 h-4 mr-2" />
+                          Add to Watchlist
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Share className="w-4 h-4 mr-2" />
+                          Share Collection
+                        </Button>
+                      </>
+                    )}
+                  </motion.div>
+                </div>
+
+                {/* Collection Analytics */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    ANALYTICS
+                  </motion.h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white/5 rounded-lg p-2">
+                      <div className="text-xs text-white/60">Listed</div>
+                      <div className="text-lg font-bold text-white">{collectionData.listed}</div>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-2">
+                      <div className="text-xs text-white/60">Avg Price</div>
+                      <div className="text-lg font-bold text-cyan-400">
+                        {(parseFloat(collectionData.floorPrice) * 1.3).toFixed(1)} ETH
+                      </div>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-2">
+                      <div className="text-xs text-white/60">24h Volume</div>
+                      <div className="text-lg font-bold text-white">{(Math.random() * 50 + 10).toFixed(1)} ETH</div>
+                    </div>
+                    <div className="bg-white/5 rounded-lg p-2">
+                      <div className="text-xs text-white/60">7d Change</div>
+                      <div className="text-lg font-bold text-green-400">+{(Math.random() * 30 + 5).toFixed(1)}%</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="p-6">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.55 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    RECENT ACTIVITY
+                  </motion.h3>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                    className="space-y-3"
+                  >
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
+                        <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-lg" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">#{Math.floor(Math.random() * 1000)}</p>
+                          <p className="text-xs text-white/60">{Math.floor(Math.random() * 24)}h ago</p>
+                        </div>
+                        <div className="text-right">
+                          <Badge className={`text-[10px] ${
+                            i % 3 === 0 ? 'bg-green-500/20 text-green-400' :
+                            i % 3 === 1 ? 'bg-blue-500/20 text-blue-400' :
+                            'bg-orange-500/20 text-orange-400'
+                          }`}>
+                            {i % 3 === 0 ? 'Sale' : i % 3 === 1 ? 'List' : 'Transfer'}
+                          </Badge>
+                          <p className="text-xs font-bold text-white">
+                            {(Math.random() * 5 + 0.1).toFixed(2)} ETH
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </motion.div>
                 </div>
               </>
             ) : currentRoute === 'p2p' ? (
@@ -1003,6 +1217,19 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
               >
                 <p className="text-xs text-white/40">
                   P2P Trading v1.0
+                </p>
+              </motion.div>
+            </div>
+          ) : (pathname?.startsWith('/collection/') || currentRoute === 'collection') ? (
+            <div className="p-4 border-t border-white/10 bg-black/50">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="text-center"
+              >
+                <p className="text-xs text-white/40">
+                  Collection Manager v1.0
                 </p>
               </motion.div>
             </div>
