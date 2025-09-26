@@ -1,9 +1,53 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Development Commands
+
+### Core Commands
+- `npm run dev` - Start development server (Next.js on port 3000)
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+
+### Database Commands (Prisma + PostgreSQL)
+- `npm run db:generate` - Generate Prisma client
+- `npm run db:push` - Push schema to database
+- `npm run db:migrate` - Run database migrations
+- `npm run db:studio` - Open Prisma Studio
+
+## Tech Stack & Key Requirements
+
+### Blockchain Integration
 You must exclusively use **Thirdweb v5** APIs and tools for *all* blockchain-related functionality—covering wallets, contracts, IPFS, NFTs, claim logic, media rendering, AI integrations, and more.
 
 - No v4 or legacy usage permitted.
 - Ensure every blockchain related task references Thirdweb v5 documentation and SDK.
 
-High-Level Layout Architecture Guide
+### Core Technologies
+- **Framework**: Next.js 15+ with App Router
+- **Database**: PostgreSQL via Prisma
+- **Styling**: Tailwind CSS with shadcn/ui components
+- **State Management**: React Context API
+- **Animations**: Framer Motion
+- **Authentication**: Wallet-based (Thirdweb v5)
+
+## Key Architecture Patterns
+
+### Database Schema
+The application uses a comprehensive Prisma schema with models for:
+- **User Management**: User, CreatorApplication, UserFollow, UserSocial
+- **NFT System**: Project, Collection, Nft, NftTrait, CollectionTrait, CollectionTraitValue
+- **Search & Analytics**: SearchIndex, UserPreference, UserSuggestion, GlobalSuggestion
+
+### Important Conventions
+- All blockchain interactions must use Thirdweb v5 SDK exclusively
+- Components use shadcn/ui patterns and Radix primitives
+- Database operations use Prisma Client with PostgreSQL
+- Image optimization uses Next.js Image component
+- Form handling uses react-hook-form with zod validation
+
+## High-Level Layout Architecture Guide
 Core Philosophy: Native App Experience
 
 The layout system is designed to provide a native app experience with persistent UI elements that don't reload on route changes, enabling fluid transitions and maintaining state across navigation.
@@ -58,17 +102,34 @@ Route-Specific Background Effects:
 
 3. LayoutWrapper Logic Flow
 
-The LayoutWrapper has intelligent routing logic:
+The LayoutWrapper (`components/layout-wrapper.tsx`) serves as the intelligent router for UI element visibility and coordinates all animated components. It has sophisticated routing logic:
 
 Route Classification:
 
-- Studio Routes (/studio/*): Bypass layout system entirely (<>{children}</>)
-- Unauthenticated Marketplace: Uses special SidebarProvider system
-- Authenticated Routes: Use ProgressiveUIWrapper with state-driven UI elements
-- Public Pages: Default passthrough (<>{children}</>)
+- **Studio Routes** (/studio/*): Bypass layout system entirely (<>{children}</>)
+- **Unauthenticated Marketplace**: Uses special SidebarProvider system with NFTMarketplaceSidebar
+- **Authenticated Routes**: Use ProgressiveUIWrapper with state-driven UI elements
+- **Collection Routes**: Conditional layout based on authentication status
+- **Public Pages**: Default passthrough (<>{children}</>)
 
-Progressive UI State Management:
+### LayoutWrapper Component Coordination
 
+The LayoutWrapper manages four main animated UI components:
+
+- **AnimatedHeader** (`components/animated-ui/animated-header.tsx`) - Top navigation
+- **AnimatedFooter** (`components/animated-ui/animated-footer.tsx`) - Bottom navigation
+- **AnimatedSidebar** (`components/animated-ui/animated-sidebar.tsx`) - Left sidebar
+- **RightAnimatedSidebar** (`components/animated-ui/right-animated-sidebar.tsx`) - Right sidebar
+
+### Progressive UI State Management:
+
+The LayoutWrapper uses a sophisticated state system that calculates which UI elements should be visible based on:
+- Current route path
+- User authentication status
+- Mobile vs desktop screen size
+- Route hierarchy depth
+
+```typescript
 interface ProgressiveUIState {
   showHeader: boolean;        // AnimatedHeader visibility
   showFooter: boolean;        // AnimatedFooter visibility
@@ -77,28 +138,66 @@ interface ProgressiveUIState {
   navigationDepth: number;    // For breadcrumb/navigation logic
   previousRoute: string | null; // For back navigation
 }
+```
+
+### Route-Specific UI Configurations:
+
+- **Home (/)**: No UI elements visible - Full immersive experience
+- **Trade (/trade)**: Header only - Minimal interface for trading
+- **Play (/play)**: Header + Footer - Basic navigation
+- **Marketplace (/marketplace)**: Header + Footer + Left Sidebar (desktop only)
+- **P2P (/p2p)**: All UI elements - Maximum functionality
+- **Studio (/studio)**: Header + Footer + Left Sidebar - Creative workspace
+- **Lootboxes (/lootboxes)**: Dynamic - No UI on main page, Header + Sidebar on detail pages
+
+### Mobile Responsiveness:
+The LayoutWrapper automatically hides sidebars and footers on mobile devices (< 768px width) for most routes, ensuring optimal mobile experience.
 
 4. UI Element Rendering Pattern
 
-// Background layer (z-0)
-<PersistentBackground>
+The LayoutWrapper renders animated UI components in a specific layered approach within the ProgressiveUIWrapper:
 
-  // UI elements layer (z-50 for header, z-40 for sidebars)
-  <AnimatedHeader show={uiState.showHeader} />
+```jsx
+// The LayoutWrapper orchestrates all UI elements
+<ProgressiveUIWrapper>
+  <AnimatedHeader
+    show={uiState.showHeader}
+    onNavigate={handleNavigate}
+    currentRoute={currentRoute}
+    onStudioViewChange={handleStudioViewChange}
+    currentStudioView={currentStudioView}
+  />
   <AnimatedFooter show={uiState.showFooter} />
-  <AnimatedSidebar show={uiState.showSidebar} />
-  <RightAnimatedSidebar show={uiState.showRightSidebar} />
+  <AnimatedSidebar
+    show={uiState.showSidebar}
+    currentRoute={currentRoute}
+    studioData={studioData}
+    p2pData={p2pData}
+    lootboxData={lootboxData}
+    onNavigate={handleNavigate}
+  />
+  <RightAnimatedSidebar
+    show={uiState.showRightSidebar}
+    currentRoute={currentRoute}
+    p2pData={p2pRightSidebarData}
+  />
 
-  // Content layer (z-10) with automatic padding adjustments
+  {/* Content layer with automatic padding adjustments */}
   <div className={`
     transition-all duration-300 ease-in-out
-    ${uiState.showSidebar ? 'pl-80' : 'pl-0'}
-    ${uiState.showRightSidebar ? 'pr-80' : 'pr-0'}
+    ${uiState.showSidebar ? 'md:pl-80' : 'pl-0'}
+    ${uiState.showRightSidebar ? 'md:pr-80' : 'pr-0'}
   `}>
     {children} // Page content goes here
   </div>
+</ProgressiveUIWrapper>
+```
 
-</PersistentBackground>
+### Key Implementation Details:
+- **State Synchronization**: LayoutWrapper calculates initial state on render and updates via useEffect
+- **Animation Coordination**: All UI elements use AnimatePresence for smooth enter/exit animations
+- **Responsive Padding**: Content area automatically adjusts padding based on visible sidebars
+- **Route-Aware Components**: Each animated component receives currentRoute prop for contextual behavior
 
 5. Z-Index Hierarchy
 

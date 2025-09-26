@@ -54,17 +54,17 @@ export function StudioCollectionPage({ collection }: { collection: any }) {
         {/* Hero Section - full-bleed like marketplace */}
         <motion.div
           ref={heroRef}
-          className="relative h-[40vh] overflow-hidden"
+          className="relative h-[50vh] overflow-hidden"
           style={{ scale: heroScale }}
         >
           <div className="absolute inset-0">
             <MediaRenderer
-              src={collection.videoUrl}
+              src={collection.bannerImage || collection.videoUrl}
               alt={collection.title}
               className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-black/30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
           </div>
 
           {/* Studio Tools panel (top-right within hero) */}

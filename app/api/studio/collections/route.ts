@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get('address');
-    
+
     if (!address) {
       return NextResponse.json(
         { success: false, error: 'Wallet address is required' },
@@ -109,19 +109,28 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { 
-      projectId,
-      name, 
-      symbol, 
-      description, 
-      image, 
+    const {
+      project,  // New project data if creating new
+      projectId,  // Existing project ID if using existing
+      collection  // Collection data with IPFS URLs
+    } = body;
+
+    const {
+      name,
+      symbol,
+      description,
+      image,
       bannerImage,
       royaltyPercentage,
       chainId,
       maxSupply,
       contractAddress,
-      contractType 
-    } = body;
+      contractType,
+      category,
+      tags,
+      transactionHash,
+      isDeployed
+    } = collection || {};
 
     if (!name || !symbol || !contractAddress) {
       return NextResponse.json(
@@ -153,46 +162,71 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create collection
-    const collection = await prisma.collection.create({
+    // Create new project if needed
+    let finalProjectId = projectId;
+    if (project && !projectId) {
+      const newProject = await prisma.project.create({
+        data: {
+          name: project.name,
+          description: project.description,
+          genre: project.genre || null,
+          concept: project.concept || null,
+          banner: project.banner || null,
+          creatorId: user.id,
+          status: 'active',
+        },
+      });
+      finalProjectId = newProject.id;
+    }
+
+    // Create collection with IPFS URLs
+    const newCollection = await prisma.collection.create({
       data: {
-        projectId,
+        projectId: finalProjectId,
         name,
         symbol,
         description,
-        image,
-        bannerImage,
+        image,  // IPFS URL from Thirdweb storage
+        bannerImage,  // IPFS URL from Thirdweb storage
+        profileImage: image,  // Using collection image as profile image for now
         address: contractAddress.toLowerCase(),
         creatorAddress: address.toLowerCase(),
         royaltyPercentage: royaltyPercentage || 5,
-        chainId: chainId || 1,
+        chainId: chainId || 11155111,  // Default to Sepolia
         contractType: contractType || 'DropERC721',
         maxSupply,
-        isDeployed: true,
-        deployedAt: new Date(),
+        category: category || null,
+        tags: tags || [],
+        transactionHash: transactionHash || null,
+        isDeployed: isDeployed !== undefined ? isDeployed : true,
+        deployedAt: isDeployed ? new Date() : null,
       },
     });
 
     return NextResponse.json({
       success: true,
+      projectId: finalProjectId,
       collection: {
-        id: collection.id,
-        projectId: collection.projectId,
-        name: collection.name,
-        symbol: collection.symbol,
-        description: collection.description,
-        image: collection.image,
-        bannerImage: collection.bannerImage,
-        address: collection.address,
-        creatorAddress: collection.creatorAddress,
-        royaltyPercentage: collection.royaltyPercentage,
-        chainId: collection.chainId,
-        contractType: collection.contractType,
-        isDeployed: collection.isDeployed,
-        deployedAt: collection.deployedAt,
-        createdAt: collection.createdAt,
-        updatedAt: collection.updatedAt,
-        maxSupply: collection.maxSupply,
+        id: newCollection.id,
+        projectId: newCollection.projectId,
+        name: newCollection.name,
+        symbol: newCollection.symbol,
+        description: newCollection.description,
+        image: newCollection.image,  // IPFS URL
+        bannerImage: newCollection.bannerImage,  // IPFS URL
+        address: newCollection.address,
+        creatorAddress: newCollection.creatorAddress,
+        royaltyPercentage: newCollection.royaltyPercentage,
+        chainId: newCollection.chainId,
+        contractType: newCollection.contractType,
+        isDeployed: newCollection.isDeployed,
+        deployedAt: newCollection.deployedAt,
+        createdAt: newCollection.createdAt,
+        updatedAt: newCollection.updatedAt,
+        maxSupply: newCollection.maxSupply,
+        category: newCollection.category,
+        tags: newCollection.tags,
+        transactionHash: newCollection.transactionHash,
         mintedSupply: 0,
         floorPrice: 0,
         volume: 0,

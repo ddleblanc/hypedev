@@ -81,7 +81,7 @@ export function StudioCollections({ collections, viewMode, onViewCollection }: S
             <p className="text-white/60 text-sm mb-6 max-w-md mx-auto">
               Create your first NFT collection to start building your digital empire
             </p>
-            <Button className="bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+            <Button className="bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold" onClick={() => router.push('/studio/create')}>
               Create Collection
             </Button>
           </motion.div>
