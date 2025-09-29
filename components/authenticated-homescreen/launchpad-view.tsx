@@ -12,18 +12,15 @@ import {
   LayoutGrid,
   LayoutList,
   Activity,
-  Zap,
   Clock,
   CheckCircle2,
   Layers,
   ExternalLink,
-  Search,
-  Sparkles
+  Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MediaRenderer } from "@/components/MediaRenderer";
 import { useStudioData, Collection } from "@/hooks/use-studio-data";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -40,14 +37,10 @@ const categories = [
   { id: "trending", name: "Trending", icon: TrendingUp, count: "0" },
 ];
 
-type LaunchpadViewProps = {
-  setViewMode: (mode: string) => void;
-};
 
-export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
+export function LaunchpadView() {
   const router = useRouter();
   const { collections, isLoading, error } = useStudioData();
-  const { user, isConnected } = useWalletAuthOptimized();
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [viewType, setViewType] = useState<"grid" | "list">("grid");
@@ -96,31 +89,6 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
     return Math.min((minted / total) * 100, 100);
   };
 
-  if (!isConnected || !user) {
-    return (
-      <div className="min-h-screen pt-16 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center max-w-md"
-        >
-          <div className="w-16 h-16 rounded-full bg-[rgb(163,255,18)]/10 flex items-center justify-center mx-auto mb-6">
-            <Zap className="w-8 h-8 text-[rgb(163,255,18)]" />
-          </div>
-          <h2 className="text-2xl font-bold text-white mb-4">Connect Your Wallet</h2>
-          <p className="text-zinc-400 mb-6">
-            Connect your wallet to view your created collections and discover new launches
-          </p>
-          <Button
-            onClick={() => router.push('/')}
-            className="bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold"
-          >
-            Get Started
-          </Button>
-        </motion.div>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -148,8 +116,90 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
 
   return (
     <div className="min-h-screen pt-16">
-      {/* Compact Header Bar - Marketplace Style */}
-      <div className="bg-black/80 backdrop-blur-xl border-b border-white/10">
+      {/* Hero Section - Desktop Only */}
+      <div className="hidden md:block relative h-[60vh] overflow-hidden bg-black">
+        <div className="absolute inset-0">
+          {/* Using a collection image as hero background */}
+          {collections.length > 0 && (
+            <>
+              <MediaRenderer
+                src={collections[0].bannerImage || collections[0].image || ''}
+                alt="Launchpad Hero"
+                className="w-full h-full object-cover opacity-60"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+            </>
+          )}
+        </div>
+
+        {/* Hero Content */}
+        <div className="relative h-full flex items-center">
+          <div className="pl-6 pr-6 lg:pl-8 lg:pr-8 max-w-4xl">
+            <motion.div
+              initial={{ x: -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+              className="mb-6"
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <Badge className="bg-[rgb(163,255,18)] text-black font-bold px-3 py-1">
+                  🚀 Launchpad
+                </Badge>
+                <Badge className="bg-white/10 text-white border-white/20">
+                  {collections.length} Collections
+                </Badge>
+              </div>
+            </motion.div>
+
+            <motion.h1
+              initial={{ x: -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+              className="text-5xl font-bold text-white mb-4"
+            >
+              Discover New Collections
+            </motion.h1>
+
+            <motion.p
+              initial={{ x: -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 0.8, duration: 0.8 }}
+              className="text-xl text-white/90 mb-8 leading-relaxed max-w-2xl"
+            >
+              Explore the latest NFT collections from emerging creators. Find the next big thing before it takes off.
+            </motion.p>
+
+            <motion.div
+              initial={{ x: -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ delay: 1, duration: 0.8 }}
+              className="flex items-center gap-6 text-white/80"
+            >
+              <div>
+                <span className="text-sm uppercase tracking-wide text-white/60">Live Collections</span>
+                <p className="text-lg font-bold">{collections.filter(c => c.isDeployed).length}</p>
+              </div>
+              <div>
+                <span className="text-sm uppercase tracking-wide text-white/60">Total Volume</span>
+                <p className="text-lg font-bold">{collections.reduce((acc, c) => acc + c.volume, 0).toFixed(1)} ETH</p>
+              </div>
+              <div>
+                <span className="text-sm uppercase tracking-wide text-white/60">Avg Floor</span>
+                <p className="text-lg font-bold">
+                  {collections.length > 0
+                    ? (collections.reduce((acc, c) => acc + c.floorPrice, 0) / collections.length).toFixed(2)
+                    : '0.00'
+                  } ETH
+                </p>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sticky Controls Bar */}
+      <div className="sticky top-16 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
         <div className="pl-6 pr-6 lg:pl-8 lg:pr-8 py-3">
           {/* Compact metrics bar */}
           <motion.div
@@ -175,16 +225,6 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
               </div>
             </div>
 
-            {/* Right side - Launch button */}
-            <div className="hidden lg:flex items-center gap-4">
-              <Button
-                onClick={() => router.push('/studio/create')}
-                className="bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold"
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Launch Collection
-              </Button>
-            </div>
           </motion.div>
 
           {/* Filter and Controls Section */}
@@ -282,16 +322,17 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
                 </button>
               </div>
 
-              {/* Mobile Launch Button */}
-              <div className="lg:hidden">
-                <Button
-                  size="sm"
-                  onClick={() => router.push('/studio/create')}
-                  className="bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold h-9"
-                >
-                  <Sparkles className="w-4 h-4 mr-1" />
-                  Launch
-                </Button>
+              {/* Mobile Search Bar */}
+              <div className="sm:hidden w-full">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search collections..."
+                    className="pl-9 h-9 w-full bg-white/5 backdrop-blur-sm border-white/10 text-white placeholder:text-zinc-500"
+                  />
+                </div>
               </div>
             </div>
           </motion.div>
@@ -320,15 +361,6 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
             <p className="text-zinc-500 text-sm mb-6 text-center max-w-md">
               {searchQuery ? 'Try adjusting your search terms' : 'Start creating your first collection to launch it here'}
             </p>
-            {!searchQuery && (
-              <Button
-                onClick={() => router.push('/studio/create')}
-                className="bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold"
-              >
-                <Sparkles className="w-4 h-4 mr-2" />
-                Create Collection
-              </Button>
-            )}
           </motion.div>
         ) : (
           <motion.div
@@ -350,7 +382,7 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
                   "group relative cursor-pointer",
                   viewType === 'grid' ? "" : "flex items-center gap-4 p-4 rounded-xl bg-black/60 backdrop-blur-sm border border-white/10 hover:border-white/20 transition-all"
                 )}
-                onClick={() => router.push(`/collection/${collection.id}`)}
+                onClick={() => router.push(`/launchpad/${collection.id}`)}
               >
                 {viewType === 'grid' ? (
                   <div className="relative bg-black/80 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden hover:border-white/20 transition-all duration-300">

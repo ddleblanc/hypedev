@@ -49,8 +49,7 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
   // Determine layout type based on pathname
   const isStudioRoute = pathname.startsWith('/studio');
   const isCollectionRoute = pathname.startsWith('/collection');
-  const isMarketplaceRoute = pathname === '/marketplace' && (!user || !isConnected);
-  const isAuthenticatedRoute = [
+  const isPublicProgressiveRoute = [
     '/',
     '/trade',
     '/play',
@@ -59,37 +58,24 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
     '/casual',
     '/launchpad',
     '/museum',
-    '/studio',
     '/lootboxes',
     '/collection'
   ].some(route => pathname === route || pathname.startsWith(route));
 
-  // Studio routes have their own layout
+  // Studio routes require authentication and have their own layout
   if (isStudioRoute) {
     return <ProgressiveUIWrapper>{children}</ProgressiveUIWrapper>;
   }
 
-  // Collection routes use authenticated layout if user is connected
+  // Collection routes use authenticated layout if user is connected, otherwise basic layout
   if (isCollectionRoute && user && isConnected) {
     return <ProgressiveUIWrapper>{children}</ProgressiveUIWrapper>;
   } else if (isCollectionRoute) {
     return <>{children}</>;
   }
 
-  // Non-authenticated marketplace route
-  if (isMarketplaceRoute) {
-    return (
-      <SidebarProvider>
-        <NFTMarketplaceSidebar />
-        <SidebarInset>
-          {children}
-        </SidebarInset>
-      </SidebarProvider>
-    );
-  }
-
-  // Authenticated routes use progressive UI
-  if (isAuthenticatedRoute && user && isConnected) {
+  // Public routes that should always use the progressive UI (marketplace, launchpad, etc.)
+  if (isPublicProgressiveRoute) {
     return <ProgressiveUIWrapper>{children}</ProgressiveUIWrapper>;
   }
 
@@ -201,14 +187,23 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 3,
         previousRoute: 'collection'
       };
-    } else if (['play', 'launchpad', 'museum'].includes(currentRoute)) {
-      return { 
-        showHeader: true, 
-        showFooter: !isMobile, 
-        showSidebar: false, 
-        showRightSidebar: false, 
-        navigationDepth: 1, 
-        previousRoute: 'home' 
+    } else if (currentRoute === 'launchpad') {
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 1,
+        previousRoute: 'home'
+      };
+    } else if (['play', 'museum'].includes(currentRoute)) {
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 1,
+        previousRoute: 'home'
       };
     }
     
@@ -441,7 +436,16 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 3,
         previousRoute: 'collection'
       };
-    } else if (['launchpad', 'museum'].includes(currentRoute)) {
+    } else if (currentRoute === 'launchpad') {
+      newState = {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 1,
+        previousRoute: 'home'
+      };
+    } else if (currentRoute === 'museum') {
       newState = {
         showHeader: true,
         showFooter: !isMobile,

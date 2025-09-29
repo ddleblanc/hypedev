@@ -309,6 +309,14 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     );
                   }
                 })()
+              ) : currentRoute === 'launchpad' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-[rgb(163,255,18)]" />
+                    Launchpad
+                  </h2>
+                  <p className="text-sm text-white/60">Discover new collections</p>
+                </>
               ) : currentRoute === 'p2p' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
@@ -480,6 +488,45 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     >
                       <TrendingUp className="w-3 h-3" />
                       Price
+                    </Button>
+                  </div>
+                </div>
+              ) : currentRoute === 'launchpad' ? (
+                <div className="w-full space-y-3">
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2 border-[rgb(163,255,18)]/30 text-[rgb(163,255,18)] hover:bg-[rgb(163,255,18)]/10"
+                    >
+                      <Star className="w-3 h-3" />
+                      Featured
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2 border-white/20 text-white hover:bg-white/10"
+                    >
+                      <TrendingUp className="w-3 h-3" />
+                      Trending
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2 border-white/20 text-white hover:bg-white/10"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      Live
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1 gap-2 border-white/20 text-white hover:bg-white/10"
+                    >
+                      <Calendar className="w-3 h-3" />
+                      Recent
                     </Button>
                   </div>
                 </div>
@@ -922,6 +969,118 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                           </Badge>
                           <p className="text-xs font-bold text-white">
                             {(Math.random() * 5 + 0.1).toFixed(2)} ETH
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </motion.div>
+                </div>
+              </>
+            ) : currentRoute === 'launchpad' ? (
+              <>
+                {/* Launchpad Stats */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    LAUNCHPAD STATS
+                  </motion.h3>
+                  <div className="space-y-3">
+                    {[
+                      { label: 'New Collections', value: '24', icon: Sparkles },
+                      { label: 'Live Projects', value: '47', icon: CheckCircle2 },
+                      { label: 'Total Volume', value: '1.2K ETH', icon: TrendingUp },
+                      { label: 'Active Creators', value: '156', icon: Users }
+                    ].map(({ label, value, icon: Icon }, index) => (
+                      <motion.div
+                        key={label}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.05 }}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                          <span className="text-white/80 text-sm">{label}</span>
+                        </div>
+                        <Badge className="bg-white/10 text-white border-white/20">
+                          {value}
+                        </Badge>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trending Categories */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    TRENDING CATEGORIES
+                  </motion.h3>
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Gaming', projects: 18, growth: '+45%' },
+                      { name: 'Art', projects: 12, growth: '+23%' },
+                      { name: 'Collectibles', projects: 8, growth: '+67%' },
+                      { name: 'Music', projects: 6, growth: '+89%' }
+                    ].map((category, index) => (
+                      <motion.div
+                        key={category.name}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.45 + index * 0.05 }}
+                        className="flex items-center justify-between p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-white">{category.name}</p>
+                          <p className="text-xs text-white/60">{category.projects} projects</p>
+                        </div>
+                        <Badge className="bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)] border-[rgb(163,255,18)]/30 text-xs">
+                          {category.growth}
+                        </Badge>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Collections */}
+                <div className="p-6">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    TOP COLLECTIONS
+                  </motion.h3>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.55 }}
+                    className="space-y-3"
+                  >
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                        <div className="w-8 h-8 bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 rounded-lg flex items-center justify-center">
+                          <span className="text-black text-xs font-bold">#{i + 1}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">Collection {i + 1}</p>
+                          <p className="text-xs text-white/60">{Math.floor(Math.random() * 1000)} items</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-white">
+                            {(Math.random() * 2 + 0.1).toFixed(2)} ETH
+                          </p>
+                          <p className="text-[10px] text-[rgb(163,255,18)]">
+                            +{Math.floor(Math.random() * 50 + 10)}%
                           </p>
                         </div>
                       </div>
