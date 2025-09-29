@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname, useRouter } from 'next/navigation';
-import { 
+import {
   ChevronRight,
   Gamepad2,
   Trophy,
@@ -38,7 +38,13 @@ import {
   Share,
   Archive,
   ShoppingCart,
-  Heart
+  Heart,
+  FolderOpen,
+  Activity,
+  FileText,
+  Package,
+  Database,
+  PieChart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -198,7 +204,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
             damping: 30,
             duration: 0.4
           }}
-          className="fixed left-0 top-16 bottom-[44.6px] w-80 bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 overflow-hidden flex flex-col"
+          className="fixed left-0 top-16 bottom-0 md:bottom-[44.6px] w-80 bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 overflow-hidden flex flex-col"
         >
           {/* Header */}
           <div className="p-6 border-b border-white/10">
@@ -207,14 +213,102 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              {currentRoute === 'studio' ? (
-                <>
-                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Search className="h-5 w-5" />
-                    Studio
-                  </h2>
-                  <p className="text-sm text-white/60">Create & Manage</p>
-                </>
+              {(pathname?.startsWith('/studio') || currentRoute === 'studio') ? (
+                (() => {
+                  // Determine specific studio page
+                  if (pathname === '/studio/collections') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Layers className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Collections
+                        </h2>
+                        <p className="text-sm text-white/60">Manage NFT collections</p>
+                      </>
+                    );
+                  } else if (pathname === '/studio/projects') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <FolderOpen className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Projects
+                        </h2>
+                        <p className="text-sm text-white/60">Organize your work</p>
+                      </>
+                    );
+                  } else if (pathname === '/studio/nfts') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Image className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          NFTs
+                        </h2>
+                        <p className="text-sm text-white/60">Your digital assets</p>
+                      </>
+                    );
+                  } else if (pathname === '/studio/analytics') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <BarChart3 className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Analytics
+                        </h2>
+                        <p className="text-sm text-white/60">Track performance</p>
+                      </>
+                    );
+                  } else if (pathname === '/studio/activity') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Activity className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Activity
+                        </h2>
+                        <p className="text-sm text-white/60">Recent events</p>
+                      </>
+                    );
+                  } else if (pathname === '/studio/settings') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Settings className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Settings
+                        </h2>
+                        <p className="text-sm text-white/60">Studio preferences</p>
+                      </>
+                    );
+                  } else if (pathname === '/studio/create') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Plus className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Create
+                        </h2>
+                        <p className="text-sm text-white/60">New collection</p>
+                      </>
+                    );
+                  } else if (pathname === '/studio/dashboard') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <PieChart className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Dashboard
+                        </h2>
+                        <p className="text-sm text-white/60">Overview & insights</p>
+                      </>
+                    );
+                  } else {
+                    // Default studio page
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Database className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Studio
+                        </h2>
+                        <p className="text-sm text-white/60">Create & Manage</p>
+                      </>
+                    );
+                  }
+                })()
               ) : currentRoute === 'p2p' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
@@ -497,8 +591,9 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     transition={{ delay: 0.45 }}
                     className="space-y-2"
                   >
-                    {/* If we're on a studio collection page, show collection-specific quick actions */}
+                    {/* Page-specific quick actions */}
                     {pathname && pathname.startsWith('/studio/collections/') ? (
+                      // Collection detail page actions
                       (() => {
                         const m = pathname.match(/^\/studio\/collections\/([^\/]+)/);
                         const collectionId = m ? m[1] : null;
@@ -516,16 +611,82 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                           </>
                         );
                       })()
-                    ) : (
+                    ) : pathname === '/studio/collections' ? (
+                      // Collections page actions
+                      <>
+                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold" onClick={() => router.push('/studio/create')}>
+                          <Plus className="w-4 h-4 mr-2" /> New Collection
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Upload className="w-4 h-4 mr-2" /> Import Collection
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Layers className="w-4 h-4 mr-2" /> Bulk Upload
+                        </Button>
+                      </>
+                    ) : pathname === '/studio/projects' ? (
+                      // Projects page actions
                       <>
                         <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
-                          Create Project
+                          <FolderOpen className="w-4 h-4 mr-2" /> New Project
                         </Button>
                         <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-                          Import Collection
+                          <Upload className="w-4 h-4 mr-2" /> Import Project
                         </Button>
                         <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-                          Bulk Upload
+                          <Share className="w-4 h-4 mr-2" /> Share Project
+                        </Button>
+                      </>
+                    ) : pathname === '/studio/nfts' ? (
+                      // NFTs page actions
+                      <>
+                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                          <Image className="w-4 h-4 mr-2" /> Create NFT
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Upload className="w-4 h-4 mr-2" /> Batch Upload
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Edit3 className="w-4 h-4 mr-2" /> Bulk Edit
+                        </Button>
+                      </>
+                    ) : pathname === '/studio/analytics' ? (
+                      // Analytics page actions
+                      <>
+                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                          <BarChart3 className="w-4 h-4 mr-2" /> Export Report
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <PieChart className="w-4 h-4 mr-2" /> Custom Dashboard
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Activity className="w-4 h-4 mr-2" /> Track Events
+                        </Button>
+                      </>
+                    ) : pathname === '/studio/settings' ? (
+                      // Settings page actions
+                      <>
+                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                          <Settings className="w-4 h-4 mr-2" /> Preferences
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Users className="w-4 h-4 mr-2" /> Team Members
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <Shield className="w-4 h-4 mr-2" /> Security
+                        </Button>
+                      </>
+                    ) : (
+                      // Default studio actions
+                      <>
+                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                          <Database className="w-4 h-4 mr-2" /> Quick Start
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <FolderOpen className="w-4 h-4 mr-2" /> Browse Projects
+                        </Button>
+                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                          <TrendingUp className="w-4 h-4 mr-2" /> View Analytics
                         </Button>
                       </>
                     )}

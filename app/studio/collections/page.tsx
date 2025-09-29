@@ -1,25 +1,24 @@
 "use client";
 
-import { Suspense, useState, useRef, useEffect } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { Suspense, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { StudioCollections } from "@/components/studio/views";
-import { StudioMainContent } from "@/components/studio/studio-main-content";
 import { useStudioData } from "@/hooks/use-studio-data";
 import {
-  Plus, Grid3x3, List, Filter, Search, ArrowLeft, Upload,
-  Shield, MoreVertical
+  Plus, Search, ArrowUpDown, LayoutGrid, LayoutList, 
+  Sparkles, TrendingUp, Clock, CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 function CollectionsContent() {
   const { collections, isLoading, error, refreshData } = useStudioData();
@@ -27,363 +26,326 @@ function CollectionsContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
+  
   const router = useRouter();
-  const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
-  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Calculate metrics
+  const metrics = {
+    total: collections.length,
+    deployed: collections.filter((c: any) => c.isDeployed).length,
+    nfts: collections.reduce((acc: number, c: any) => acc + (c.totalSupply || 0), 0),
+    volume: 89.3,
+    growth: 12.5
+  };
+
   const filters = [
-    { id: 'all', label: 'All Collections', count: collections.length },
-    { id: 'deployed', label: 'Deployed', count: collections.filter((c: any) => c.isDeployed).length },
-    { id: 'draft', label: 'Draft', count: collections.filter((c: any) => !c.isDeployed).length },
-    { id: 'trending', label: 'Trending', count: 5 } // Mock data
+    { 
+      id: 'all', 
+      label: 'All Collections',
+      icon: Sparkles,
+      description: 'View everything'
+    },
+    { 
+      id: 'deployed', 
+      label: 'Live',
+      icon: CheckCircle2,
+      description: 'On mainnet',
+      accent: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
+    },
+    { 
+      id: 'draft', 
+      label: 'In Progress',
+      icon: Clock,
+      description: 'Not deployed',
+      accent: 'text-amber-400 bg-amber-400/10 border-amber-400/20'
+    }
   ];
 
-  const sortOptions = [
-    { id: 'recent', label: 'Most Recent' },
-    { id: 'volume', label: 'Highest Volume' },
-    { id: 'supply', label: 'Most NFTs' },
-    { id: 'name', label: 'Alphabetical' }
-  ];
-
-  // Calculate stats
-  const totalCollections = collections.length;
-  const deployedCollections = collections.filter((c: any) => c.isDeployed).length;
-  const totalNFTs = collections.reduce((acc: number, c: any) => acc + (c.totalSupply || 0), 0);
-  const totalVolume = "89.3 ETH"; // Mock data
-  const totalHolders = "3.2K"; // Mock data
-  const avgFloorPrice = "0.25 ETH"; // Mock data
+  // Filter and search logic
+  const filteredCollections = collections.filter((c: any) => {
+    const matchesFilter = 
+      activeFilter === 'all' ||
+      (activeFilter === 'deployed' && c.isDeployed) ||
+      (activeFilter === 'draft' && !c.isDeployed);
+    
+    const matchesSearch = !searchQuery || 
+      c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.symbol?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    return matchesFilter && matchesSearch;
+  });
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
-            <div className="text-red-500 text-2xl">⚠</div>
+      <div className="min-h-screen flex items-center justify-center pt-16">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center max-w-md"
+        >
+          <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-500">!</span>
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">Error Loading Collections</h3>
-          <p className="text-sm text-white/60 mb-4">{error}</p>
-          <Button onClick={refreshData} className="bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90">
-            Try Again
+          <h3 className="text-white font-medium mb-2">Something went wrong</h3>
+          <p className="text-zinc-400 text-sm mb-6">{error}</p>
+          <Button 
+            onClick={refreshData}
+            className="bg-white text-black hover:bg-zinc-200 font-medium"
+          >
+            Retry
           </Button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   if (isLoading && collections.length === 0) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[rgb(163,255,18)]"></div>
+      <div className="min-h-screen flex items-center justify-center pt-16">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-zinc-500 text-sm">Loading collections...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className="w-full min-h-screen bg-black"
-    >
-      {isMobile ? (
-        // MOBILE LAYOUT
-        <div className="relative">
-          {/* Mobile Hero */}
-          <div className="relative h-[60vh] overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-black to-[rgb(163,255,18)]/20" />
-            <div className="absolute inset-0 opacity-20">
-              <div className="absolute inset-0" style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239333ea' fill-opacity='0.3'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-              }} />
+    <div className="min-h-screen pt-16">
+      {/* Unified Header Bar */}
+      <div className="bg-black/80 backdrop-blur-xl border-b border-white/10">
+        <div className="pl-6 pr-6 lg:pl-8 lg:pr-8 py-3">
+          {/* Compact Metrics Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between"
+          >
+            {/* Left side metrics */}
+            <div className="flex items-center gap-4 lg:gap-6">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500 uppercase">Total</span>
+                <span className="text-lg font-semibold text-white">{metrics.total}</span>
+              </div>
+              <div className="w-px h-5 bg-white/10" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500 uppercase">Live</span>
+                <span className="text-lg font-semibold text-emerald-400">{metrics.deployed}</span>
+              </div>
+              <div className="w-px h-5 bg-white/10" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500 uppercase">NFTs</span>
+                <span className="text-lg font-semibold text-white">{metrics.nfts.toLocaleString()}</span>
+              </div>
             </div>
 
-            <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-10">
-              <Button size="icon" variant="ghost" className="bg-black/40 backdrop-blur text-white" onClick={() => router.back()}>
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="icon" variant="ghost" className="bg-black/40 backdrop-blur text-white">
-                    <MoreVertical className="w-5 h-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-black/90 backdrop-blur border-white/10">
-                  <DropdownMenuItem className="text-white hover:text-black" onClick={() => router.push('/studio/create')}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Collection
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-white hover:text-black">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Import
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            {/* Right side metrics (desktop only) */}
+            <div className="hidden lg:flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-500 uppercase">Volume</span>
+                <span className="text-lg font-semibold text-white">{metrics.volume} ETH</span>
+              </div>
+              <div className="w-px h-5 bg-white/10" />
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-3 h-3 text-emerald-400" />
+                <span className="text-lg font-semibold text-emerald-400">+{metrics.growth}%</span>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Filter and Controls Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-3"
+          >
+            {/* Filter Pills */}
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {filters.map((filter, index) => {
+                const isActive = activeFilter === filter.id;
+                const count = filter.id === 'all'
+                  ? collections.length
+                  : filter.id === 'deployed'
+                  ? metrics.deployed
+                  : collections.length - metrics.deployed;
+
+                return (
+                  <motion.button
+                    key={filter.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + index * 0.05 }}
+                    onClick={() => setActiveFilter(filter.id)}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 border whitespace-nowrap",
+                      isActive
+                        ? filter.accent || "bg-white/5 text-white border-white"
+                        : "bg-white/5 text-zinc-400 border-white/10 hover:text-white hover:border-white/20"
+                    )}
+                  >
+                    <filter.icon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{filter.label}</span>
+                    <span className="sm:hidden">{filter.label.split(' ')[0]}</span>
+                    <span className={cn(
+                      "text-xs px-1.5 py-0.5 rounded-full",
+                      isActive ? "bg-black/20" : "bg-white/10"
+                    )}>
+                      {count}
+                    </span>
+                  </motion.button>
+                );
+              })}
             </div>
 
-            <div className="absolute bottom-0 left-0 right-0 p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Badge className="bg-purple-500 text-white font-bold text-xs">COLLECTIONS</Badge>
-                <Badge className="bg-[rgb(163,255,18)] text-black font-bold text-xs">{totalCollections} TOTAL</Badge>
+            {/* Right Controls */}
+            <div className="flex items-center gap-3">
+              {/* Search - Hidden on mobile */}
+              <div className={cn(
+                "relative transition-all duration-200 hidden sm:block",
+                isSearchFocused ? "w-64" : "w-48"
+              )}>
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                  placeholder="Search..."
+                  className="pl-9 h-9 bg-white/5 backdrop-blur-sm border-white/10 text-white placeholder:text-zinc-500 focus:border-white/20 focus:bg-white/10"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                  >
+                    <span className="text-xs">ESC</span>
+                  </button>
+                )}
               </div>
 
-              <h1 className="text-4xl font-black text-white mb-2">My Collections</h1>
-              <p className="text-white/80 text-sm mb-4">Deploy and manage your NFT collections</p>
+              {/* Sort - Hidden on mobile */}
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-36 h-9 bg-white/5 backdrop-blur-sm border-white/10 text-white hidden sm:flex">
+                  <ArrowUpDown className="w-3.5 h-3.5 mr-2 text-zinc-500" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-black/90 backdrop-blur-sm border-white/10">
+                  <SelectItem value="recent" className="text-white">Recent</SelectItem>
+                  <SelectItem value="name" className="text-white">Name</SelectItem>
+                  <SelectItem value="volume" className="text-white">Volume</SelectItem>
+                  <SelectItem value="items" className="text-white">Items</SelectItem>
+                </SelectContent>
+              </Select>
 
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <Card className="bg-black/40 backdrop-blur border-white/10">
-                  <CardContent className="p-2">
-                    <p className="text-[10px] text-white/60 uppercase">Deployed</p>
-                    <p className="text-lg font-bold text-[rgb(163,255,18)]">{deployedCollections}</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-black/40 backdrop-blur border-white/10">
-                  <CardContent className="p-2">
-                    <p className="text-[10px] text-white/60 uppercase">Volume</p>
-                    <p className="text-lg font-bold text-white">{totalVolume}</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-black/40 backdrop-blur border-white/10">
-                  <CardContent className="p-2">
-                    <p className="text-[10px] text-white/60 uppercase">NFTs</p>
-                    <p className="text-lg font-bold text-white">{totalNFTs}</p>
-                  </CardContent>
-                </Card>
+              {/* View Mode */}
+              <div className="flex items-center bg-white/5 backdrop-blur-sm rounded-lg p-1 border border-white/10">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={cn(
+                    "p-1.5 rounded transition-all",
+                    viewMode === 'grid'
+                      ? "bg-white text-black"
+                      : "text-zinc-500 hover:text-white"
+                  )}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    "p-1.5 rounded transition-all",
+                    viewMode === 'list'
+                      ? "bg-white text-black"
+                      : "text-zinc-500 hover:text-white"
+                  )}
+                >
+                  <LayoutList className="w-3.5 h-3.5" />
+                </button>
               </div>
+            </div>
 
-              <div className="flex gap-2">
-                <Button className="flex-1 bg-purple-500 text-white hover:bg-purple-600 font-bold" onClick={() => router.push('/studio/create')}>
+            {/* Mobile Search Bar */}
+            {isMobile && (
+              <div className="lg:hidden">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search collections..."
+                    className="pl-9 h-9 w-full bg-white/5 backdrop-blur-sm border-white/10 text-white placeholder:text-zinc-500"
+                  />
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      </div>
+
+
+      {/* Content Area */}
+      <div className="pl-6 pr-6 lg:pl-8 lg:pr-8 py-8">
+        <AnimatePresence mode="wait">
+          {filteredCollections.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="flex flex-col items-center justify-center py-24"
+            >
+              <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
+                <Search className="w-6 h-6 text-zinc-600" />
+              </div>
+              <h3 className="text-white font-medium text-lg mb-2">No collections found</h3>
+              <p className="text-zinc-500 text-sm mb-6">
+                {searchQuery ? 'Try adjusting your search' : 'Create your first collection to get started'}
+              </p>
+              {!searchQuery && (
+                <Button
+                  onClick={() => router.push('/studio/create')}
+                  className="bg-white text-black hover:bg-zinc-100"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Collection
                 </Button>
-                <Button variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                  <Filter className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile Filters */}
-          <div className="sticky top-0 z-30 bg-black border-b border-white/10">
-            <div className="flex overflow-x-auto">
-              {filters.map((filter) => (
-                <button
-                  key={filter.id}
-                  onClick={() => setActiveFilter(filter.id)}
-                  className={`flex-shrink-0 px-4 py-3 text-sm font-medium transition-all relative whitespace-nowrap ${
-                    activeFilter === filter.id ? 'text-white' : 'text-white/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-1">
-                    {filter.label}
-                    {filter.count > 0 && (
-                      <Badge className="bg-white/10 text-white text-[10px] ml-1">{filter.count}</Badge>
-                    )}
-                  </div>
-                  {activeFilter === filter.id && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Mobile Content */}
-          <div className="min-h-screen pb-20 bg-black">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-white/60">{collections.length} collections</p>
-                <div className="flex gap-1">
-                  <Button size="icon" variant={viewMode === 'grid' ? 'default' : 'ghost'} onClick={() => setViewMode('grid')} className="h-8 w-8">
-                    <Grid3x3 className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="h-8 w-8">
-                    <List className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <StudioMainContent currentView="collections">
-                <StudioCollections collections={collections} viewMode={viewMode} />
-              </StudioMainContent>
-            </div>
-          </div>
-        </div>
-      ) : (
-        // DESKTOP LAYOUT
-        <div className="relative">
-          {/* Desktop Hero */}
-          <motion.div
-            ref={heroRef}
-            className="relative h-[40vh] overflow-hidden"
-            style={{ scale: heroScale }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-900/40 via-black to-[rgb(163,255,18)]/30" />
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute inset-0" style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239333ea' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-              }} />
-            </div>
-
-            <motion.div style={{ opacity: heroOpacity }} className="absolute bottom-0 left-0 right-0 px-8 py-8">
-              <div className="max-w-7xl">
-                <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="flex items-center gap-3 mb-4">
-                  <Badge className="bg-purple-500 text-white font-bold">COLLECTIONS</Badge>
-                  <Badge variant="outline" className="border-white/30 text-white">{totalCollections} TOTAL</Badge>
-                  <Badge variant="outline" className="border-[rgb(163,255,18)]/50 text-[rgb(163,255,18)]">{deployedCollections} DEPLOYED</Badge>
-                </motion.div>
-
-                <motion.h1 initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="text-5xl md:text-6xl font-bold text-white mb-4">
-                  Collection Manager
-                </motion.h1>
-
-                <motion.p initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.6 }} className="text-lg text-white/90 mb-6 max-w-2xl">
-                  Deploy smart contracts, manage NFT collections, and track performance metrics across multiple chains
-                </motion.p>
-
-                <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.8 }} className="flex items-center gap-4">
-                  <Button className="bg-purple-500 text-white hover:bg-purple-600 font-bold px-6 py-3" onClick={() => router.push('/studio/create')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create New Collection
-                  </Button>
-                  <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 px-6 py-3">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Import Existing
-                  </Button>
-                  <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 px-6 py-3">
-                    <Shield className="h-4 w-4 mr-2" />
-                    Deploy Contract
-                  </Button>
-                </motion.div>
-              </div>
+              )}
             </motion.div>
-          </motion.div>
-
-          {/* Desktop Sticky Header */}
-          <div className="sticky top-0 z-30 bg-black/95 backdrop-blur-lg border-b border-white/10">
-            <div className="px-8 py-4 max-w-7xl">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-8">
-                  <div>
-                    <p className="text-sm text-white/60">Total Collections</p>
-                    <p className="text-2xl font-bold text-white">{totalCollections}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-white/60">Deployed</p>
-                    <p className="text-2xl font-bold text-[rgb(163,255,18)]">{deployedCollections}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-white/60">Total Volume</p>
-                    <p className="text-2xl font-bold text-white">{totalVolume}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-white/60">Total NFTs</p>
-                    <p className="text-2xl font-bold text-white">{totalNFTs}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-white/60">Holders</p>
-                    <p className="text-2xl font-bold text-white">{totalHolders}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-white/60">Avg Floor</p>
-                    <p className="text-2xl font-bold text-white">{avgFloorPrice}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 h-4 w-4" />
-                    <Input
-                      placeholder="Search collections..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 w-64 bg-black/40 border-white/20 text-white placeholder:text-white/60"
-                    />
-                  </div>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="border-white/20 text-white">
-                        <Filter className="h-4 w-4 mr-2" />
-                        {sortOptions.find(s => s.id === sortBy)?.label}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-black/90 backdrop-blur border-white/10">
-                      {sortOptions.map((option) => (
-                        <DropdownMenuItem
-                          key={option.id}
-                          onClick={() => setSortBy(option.id)}
-                          className="text-white hover:text-black"
-                        >
-                          {option.label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <div className="flex items-center gap-1">
-                    <Button size="icon" variant={viewMode === 'grid' ? 'default' : 'ghost'} onClick={() => setViewMode('grid')} className="text-white">
-                      <Grid3x3 className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="text-white">
-                      <List className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <nav className="flex items-center gap-1">
-                {filters.map((filter) => (
-                  <button
-                    key={filter.id}
-                    onClick={() => setActiveFilter(filter.id)}
-                    className={`px-4 py-2 font-medium transition-all duration-200 border-b-2 ${
-                      activeFilter === filter.id
-                        ? 'text-white border-purple-500'
-                        : 'text-white/60 border-transparent hover:text-white hover:border-white/30'
-                    }`}
-                  >
-                    {filter.label}
-                    {filter.count > 0 && (
-                      <Badge className="bg-white/10 text-white text-xs ml-2">{filter.count}</Badge>
-                    )}
-                  </button>
-                ))}
-              </nav>
-            </div>
-          </div>
-
-          {/* Desktop Content */}
-          <div className="px-8 py-8 min-h-screen max-w-7xl">
-            <StudioMainContent currentView="collections">
-              <StudioCollections collections={collections} viewMode={viewMode} />
-            </StudioMainContent>
-          </div>
-        </div>
-      )}
-    </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <StudioCollections
+                collections={filteredCollections}
+                viewMode={viewMode}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
   );
 }
 
 export default function StudioCollectionsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+      <div className="min-h-screen flex items-center justify-center pt-16">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-zinc-500 text-sm">Loading...</p>
+        </div>
       </div>
     }>
       <CollectionsContent />

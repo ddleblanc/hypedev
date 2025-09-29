@@ -2,13 +2,11 @@
 
 import { Suspense, useState, useRef, useEffect } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useRouter } from "next/navigation";
 import { StudioProjects } from "@/components/studio/views";
 import { StudioMainContent } from "@/components/studio/studio-main-content";
 import { useStudioData } from "@/hooks/use-studio-data";
-import { 
-  Plus, Grid3x3, List, Filter, Search, ArrowLeft, Upload,
-  Sparkles, Box, Layers, TrendingUp, Activity
+import {
+  Plus, Grid3x3, List, Search, Upload
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,21 +18,22 @@ function ProjectsContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [isMobile, setIsMobile] = useState(false);
-  
-  const router = useRouter();
-  const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
-  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
+    setIsClient(true);
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"]
+  });
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   const tabs = [
     { id: 'all', label: 'All Projects', count: projects.length },
@@ -55,7 +54,7 @@ function ProjectsContent() {
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">Error Loading Projects</h3>
           <p className="text-sm text-white/60 mb-4">{error}</p>
-          <Button onClick={refreshData} className="bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90">
+          <Button onClick={refreshData} className="bg-white/10 border border-white/20 text-white hover:bg-white/20">
             Try Again
           </Button>
         </div>
@@ -81,134 +80,71 @@ function ProjectsContent() {
       transition={{ duration: 0.5 }}
       className="w-full min-h-screen bg-black"
     >
-      {isMobile ? (
-        // MOBILE LAYOUT
+      {!isClient ? (
+        // Show loading skeleton during hydration
         <div className="relative">
-          {/* Mobile Hero */}
-          <div className="relative h-[60vh] overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-[rgb(163,255,18)]/20 via-black to-purple-900/20" />
-            <div className="absolute inset-0 opacity-20">
-              <div className="absolute inset-0" style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23a3ff12' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-              }} />
-            </div>
-
-            <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-10">
-              <Button size="icon" variant="ghost" className="bg-black/40 backdrop-blur text-white" onClick={() => router.back()}>
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <Button size="icon" variant="ghost" className="bg-black/40 backdrop-blur text-white">
-                <Plus className="w-5 h-5" />
-              </Button>
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Badge className="bg-[rgb(163,255,18)] text-black font-bold text-xs">STUDIO</Badge>
-                <Badge className="bg-purple-500 text-white font-bold text-xs">{projects.length} PROJECTS</Badge>
-              </div>
-              
-              <h1 className="text-4xl font-black text-white mb-2">My Projects</h1>
-              <p className="text-white/80 text-sm mb-4">Create, manage, and deploy your NFT collections</p>
-
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                <div className="text-center">
-                  <p className="text-[10px] text-white/60 uppercase">Total</p>
-                  <p className="text-sm font-bold text-[rgb(163,255,18)]">{projects.length}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-white/60 uppercase">Active</p>
-                  <p className="text-sm font-bold text-white">{activeProjects}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-white/60 uppercase">NFTs</p>
-                  <p className="text-sm font-bold text-white">{totalNFTs}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] text-white/60 uppercase">Collections</p>
-                  <p className="text-sm font-bold text-white">{totalCollections}</p>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button className="flex-1 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Project
-                </Button>
-                <Button variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                  <Upload className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+          <div className="h-[50vh] md:h-[40vh] bg-gradient-to-br from-black/60 via-black to-[rgb(163,255,18)]/30 animate-pulse" />
+          <div className="sticky top-16 md:top-0 z-30 bg-black/95 backdrop-blur-lg border-b border-white/10 p-4">
+            <div className="h-8 bg-white/10 rounded animate-pulse" />
           </div>
-
-          {/* Mobile Tabs */}
-          <div className="sticky top-0 z-30 bg-black border-b border-white/10">
-            <div className="flex">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-4 text-sm font-medium transition-all relative ${
-                    activeTab === tab.id ? 'text-white' : 'text-white/60'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    {tab.label}
-                    {tab.count > 0 && (
-                      <Badge className="bg-white/10 text-white text-[10px] ml-1">{tab.count}</Badge>
-                    )}
-                  </div>
-                  {activeTab === tab.id && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(163,255,18)]" />
-                  )}
-                </button>
+          <div className="px-4 md:px-8 py-6 md:py-8 min-h-screen">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-white/5 rounded-2xl h-64 animate-pulse" />
               ))}
-            </div>
-          </div>
-
-          {/* Mobile Content */}
-          <div className="min-h-screen pb-20 bg-black">
-            <div className="flex-1 overflow-hidden pt-4">
-              <StudioMainContent currentView="projects">
-                <StudioProjects mockProjects={projects} viewMode="grid" />
-              </StudioMainContent>
             </div>
           </div>
         </div>
       ) : (
-        // DESKTOP LAYOUT
-        <div className="relative">
-          {/* Desktop Hero */}
-          <motion.div
-            ref={heroRef}
-            className="relative h-[40vh] overflow-hidden"
-            style={{ scale: heroScale }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-[rgb(163,255,18)]/30 via-black to-purple-900/30" />
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute inset-0" style={{
-                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23a3ff12' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-              }} />
-            </div>
+      <div className="relative">
+        {/* Hero Section - Responsive */}
+        <motion.div
+          ref={heroRef}
+          className="relative h-[50vh] md:h-[40vh] overflow-hidden"
+          style={{ scale: isClient ? heroScale : 1 }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[rgb(163,255,18)]/30 via-black to-black/60" />
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23a3ff12' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }} />
+          </div>
 
-            <motion.div style={{ opacity: heroOpacity }} className="absolute bottom-0 left-0 right-0 px-8 py-8">
-              <div className="max-w-7xl">
-                <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="flex items-center gap-3 mb-4">
-                  <Badge className="bg-[rgb(163,255,18)] text-black font-bold">STUDIO</Badge>
-                  <Badge variant="outline" className="border-white/30 text-white">{projects.length} PROJECTS</Badge>
-                </motion.div>
-                
-                <motion.h1 initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.4 }} className="text-5xl md:text-6xl font-bold text-white mb-4">
-                  Project Studio
-                </motion.h1>
-                
-                <motion.p initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.6 }} className="text-lg text-white/90 mb-6 max-w-2xl">
-                  Create, manage, and deploy your NFT collections with powerful tools and analytics
-                </motion.p>
+          <motion.div style={{ opacity: heroOpacity }} className="absolute bottom-0 left-0 right-0 px-4 md:px-8 py-6 md:py-8">
+            <div className="max-w-7xl">
+              {/* Mobile: Compact badges */}
+              <motion.div
+                initial={{ x: -50, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4"
+              >
+                <Badge className="bg-white text-black font-bold text-xs md:text-sm">STUDIO</Badge>
+                <Badge variant="outline" className="border-white/30 text-white text-xs md:text-sm">{projects.length} PROJECTS</Badge>
+              </motion.div>
 
+              <motion.h1
+                initial={{ x: -50, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-2 md:mb-4"
+              >
+                Project Studio
+              </motion.h1>
+
+              <motion.p
+                initial={{ x: -50, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="text-sm md:text-lg text-white/90 mb-4 md:mb-6 max-w-2xl"
+              >
+                Create, manage, and deploy your NFT collections with powerful tools
+              </motion.p>
+
+              {/* Desktop: Action buttons */}
+              {!isMobile && (
                 <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.8 }} className="flex items-center gap-4">
-                  <Button className="bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold px-6 py-3">
+                  <Button className="bg-white/10 border border-white/20 text-white hover:bg-white/20 font-bold px-6 py-3">
                     <Plus className="h-4 w-4 mr-2" />
                     Create New Project
                   </Button>
@@ -217,13 +153,42 @@ function ProjectsContent() {
                     Import Collection
                   </Button>
                 </motion.div>
-              </div>
-            </motion.div>
+              )}
+            </div>
           </motion.div>
+        </motion.div>
 
-          {/* Desktop Sticky Header */}
-          <div className="sticky top-0 z-30 bg-black/95 backdrop-blur-lg border-b border-white/10">
-            <div className="px-8 py-4 max-w-7xl">
+        {/* Sticky Header - Responsive */}
+        <div className="sticky top-16 md:top-0 z-30 bg-black/95 backdrop-blur-lg border-b border-white/10">
+          <div className="px-4 md:px-8 py-3 md:py-4">
+            {/* Mobile: Simplified stats */}
+            {isMobile ? (
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex gap-4">
+                  <div>
+                    <p className="text-xs text-white/60">Total</p>
+                    <p className="text-lg font-bold text-white">{projects.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/60">Active</p>
+                    <p className="text-lg font-bold text-white">{activeProjects}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/60">NFTs</p>
+                    <p className="text-lg font-bold text-white">{totalNFTs}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button size="icon" variant={viewMode === 'grid' ? 'default' : 'ghost'} onClick={() => setViewMode('grid')} className="h-8 w-8">
+                    <Grid3x3 className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="h-8 w-8">
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              /* Desktop: Full stats and controls */
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-8">
                   <div>
@@ -232,7 +197,7 @@ function ProjectsContent() {
                   </div>
                   <div>
                     <p className="text-sm text-white/60">Active</p>
-                    <p className="text-2xl font-bold text-[rgb(163,255,18)]">{activeProjects}</p>
+                    <p className="text-2xl font-bold text-white">{activeProjects}</p>
                   </div>
                   <div>
                     <p className="text-sm text-white/60">Collections</p>
@@ -264,35 +229,37 @@ function ProjectsContent() {
                   </div>
                 </div>
               </div>
+            )}
 
-              <nav className="flex items-center gap-1">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 py-2 font-medium transition-all duration-200 border-b-2 ${
-                      activeTab === tab.id
-                        ? 'text-white border-[rgb(163,255,18)]'
-                        : 'text-white/60 border-transparent hover:text-white hover:border-white/30'
-                    }`}
-                  >
-                    {tab.label}
-                    {tab.count > 0 && (
-                      <Badge className="bg-white/10 text-white text-xs ml-2">{tab.count}</Badge>
-                    )}
-                  </button>
-                ))}
-              </nav>
-            </div>
-          </div>
-
-          {/* Desktop Content */}
-          <div className="px-8 py-8 min-h-screen max-w-7xl">
-            <StudioMainContent currentView="projects">
-              <StudioProjects mockProjects={projects} viewMode={viewMode} />
-            </StudioMainContent>
+            {/* Filter tabs */}
+            <nav className="flex items-center gap-1 overflow-x-auto">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 md:px-4 py-1.5 md:py-2 font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-sm md:text-base ${
+                    activeTab === tab.id
+                      ? 'text-white border-[rgb(163,255,18)]'
+                      : 'text-white/60 border-transparent hover:text-white hover:border-white/30'
+                  }`}
+                >
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <Badge className="bg-white/10 text-white text-xs ml-2">{tab.count}</Badge>
+                  )}
+                </button>
+              ))}
+            </nav>
           </div>
         </div>
+
+        {/* Content */}
+        <div className="px-4 md:px-8 py-6 md:py-8 min-h-screen max-w-full">
+          <StudioMainContent currentView="projects">
+            <StudioProjects mockProjects={projects} viewMode={viewMode} />
+          </StudioMainContent>
+        </div>
+      </div>
       )}
     </motion.div>
   );

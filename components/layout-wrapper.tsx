@@ -12,6 +12,8 @@ import { RightAnimatedSidebar } from "@/components/animated-ui/right-animated-si
 import { BackgroundCarousel } from "@/components/background-carousel";
 import { useStudio } from "@/contexts/studio-context";
 import { P2PTradingProvider } from "@/contexts/p2p-trading-context";
+import { StudioMobileNav } from "@/components/studio/studio-mobile-nav";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Context for studio header integration
 interface StudioHeaderContextType {
@@ -118,6 +120,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       } else {
         currentRoute = 'lootboxes';
       }
+    } else if (segments[0] === 'collection' && segments[1]) {
+      currentRoute = 'collection-detail';
     } else {
       currentRoute = segments[0] || 'home';
     }
@@ -180,13 +184,22 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: 'lootboxes-reveal' 
       };
     } else if (currentRoute === 'collection') {
-      return { 
-        showHeader: true, 
-        showFooter: !isMobile, 
-        showSidebar: false, 
-        showRightSidebar: false, 
-        navigationDepth: 2, 
-        previousRoute: 'marketplace' 
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'marketplace'
+      };
+    } else if (currentRoute === 'collection-detail') {
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'collection'
       };
     } else if (['play', 'launchpad', 'museum'].includes(currentRoute)) {
       return { 
@@ -204,6 +217,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   
   const [uiState, setUiState] = useState<ProgressiveUIState>(getInitialUIState());
   const [isMobile, setIsMobile] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const isStudioRoute = pathname.startsWith('/studio');
   
   const [currentStudioView, setCurrentStudioView] = useState<string>('dashboard');
   const [studioViewChangeHandler, setStudioViewChangeHandler] = useState<((view: string) => void) | null>(null);
@@ -311,7 +326,11 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         return 'lootboxes';
       }
     }
-    
+
+    if (segments[0] === 'collection' && segments[1]) {
+      return 'collection-detail';
+    }
+
     return segments[0] || 'home';
   };
   
@@ -353,8 +372,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     } else if (currentRoute === 'studio') {
       newState = {
         showHeader: true,
-        showFooter: !isMobile,
-        showSidebar: !isMobile,
+        showFooter: false, // Always hide footer for studio on mobile (use bottom nav instead)
+        showSidebar: !isMobile || isMobileSidebarOpen, // Show sidebar on desktop or when mobile menu is open
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'home'
@@ -412,6 +431,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'marketplace'
+      };
+    } else if (currentRoute === 'collection-detail') {
+      newState = {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'collection'
       };
     } else if (['launchpad', 'museum'].includes(currentRoute)) {
       newState = {
@@ -483,16 +511,31 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   return (
     <P2PTradingProvider>
       {/* Progressive UI Elements */}
-      <AnimatedHeader 
-        show={uiState.showHeader} 
+      <AnimatedHeader
+        show={uiState.showHeader}
         onNavigate={handleNavigate}
         currentRoute={currentRoute}
         onStudioViewChange={handleStudioViewChange}
         currentStudioView={currentStudioView}
       />
-      <AnimatedFooter show={uiState.showFooter} />
-      <AnimatedSidebar 
-        show={uiState.showSidebar} 
+      <AnimatedFooter show={uiState.showFooter && !isStudioRoute} />
+      {/* Mobile sidebar overlay for studio */}
+      {isMobile && isStudioRoute && (
+        <AnimatePresence>
+          {isMobileSidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+      )}
+
+      <AnimatedSidebar
+        show={uiState.showSidebar || (isMobile && isStudioRoute && isMobileSidebarOpen)} 
         currentRoute={currentRoute}
         studioData={studioData ? {
           searchQuery: studioData.searchQuery || '',
@@ -513,11 +556,20 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         p2pData={p2pRightSidebarData}
       />
       
+      {/* Studio Mobile Navigation */}
+      {isMobile && isStudioRoute && (
+        <StudioMobileNav
+          onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          isMenuOpen={isMobileSidebarOpen}
+        />
+      )}
+
       {/* Main content with padding adjustments */}
       <div className={`
         transition-all duration-300 ease-in-out
-        ${uiState.showSidebar ? 'md:pl-80' : 'pl-0'}
-        ${uiState.showRightSidebar ? 'md:pr-80' : 'pr-0'}
+        ${uiState.showSidebar && !isMobile ? 'md:pl-80' : 'pl-0'}
+        ${uiState.showRightSidebar && !isMobile ? 'md:pr-80' : 'pr-0'}
+        ${isMobile && isStudioRoute ? 'pb-20' : ''}
       `}>
         <StudioHeaderContext.Provider value={studioHeaderContextValue}>
           {children}
