@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -35,6 +35,14 @@ import { cn } from "@/lib/utils";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { useAuth } from "@/contexts/auth-context";
 import { useBackgroundCarousel } from "@/contexts/background-carousel-context";
+
+// Lazy load heavy components
+const TrendingCollections = React.lazy(() =>
+  import('./trending-collections').then(module => ({ default: module.TrendingCollections }))
+);
+const UserProfileSection = React.lazy(() =>
+  import('./user-profile-section').then(module => ({ default: module.UserProfileSection }))
+);
 
 // Mock data for the authenticated user experience
 const mockUserData = {
@@ -116,6 +124,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
   const [currentCollectionIndex, setCurrentCollectionIndex] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileWallpaperOpen, setMobileWallpaperOpen] = useState(false);
+  const [componentsLoaded, setComponentsLoaded] = useState(false);
   const connectButtonRef = useRef<HTMLDivElement>(null);
 
   // Define wallpapers array (same as desktop BackgroundCarousel)
@@ -136,6 +145,14 @@ export function HomeView({ setViewMode }: HomeViewProps) {
       setCurrentCollectionIndex((prev) => (prev + 1) % trendingCollections.length);
     }, 4000);
     return () => clearInterval(collectionInterval);
+  }, []);
+
+  // Progressive loading for better performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setComponentsLoaded(true);
+    }, 100); // Load heavy components after initial render
+    return () => clearTimeout(timer);
   }, []);
 
   // Close mobile menu when screen size changes to desktop
@@ -159,7 +176,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
 
   // Create dynamic secondary navigation based on user creator status - memoized
   const secondaryNavigation = useMemo(() => [
-    { label: "SOCIAL", icon: MessageSquare, href: "/social", external: true },
+    { label: "PROFILE", icon: MessageSquare, href: "/profile", external: true },
     { label: "ACHIEVEMENTS", icon: Trophy, href: "/achievements", external: true },
     { label: "LOOTBOXES", icon: Gift, href: "/lootboxes/reveal", external: true },
     { label: "PORTFOLIO", icon: Briefcase, href: "/portfolio", external: true },

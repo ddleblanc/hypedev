@@ -12,6 +12,7 @@ import { RightAnimatedSidebar } from "@/components/animated-ui/right-animated-si
 import { BackgroundCarousel } from "@/components/background-carousel";
 import { useStudio } from "@/contexts/studio-context";
 import { P2PTradingProvider } from "@/contexts/p2p-trading-context";
+import { ListsProvider, useLists } from "@/contexts/lists-context";
 import { StudioMobileNav } from "@/components/studio/studio-mobile-nav";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -48,6 +49,7 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
   
   // Determine layout type based on pathname
   const isStudioRoute = pathname.startsWith('/studio');
+  const isProfileRoute = pathname.startsWith('/profile');
   const isCollectionRoute = pathname.startsWith('/collection');
   const isPublicProgressiveRoute = [
     '/',
@@ -59,11 +61,12 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
     '/launchpad',
     '/museum',
     '/lootboxes',
-    '/collection'
+    '/collection',
+    '/lists'
   ].some(route => pathname === route || pathname.startsWith(route));
 
-  // Studio routes require authentication and have their own layout
-  if (isStudioRoute) {
+  // Studio and Profile routes require authentication and have their own layout
+  if (isStudioRoute || isProfileRoute) {
     return <ProgressiveUIWrapper>{children}</ProgressiveUIWrapper>;
   }
 
@@ -108,6 +111,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       }
     } else if (segments[0] === 'collection' && segments[1]) {
       currentRoute = 'collection-detail';
+    } else if (segments[0] === 'launchpad' && segments[1]) {
+      currentRoute = 'launchpad-detail';
     } else {
       currentRoute = segments[0] || 'home';
     }
@@ -130,13 +135,22 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: 'home' 
       };
     } else if (currentRoute === 'studio') {
-      return { 
-        showHeader: true, 
-        showFooter: !isMobile, 
-        showSidebar: !isMobile, 
-        showRightSidebar: false, 
-        navigationDepth: 2, 
-        previousRoute: 'home' 
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'home'
+      };
+    } else if (currentRoute === 'profile') {
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'home'
       };
     } else if (currentRoute === 'p2p') {
       return { 
@@ -196,7 +210,34 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 1,
         previousRoute: 'home'
       };
-    } else if (['play', 'museum'].includes(currentRoute)) {
+    } else if (currentRoute === 'lists') {
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'home'
+      };
+    } else if (currentRoute === 'launchpad-detail') {
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'launchpad'
+      };
+    } else if (currentRoute === 'museum') {
+      return {
+        showHeader: true,
+        showFooter: false,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 1,
+        previousRoute: 'home'
+      };
+    } else if (currentRoute === 'play') {
       return {
         showHeader: true,
         showFooter: !isMobile,
@@ -326,11 +367,22 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       return 'collection-detail';
     }
 
+    if (segments[0] === 'launchpad' && segments[1]) {
+      return 'launchpad-detail';
+    }
+
     return segments[0] || 'home';
   };
   
   const currentRoute = getCurrentRoute();
   const isPlaySubRoute = currentRoute.startsWith('play-');
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[LayoutWrapper] Current pathname:', pathname);
+    console.log('[LayoutWrapper] Current route:', currentRoute);
+    console.log('[LayoutWrapper] UI State:', uiState);
+  }, [pathname, currentRoute, uiState]);
 
   // Update UI state based on current route and mobile status
   useEffect(() => {
@@ -369,6 +421,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         showHeader: true,
         showFooter: false, // Always hide footer for studio on mobile (use bottom nav instead)
         showSidebar: !isMobile || isMobileSidebarOpen, // Show sidebar on desktop or when mobile menu is open
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'home'
+      };
+    } else if (currentRoute === 'profile') {
+      newState = {
+        showHeader: true,
+        showFooter: false, // Similar to studio layout
+        showSidebar: !isMobile || isMobileSidebarOpen,
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'home'
@@ -445,10 +506,28 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 1,
         previousRoute: 'home'
       };
-    } else if (currentRoute === 'museum') {
+    } else if (currentRoute === 'lists') {
       newState = {
         showHeader: true,
         showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'home'
+      };
+    } else if (currentRoute === 'launchpad-detail') {
+      newState = {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'launchpad'
+      };
+    } else if (currentRoute === 'museum') {
+      newState = {
+        showHeader: true,
+        showFooter: false,
         showSidebar: false,
         showRightSidebar: false,
         navigationDepth: 1,
@@ -514,6 +593,67 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
 
   return (
     <P2PTradingProvider>
+      <ListsProvider>
+        <ProgressiveUIWrapperInner
+          children={children}
+          uiState={uiState}
+          currentRoute={currentRoute}
+          handleNavigate={handleNavigate}
+          handleStudioViewChange={handleStudioViewChange}
+          currentStudioView={currentStudioView}
+          studioData={studioData}
+          p2pData={p2pData}
+          lootboxData={lootboxData}
+          p2pRightSidebarData={p2pRightSidebarData}
+          isMobile={isMobile}
+          isStudioRoute={isStudioRoute}
+          isMobileSidebarOpen={isMobileSidebarOpen}
+          setIsMobileSidebarOpen={setIsMobileSidebarOpen}
+          studioHeaderContextValue={studioHeaderContextValue}
+        />
+      </ListsProvider>
+    </P2PTradingProvider>
+  );
+}
+
+function ProgressiveUIWrapperInner({
+  children,
+  uiState,
+  currentRoute,
+  handleNavigate,
+  handleStudioViewChange,
+  currentStudioView,
+  studioData,
+  p2pData,
+  lootboxData,
+  p2pRightSidebarData,
+  isMobile,
+  isStudioRoute,
+  isMobileSidebarOpen,
+  setIsMobileSidebarOpen,
+  studioHeaderContextValue,
+}: any) {
+  const listsContext = useLists();
+
+  // Prepare lists data for sidebar
+  const listsData = currentRoute === 'lists' ? {
+    lists: listsContext.lists,
+    selectedList: listsContext.selectedList,
+    onSelectList: listsContext.setSelectedList,
+    onCreateList: () => listsContext.setIsCreatingList(true),
+    onDeleteList: listsContext.handleDeleteList,
+    isCreatingList: listsContext.isCreatingList,
+    newListName: listsContext.newListName,
+    onNewListNameChange: listsContext.setNewListName,
+    onConfirmCreate: listsContext.handleCreateList,
+    onCancelCreate: () => {
+      listsContext.setIsCreatingList(false);
+      listsContext.setNewListName('');
+    },
+  } : undefined;
+
+  return (
+    <>
       {/* Progressive UI Elements */}
       <AnimatedHeader
         show={uiState.showHeader}
@@ -539,7 +679,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       )}
 
       <AnimatedSidebar
-        show={uiState.showSidebar || (isMobile && isStudioRoute && isMobileSidebarOpen)} 
+        show={uiState.showSidebar || (isMobile && isStudioRoute && isMobileSidebarOpen)}
         currentRoute={currentRoute}
         studioData={studioData ? {
           searchQuery: studioData.searchQuery || '',
@@ -552,6 +692,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         } : undefined}
         p2pData={p2pData}
         lootboxData={lootboxData}
+        listsData={listsData}
         onNavigate={handleNavigate}
       />
       <RightAnimatedSidebar 
@@ -582,6 +723,6 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       
       {/* Background Carousel for wallpaper selection */}
       <BackgroundCarousel />
-    </P2PTradingProvider>
+    </>
   );
 }

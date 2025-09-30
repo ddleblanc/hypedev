@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -22,6 +22,7 @@ import {
   Box,
   Layers,
   Users,
+  User,
   Handshake,
   ArrowRightLeft,
   Plus,
@@ -44,7 +45,8 @@ import {
   FileText,
   Package,
   Database,
-  PieChart
+  PieChart,
+  MoreHorizontal
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +91,18 @@ interface AnimatedSidebarProps {
       accentColor: string;
     }>;
   };
+  listsData?: {
+    lists: any[];
+    selectedList: any | null;
+    onSelectList: (list: any) => void;
+    onCreateList: () => void;
+    onDeleteList: (listId: string) => void;
+    isCreatingList: boolean;
+    newListName: string;
+    onNewListNameChange: (name: string) => void;
+    onConfirmCreate: () => void;
+    onCancelCreate: () => void;
+  };
   collectionData?: {
     id: string;
     name: string;
@@ -102,7 +116,7 @@ interface AnimatedSidebarProps {
   onNavigate?: (route: string) => void;
 }
 
-export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, collectionData, onNavigate }: AnimatedSidebarProps) {
+export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, listsData, collectionData, onNavigate }: AnimatedSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { 
@@ -120,6 +134,32 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
   const [priceRange, setPriceRange] = useState([0, 100]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
+
+  // Generate stable random values on client side only
+  const [randomStats, setRandomStats] = useState<{
+    volume24h: string;
+    change7d: string;
+    avgPrice: string;
+    activity: Array<{ time: string; price: string }>;
+    collectionPrices: Array<{ price: string; change: string }>;
+  } | null>(null);
+
+  // Initialize random stats on mount to avoid hydration mismatch
+  useEffect(() => {
+    setRandomStats({
+      volume24h: (Math.random() * 50 + 10).toFixed(1),
+      change7d: (Math.random() * 30 + 5).toFixed(1),
+      avgPrice: (Math.random() * 2 + 0.5).toFixed(1),
+      activity: Array.from({ length: 3 }, (_, i) => ({
+        time: `${Math.floor(Math.random() * 24)}h ago`,
+        price: (Math.random() * 5 + 0.1).toFixed(2)
+      })),
+      collectionPrices: Array.from({ length: 4 }, () => ({
+        price: (Math.random() * 2 + 0.1).toFixed(2),
+        change: Math.floor(Math.random() * 50 + 10).toString()
+      }))
+    });
+  }, []);
 
   const categories = [
     {
@@ -309,7 +349,63 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     );
                   }
                 })()
-              ) : currentRoute === 'launchpad' ? (
+              ) : (pathname?.startsWith('/profile') || currentRoute === 'profile') ? (
+                (() => {
+                  // Determine specific profile page
+                  if (pathname === '/profile/collection') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Package className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Collection
+                        </h2>
+                        <p className="text-sm text-white/60">Your NFT assets</p>
+                      </>
+                    );
+                  } else if (pathname === '/profile/achievements') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Trophy className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Achievements
+                        </h2>
+                        <p className="text-sm text-white/60">Your progress</p>
+                      </>
+                    );
+                  } else if (pathname === '/profile/stats') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Activity className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Activity
+                        </h2>
+                        <p className="text-sm text-white/60">Performance metrics</p>
+                      </>
+                    );
+                  } else if (pathname === '/profile/settings') {
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <Settings className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Settings
+                        </h2>
+                        <p className="text-sm text-white/60">Profile preferences</p>
+                      </>
+                    );
+                  } else {
+                    // Default profile page
+                    return (
+                      <>
+                        <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <User className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          Profile
+                        </h2>
+                        <p className="text-sm text-white/60">Personal dashboard</p>
+                      </>
+                    );
+                  }
+                })()
+              ) : currentRoute === 'launchpad' || currentRoute === 'launchpad-detail' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-[rgb(163,255,18)]" />
@@ -324,6 +420,14 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     P2P Trading
                   </h2>
                   <p className="text-sm text-white/60">Search & Filter</p>
+                </>
+              ) : currentRoute === 'lists' ? (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                    <FolderOpen className="h-5 w-5 text-[rgb(163,255,18)]" />
+                    Your Lists
+                  </h2>
+                  <p className="text-sm text-white/60">{listsData?.lists.length || 0} lists</p>
                 </>
               ) : currentRoute === 'play-casual' ? (
                 <>
@@ -470,6 +574,16 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     </Button>
                   </div>
                 </div>
+              ) : currentRoute === 'lists' && listsData ? (
+                <div className="w-full space-y-3">
+                  <Button
+                    onClick={listsData.onCreateList}
+                    className="w-full bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New List
+                  </Button>
+                </div>
               ) : currentRoute === 'lootboxes-detail' ? (
                 <div className="w-full space-y-3">
                   <div className="flex gap-2">
@@ -491,7 +605,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     </Button>
                   </div>
                 </div>
-              ) : currentRoute === 'launchpad' ? (
+              ) : currentRoute === 'launchpad' || currentRoute === 'launchpad-detail' ? (
                 <div className="w-full space-y-3">
                   <div className="flex gap-2">
                     <Button
@@ -583,7 +697,90 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto">
-            {(pathname?.startsWith('/studio') || currentRoute === 'studio') ? (
+            {currentRoute === 'lists' && listsData ? (
+              <div className="p-6">
+                {/* Create List Form */}
+                {listsData.isCreatingList && (
+                  <div className="bg-black border border-white/10 p-3 mb-4 rounded-lg">
+                    <Input
+                      placeholder="List name..."
+                      value={listsData.newListName}
+                      onChange={(e) => listsData.onNewListNameChange(e.target.value)}
+                      className="mb-2 bg-black/60 border-white/20 text-white"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={listsData.onConfirmCreate}
+                        className="flex-1 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90"
+                      >
+                        Create
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={listsData.onCancelCreate}
+                        className="flex-1 border-white/20 text-white hover:bg-white/10"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lists */}
+                <div className="space-y-2">
+                  {listsData.lists.map((list: any) => {
+                    const isSelected = listsData.selectedList?.id === list.id;
+                    const IconComponent = list.type === 'watchlist' ? Heart : list.type === 'favorites' ? Star : FolderOpen;
+
+                    return (
+                      <button
+                        key={list.id}
+                        onClick={() => listsData.onSelectList(list)}
+                        className={`w-full text-left p-3 rounded-lg border transition-all ${
+                          isSelected
+                            ? 'bg-gradient-to-br from-[rgb(163,255,18)]/20 to-[rgb(163,255,18)]/5 border-[rgb(163,255,18)] text-white'
+                            : 'bg-gradient-to-br from-white/5 to-transparent border-white/10 text-white/60 hover:border-white/30 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className={`p-2 rounded-lg flex-shrink-0 ${
+                              isSelected ? 'bg-[rgb(163,255,18)]/20' : 'bg-white/5'
+                            }`}>
+                              <IconComponent className={`w-4 h-4 ${isSelected ? 'text-[rgb(163,255,18)]' : 'text-white/40'}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-bold truncate">{list.name}</h3>
+                              <Badge className={`text-xs px-2 py-0.5 mt-1 ${
+                                isSelected
+                                  ? 'bg-[rgb(163,255,18)]/30 text-[rgb(163,255,18)] border-[rgb(163,255,18)]/50'
+                                  : 'bg-white/10 text-white/60 border-white/20'
+                              }`}>
+                                {list._count.items} items
+                              </Badge>
+                            </div>
+                          </div>
+                          {list.type === 'custom' && (
+                            <button
+                              className="p-1 hover:bg-white/10 rounded"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                listsData.onDeleteList(list.id);
+                              }}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (pathname?.startsWith('/studio') || currentRoute === 'studio') ? (
               <>
                 {/* Studio Stats (only when studioData is available) */}
                 {studioData && (
@@ -774,6 +971,126 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                   </motion.div>
                 </div>
               </>
+            ) : (pathname?.startsWith('/profile') || currentRoute === 'profile') ? (
+              <>
+                {/* Profile Navigation */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    NAVIGATION
+                  </motion.h3>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35 }}
+                    className="space-y-2"
+                  >
+                    <Button
+                      variant={pathname === '/profile' ? 'default' : 'ghost'}
+                      className="w-full justify-start gap-2"
+                      onClick={() => router.push('/profile')}
+                    >
+                      <User className="w-4 h-4" /> Dashboard
+                    </Button>
+                    <Button
+                      variant={pathname === '/profile/collection' ? 'default' : 'ghost'}
+                      className="w-full justify-start gap-2"
+                      onClick={() => router.push('/profile/collection')}
+                    >
+                      <Package className="w-4 h-4" /> Collection
+                    </Button>
+                    <Button
+                      variant={pathname === '/profile/achievements' ? 'default' : 'ghost'}
+                      className="w-full justify-start gap-2"
+                      onClick={() => router.push('/profile/achievements')}
+                    >
+                      <Trophy className="w-4 h-4" /> Achievements
+                    </Button>
+                    <Button
+                      variant={pathname === '/profile/stats' ? 'default' : 'ghost'}
+                      className="w-full justify-start gap-2"
+                      onClick={() => router.push('/profile/stats')}
+                    >
+                      <Activity className="w-4 h-4" /> Activity
+                    </Button>
+                    <Button
+                      variant={pathname === '/profile/settings' ? 'default' : 'ghost'}
+                      className="w-full justify-start gap-2"
+                      onClick={() => router.push('/profile/settings')}
+                    >
+                      <Settings className="w-4 h-4" /> Settings
+                    </Button>
+                  </motion.div>
+                </div>
+
+                {/* Profile Stats */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    PROFILE STATS
+                  </motion.h3>
+                  <div className="space-y-4">
+                    {[
+                      { label: 'Level', value: '42', icon: Star },
+                      { label: 'NFTs Owned', value: '127', icon: Package },
+                      { label: 'Achievements', value: '24', icon: Trophy },
+                      { label: 'Followers', value: '1.2K', icon: Users },
+                    ].map(({ label, value, icon: Icon }, index) => (
+                      <motion.div
+                        key={label}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.4 + index * 0.05 }}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                          <span className="text-white/80 text-sm">{label}</span>
+                        </div>
+                        <Badge className="bg-white/10 text-white border-white/20">
+                          {value}
+                        </Badge>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    QUICK ACTIONS
+                  </motion.h3>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.55 }}
+                    className="space-y-2"
+                  >
+                    <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                      <Edit3 className="w-4 h-4 mr-2" /> Edit Profile
+                    </Button>
+                    <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                      <Share className="w-4 h-4 mr-2" /> Share Profile
+                    </Button>
+                    <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                      <Settings className="w-4 h-4 mr-2" /> Privacy Settings
+                    </Button>
+                  </motion.div>
+                </div>
+              </>
             ) : currentRoute === 'lootboxes-detail' && lootboxData ? (
               <>
                 {/* Lootbox Collection */}
@@ -927,11 +1244,11 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     </div>
                     <div className="bg-white/5 rounded-lg p-2">
                       <div className="text-xs text-white/60">24h Volume</div>
-                      <div className="text-lg font-bold text-white">{(Math.random() * 50 + 10).toFixed(1)} ETH</div>
+                      <div className="text-lg font-bold text-white">{randomStats?.volume24h || '0.0'} ETH</div>
                     </div>
                     <div className="bg-white/5 rounded-lg p-2">
                       <div className="text-xs text-white/60">7d Change</div>
-                      <div className="text-lg font-bold text-green-400">+{(Math.random() * 30 + 5).toFixed(1)}%</div>
+                      <div className="text-lg font-bold text-green-400">+{randomStats?.change7d || '0.0'}%</div>
                     </div>
                   </div>
                 </div>
@@ -952,12 +1269,12 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     transition={{ delay: 0.6 }}
                     className="space-y-3"
                   >
-                    {[...Array(3)].map((_, i) => (
+                    {randomStats?.activity.map((item, i) => (
                       <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
                         <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-lg" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">#{Math.floor(Math.random() * 1000)}</p>
-                          <p className="text-xs text-white/60">{Math.floor(Math.random() * 24)}h ago</p>
+                          <p className="text-sm font-medium text-white truncate">#{1000 + i}</p>
+                          <p className="text-xs text-white/60">{item.time}</p>
                         </div>
                         <div className="text-right">
                           <Badge className={`text-[10px] ${
@@ -968,7 +1285,23 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                             {i % 3 === 0 ? 'Sale' : i % 3 === 1 ? 'List' : 'Transfer'}
                           </Badge>
                           <p className="text-xs font-bold text-white">
-                            {(Math.random() * 5 + 0.1).toFixed(2)} ETH
+                            {item.price} ETH
+                          </p>
+                        </div>
+                      </div>
+                    )) || [...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
+                        <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-lg" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">#{1000 + i}</p>
+                          <p className="text-xs text-white/60">Loading...</p>
+                        </div>
+                        <div className="text-right">
+                          <Badge className="text-[10px] bg-gray-500/20 text-gray-400">
+                            ---
+                          </Badge>
+                          <p className="text-xs font-bold text-white">
+                            --- ETH
                           </p>
                         </div>
                       </div>
@@ -976,7 +1309,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                   </motion.div>
                 </div>
               </>
-            ) : currentRoute === 'launchpad' ? (
+            ) : currentRoute === 'launchpad' || currentRoute === 'launchpad-detail' ? (
               <>
                 {/* Launchpad Stats */}
                 <div className="p-6 border-b border-white/10">
@@ -1066,21 +1399,39 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                     transition={{ delay: 0.55 }}
                     className="space-y-3"
                   >
-                    {[...Array(4)].map((_, i) => (
+                    {randomStats?.collectionPrices.map((item, i) => (
                       <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
                         <div className="w-8 h-8 bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 rounded-lg flex items-center justify-center">
                           <span className="text-black text-xs font-bold">#{i + 1}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">Collection {i + 1}</p>
-                          <p className="text-xs text-white/60">{Math.floor(Math.random() * 1000)} items</p>
+                          <p className="text-xs text-white/60">{500 + i * 100} items</p>
                         </div>
                         <div className="text-right">
                           <p className="text-xs font-bold text-white">
-                            {(Math.random() * 2 + 0.1).toFixed(2)} ETH
+                            {item.price} ETH
                           </p>
                           <p className="text-[10px] text-[rgb(163,255,18)]">
-                            +{Math.floor(Math.random() * 50 + 10)}%
+                            +{item.change}%
+                          </p>
+                        </div>
+                      </div>
+                    )) || [...Array(4)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                        <div className="w-8 h-8 bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 rounded-lg flex items-center justify-center">
+                          <span className="text-black text-xs font-bold">#{i + 1}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">Collection {i + 1}</p>
+                          <p className="text-xs text-white/60">--- items</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-white">
+                            --- ETH
+                          </p>
+                          <p className="text-[10px] text-[rgb(163,255,18)]">
+                            ---%
                           </p>
                         </div>
                       </div>
@@ -1129,15 +1480,22 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                   
                   {/* NFT List */}
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {userNFTs.map((nft, index) => (
-                      <motion.div
-                        key={nft.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.3 + index * 0.05 }}
-                        className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group"
-                        onClick={() => toggleUserNFTSelection(nft.id)}
-                      >
+                    <AnimatePresence mode="popLayout">
+                      {userNFTs.map((nft, index) => (
+                        <motion.div
+                          key={nft.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{
+                            opacity: 0,
+                            scale: 0.5,
+                            x: 400,
+                            transition: { duration: 0.4, ease: "easeIn" }
+                          }}
+                          transition={{ delay: 0.3 + index * 0.05 }}
+                          className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group"
+                          onClick={() => toggleUserNFTSelection(nft.id)}
+                        >
                         <div className="relative">
                           <img 
                             src={nft.image} 
@@ -1176,8 +1534,9 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                             <Plus className="h-4 w-4 text-[rgb(163,255,18)]" />
                           )}
                         </Button>
-                      </motion.div>
-                    ))}
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 </div>
 

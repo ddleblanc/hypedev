@@ -24,16 +24,31 @@ export class AuthService {
   static async findOrCreateUser(walletAddress: string): Promise<UserWithSocials> {
     // Normalize wallet address to lowercase for consistency
     const normalizedAddress = walletAddress.toLowerCase()
-    
+
     let user = await prisma.user.findUnique({
       where: { walletAddress: normalizedAddress },
       include: { socials: true }
     })
 
     if (!user) {
-      user = await prisma.user.create({
-        data: { walletAddress: normalizedAddress },
-        include: { socials: true }
+      // Create user and default watchlist in a transaction
+      user = await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+          data: { walletAddress: normalizedAddress },
+          include: { socials: true }
+        })
+
+        // Create default watchlist for the new user
+        await tx.userList.create({
+          data: {
+            userId: newUser.id,
+            name: 'Watchlist',
+            type: 'watchlist',
+            isPublic: false,
+          }
+        })
+
+        return newUser
       })
     }
 

@@ -409,15 +409,22 @@ export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneV
                     
                     {/* NFT List */}
                     <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                      {traderNFTs.map((nft, index) => (
-                        <motion.div
-                          key={nft.id}
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.05 * index }}
-                          className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group"
-                          onClick={() => toggleTraderNFTSelection(nft.id)}
-                        >
+                      <AnimatePresence mode="popLayout">
+                        {traderNFTs.map((nft, index) => (
+                          <motion.div
+                            key={nft.id}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{
+                              opacity: 0,
+                              scale: 0.5,
+                              x: -400,
+                              transition: { duration: 0.4, ease: "easeIn" }
+                            }}
+                            transition={{ delay: 0.05 * index }}
+                            className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group"
+                            onClick={() => toggleTraderNFTSelection(nft.id)}
+                          >
                           <div className="relative">
                             <img 
                               src={nft.image} 
@@ -448,8 +455,9 @@ export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneV
                               <Plus className="h-4 w-4 text-[rgb(163,255,18)]" />
                             )}
                           </div>
-                        </motion.div>
-                      ))}
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
                     </div>
 
                     {/* Trade Summary */}

@@ -19,7 +19,7 @@ export function HomeRouter({ publicContent, authenticatedContent }: HomeRouterPr
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
-          <Lottie 
+          <Lottie
             animationData={loadingAnimation}
             loop={true}
             className="w-32 h-32 mx-auto"

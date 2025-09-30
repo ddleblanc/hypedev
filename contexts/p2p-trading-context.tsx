@@ -90,12 +90,18 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
   const confirmUserNFTs = () => {
     const selectedNFTs = userNFTs.filter(nft => nft.selected);
     setUserBoardNFTs(prev => [...prev, ...selectedNFTs]);
-    setUserNFTs(prev => 
-      prev.map(nft => ({ ...nft, selected: false }))
+    // Remove confirmed NFTs from sidebar to enable layout animation
+    setUserNFTs(prev =>
+      prev.filter(nft => !nft.selected)
     );
   };
 
   const removeUserNFTFromBoard = (nftId: string) => {
+    const removedNFT = userBoardNFTs.find(nft => nft.id === nftId);
+    if (removedNFT) {
+      // Add back to sidebar
+      setUserNFTs(prev => [...prev, { ...removedNFT, selected: false }]);
+    }
     setUserBoardNFTs(prev => prev.filter(nft => nft.id !== nftId));
   };
 
@@ -118,12 +124,18 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
   const confirmTraderNFTs = () => {
     const selectedNFTs = traderNFTs.filter(nft => nft.selected);
     setTraderBoardNFTs(prev => [...prev, ...selectedNFTs]);
-    setTraderNFTs(prev => 
-      prev.map(nft => ({ ...nft, selected: false }))
+    // Remove confirmed NFTs from sidebar to enable layout animation
+    setTraderNFTs(prev =>
+      prev.filter(nft => !nft.selected)
     );
   };
 
   const removeTraderNFTFromBoard = (nftId: string) => {
+    const removedNFT = traderBoardNFTs.find(nft => nft.id === nftId);
+    if (removedNFT) {
+      // Add back to sidebar
+      setTraderNFTs(prev => [...prev, { ...removedNFT, selected: false }]);
+    }
     setTraderBoardNFTs(prev => prev.filter(nft => nft.id !== nftId));
   };
 

@@ -43,11 +43,12 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
   const [cursorMode, setCursorMode] = useState<'explore' | 'interact' | 'collect'>('explore');
   const [immersiveMode, setImmersiveMode] = useState(false);
   const [isEntering, setIsEntering] = useState(true);
-  
+  const [isMobile, setIsMobile] = useState(false);
+
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const entranceRef = useRef<HTMLDivElement>(null);
   const galleryRef = useRef<HTMLDivElement>(null);
-  
+
   // Advanced motion values for cinematic effects
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -55,24 +56,37 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
   const mouseXSpring = useSpring(mouseX, springConfig);
   const mouseYSpring = useSpring(mouseY, springConfig);
 
+  // Detect mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Entrance animation - trigger reveal after background transition
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsEntering(false);
-    }, 3000); // 3 seconds for the full entrance sequence
-    
-    return () => clearTimeout(timer);
-  }, []);
+    }, isMobile ? 2000 : 3000); // Faster on mobile
 
-  // Enhanced mouse tracking for immersive effects
+    return () => clearTimeout(timer);
+  }, [isMobile]);
+
+  // Enhanced mouse tracking for immersive effects (desktop only)
   useEffect(() => {
+    if (isMobile) return; // Skip mouse tracking on mobile
+
     const handleMouseMove = (e: MouseEvent) => {
       const x = (e.clientX / window.innerWidth) * 100;
       const y = (e.clientY / window.innerHeight) * 100;
       setMousePosition({ x, y });
       mouseX.set(x);
       mouseY.set(y);
-      
+
       // Dynamic cursor mode based on elements
       const target = e.target as HTMLElement;
       if (target.closest('[data-interactive]')) {
@@ -86,7 +100,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
 
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [mouseX, mouseY]);
+  }, [mouseX, mouseY, isMobile]);
 
   // Enhanced scroll tracking
   useEffect(() => {
@@ -148,112 +162,77 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
   const hasScrolled = scrollY > 100;
 
   return (
-    <div className="fixed inset-0 z-10 overflow-hidden bg-black">
-      {/* Refined Entrance Sequence */}
+    <div className="fixed inset-0 z-10 overflow-hidden bg-[#0a0a0a]">
+      {/* Netflix-style Entrance Sequence */}
       <AnimatePresence>
         {isEntering && (
           <motion.div
-            className="fixed inset-0 z-50 bg-black"
+            className="fixed inset-0 z-50 bg-[#0a0a0a]"
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: [0.43, 0.13, 0.23, 0.96] }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            {/* Subtle gradient background */}
-            <motion.div
-              className="absolute inset-0"
-              style={{
-                background: "radial-gradient(circle at center, #111111 0%, #000000 100%)"
-              }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1.5, ease: "linear" }}
-            />
-            
-            {/* Refined title reveal */}
+            {/* Clean dark background */}
+            <div className="absolute inset-0 bg-[#0a0a0a]" />
+
+            {/* Elegant title reveal */}
             <div className="absolute inset-0 flex items-center justify-center">
               <motion.div
                 className="text-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 1, delay: 0.3, ease: "linear" }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
               >
-                <motion.h1 
-                  className="text-6xl font-light text-white mb-6 tracking-[0.3em]"
-                  style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}
-                  initial={{ opacity: 0, letterSpacing: "0.5em" }}
-                  animate={{ opacity: 1, letterSpacing: "0.3em" }}
-                  transition={{ duration: 1.5, delay: 0.5, ease: [0.43, 0.13, 0.23, 0.96] }}
+                <motion.h1
+                  className="text-3xl md:text-5xl font-normal text-white mb-4 tracking-tight"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
                 >
-                  LEGENDS HALL
+                  Legends Hall
                 </motion.h1>
-                <motion.div 
-                  className="w-24 h-[1px] bg-white/40 mx-auto"
-                  initial={{ width: 0 }}
-                  animate={{ width: 96 }}
-                  transition={{ duration: 1, delay: 1.5, ease: "linear" }}
-                />
+                <motion.p
+                  className="text-sm md:text-base text-white/50 font-light"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
+                >
+                  A Cinematic Journey
+                </motion.p>
               </motion.div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
       
-      {/* Custom Cursor */}
-      <div 
-        className="fixed w-8 h-8 pointer-events-none z-50 mix-blend-difference transition-all duration-200"
-        style={{
-          left: mousePosition.x,
-          top: mousePosition.y,
-          transform: 'translate(-50%, -50%)'
-        }}
-      >
-        <div className={cn(
-          "w-full h-full rounded-full border-2 transition-all duration-200",
-          cursorMode === 'explore' ? "border-white scale-100" :
-          cursorMode === 'interact' ? "border-blue-400 scale-150" :
-          "border-yellow-400 scale-125"
-        )} />
-        
-        {cursorMode !== 'explore' && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            {cursorMode === 'interact' ? 
-              <MousePointer className="w-4 h-4 text-blue-400" /> :
-              <Gem className="w-4 h-4 text-yellow-400" />
-            }
-          </div>
-        )}
-      </div>
-      
-      {/* Interactive Tutorial Tooltip */}
-      <AnimatePresence>
-        {showInteractiveTooltip && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed top-8 right-8 bg-black/80 backdrop-blur-xl rounded-2xl p-6 border border-white/20 max-w-xs z-30"
-          >
-            <div className="flex items-start gap-4">
-              <div className="bg-blue-500/20 rounded-lg p-3">
-                <Compass className="w-6 h-6 text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-white font-bold mb-2">Museum Explorer</h3>
-                <p className="text-white/70 text-sm mb-4">
-                  Use mouse to discover interactive elements. Press 'F' for immersive mode.
-                </p>
-                <Button 
-                  size="sm" 
-                  onClick={() => setShowInteractiveTooltip(false)}
-                  className="text-xs bg-white/10 text-white hover:bg-white/20"
-                >
-                  Got it
-                </Button>
-              </div>
+      {/* Custom Cursor (Desktop Only) */}
+      {!isMobile && (
+        <div
+          className="fixed w-8 h-8 pointer-events-none z-50 mix-blend-difference transition-all duration-200"
+          style={{
+            left: mousePosition.x,
+            top: mousePosition.y,
+            transform: 'translate(-50%, -50%)'
+          }}
+        >
+          <div className={cn(
+            "w-full h-full rounded-full border-2 transition-all duration-200",
+            cursorMode === 'explore' ? "border-white scale-100" :
+            cursorMode === 'interact' ? "border-blue-400 scale-150" :
+            "border-yellow-400 scale-125"
+          )} />
+
+          {cursorMode !== 'explore' && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              {cursorMode === 'interact' ?
+                <MousePointer className="w-4 h-4 text-blue-400" /> :
+                <Gem className="w-4 h-4 text-yellow-400" />
+              }
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </div>
+      )}
+      
       
       {/* Main Museum Content - Dignified reveal */}
       <motion.div
@@ -291,14 +270,16 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
             mousePosition={mousePosition}
             onSelectLegend={setSelectedLegend}
             scrollContainerRef={scrollContainerRef}
+            isMobile={isMobile}
           />
         </div>
-        
+
         {/* Gallery Section */}
         <div ref={galleryRef}>
           <MuseumGallery
             legends={legends}
             onSelectLegend={setSelectedLegend}
+            isMobile={isMobile}
           />
         </div>
         
@@ -309,7 +290,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
       {/* Legend Detail Modal */}
       <AnimatePresence>
         {selectedLegend && (
-          <LegendDetailModal 
+          <LegendDetailModal
             legend={legends.find(l => l.id === selectedLegend)!}
             onClose={() => setSelectedLegend(null)}
             isMuted={isMuted}
@@ -317,6 +298,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
             immersiveMode={immersiveMode}
             setImmersiveMode={setImmersiveMode}
             mousePosition={mousePosition}
+            isMobile={isMobile}
           />
         )}
       </AnimatePresence>

@@ -35,7 +35,7 @@ export function useWalletAuthOptimized(): UseWalletAuthReturn {
   const account = useActiveAccount()
   const router = useRouter()
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [isLoading, setIsLoading] = useState(false) // Start with false for faster renders
+  const [isLoading, setIsLoading] = useState(false) // Start with false for instant renders
   const [hasChecked, setHasChecked] = useState(false)
   const [initialCheckDone, setInitialCheckDone] = useState(false)
 
@@ -44,7 +44,10 @@ export function useWalletAuthOptimized(): UseWalletAuthReturn {
     if (typeof window === 'undefined') return null
     try {
       const cached = sessionStorage.getItem('wallet-auth-user')
-      return cached ? JSON.parse(cached) : null
+      if (!cached) return null
+      const parsed = JSON.parse(cached)
+      // Validate cached data structure
+      return parsed && parsed.walletAddress ? parsed : null
     } catch {
       return null
     }
@@ -69,21 +72,7 @@ export function useWalletAuthOptimized(): UseWalletAuthReturn {
     if (cachedUser && cachedUser.walletAddress === walletAddress) {
       setUser(cachedUser)
       setIsLoading(false)
-      // Still fetch in background to ensure data is fresh
-      try {
-        const response = await fetch('/api/auth/connect', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ walletAddress })
-        })
-        const data = await response.json()
-        if (data.success) {
-          setUser(data.user)
-          setCachedUser(data.user)
-        }
-      } catch (error) {
-        console.error('Background auth refresh error:', error)
-      }
+      // Use cached data without background refresh for better performance
       return cachedUser
     }
 
@@ -163,14 +152,9 @@ export function useWalletAuthOptimized(): UseWalletAuthReturn {
         setIsLoading(false)
         setInitialCheckDone(true)
       } else {
-        // Wait a bit on initial load to see if wallet will connect
-        setIsLoading(true)
-        const timeout = setTimeout(() => {
-          setInitialCheckDone(true)
-          setIsLoading(false)
-        }, 1500) // Give wallet 1.5 seconds to auto-connect
-        
-        return () => clearTimeout(timeout)
+        // Don't wait for wallet auto-connect, set initial state immediately
+        setInitialCheckDone(true)
+        setIsLoading(false)
       }
     }
   }, [account?.address, hasChecked, initialCheckDone, fetchOrCreateUser, getCachedUser, setCachedUser])

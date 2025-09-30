@@ -69,6 +69,7 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
       launchpad: 2,
       museum: 2,
       studio: 2,
+      lists: 2,
     };
     
     if (previousPath && previousPath !== pathname) {
@@ -113,6 +114,7 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
     switch(currentRoute) {
       case 'trade':
       case 'play':
+      case 'profile':
         scale = 'scale-110';
         blur = 'blur-sm';
         break;
@@ -124,13 +126,20 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
         scale = 'scale-150';
         blur = 'blur-lg';
         break;
+      case 'lists':
+        scale = 'scale-125';
+        blur = 'blur-md';
+        break;
       case 'marketplace':
       case 'casual':
       case 'launchpad':
-      case 'museum':
       case 'studio':
         scale = 'scale-125';
         blur = 'blur-md';
+        break;
+      case 'museum':
+        scale = 'scale-100';
+        blur = 'blur-none';
         break;
       default:
         scale = 'scale-100';
@@ -179,29 +188,30 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
           )}
           <div className={`absolute inset-0 transition-all duration-500 ${
             currentRoute === 'p2p' ? 'bg-black/80' :
-            currentRoute === 'marketplace' || 
-            currentRoute === 'casual' || currentRoute === 'launchpad' || 
-            currentRoute === 'museum' || currentRoute === 'studio' 
-              ? 'bg-black/70' : 'bg-black/40'
+            currentRoute === 'marketplace' ||
+            currentRoute === 'casual' || currentRoute === 'launchpad' ||
+            currentRoute === 'studio' || currentRoute === 'lists'
+              ? 'bg-black/70' :
+            currentRoute === 'museum' ? 'bg-black/70' : 'bg-black/40'
           }`} />
           {/* Special fade-to-black overlay for marketplace and casual views */}
           <div className={`absolute inset-0 bg-black transition-all duration-1000 ${
             currentRoute === 'p2p' ? 'opacity-70' :
-            currentRoute === 'marketplace' || currentRoute === 'casual' || 
-            currentRoute === 'launchpad' || currentRoute === 'museum' || 
-            currentRoute === 'studio' 
-              ? (currentRoute === 'museum' ? 'opacity-100' : 'opacity-60') 
+            currentRoute === 'marketplace' || currentRoute === 'casual' ||
+            currentRoute === 'launchpad' ||
+            currentRoute === 'studio' || currentRoute === 'lists'
+              ? 'opacity-60'
               : 'opacity-0'
           }`} />
           <div className={`absolute inset-0 bg-gradient-to-br from-transparent via-black/20 to-black/60 transition-all duration-500 ${
-            currentRoute === 'trade' ? 'opacity-80' : 
-            currentRoute === 'play' ? 'opacity-80' : 
-            currentRoute === 'p2p' ? 'opacity-95' : 
-            currentRoute === 'marketplace' ? 'opacity-90' : 
-            currentRoute === 'casual' ? 'opacity-90' : 
-            currentRoute === 'launchpad' ? 'opacity-90' : 
-            currentRoute === 'museum' ? 'opacity-0' : 
-            currentRoute === 'studio' ? 'opacity-90' : 'opacity-100'
+            currentRoute === 'trade' ? 'opacity-80' :
+            currentRoute === 'play' ? 'opacity-80' :
+            currentRoute === 'p2p' ? 'opacity-95' :
+            currentRoute === 'marketplace' ? 'opacity-90' :
+            currentRoute === 'casual' ? 'opacity-90' :
+            currentRoute === 'launchpad' ? 'opacity-90' :
+            currentRoute === 'studio' ? 'opacity-90' :
+            currentRoute === 'lists' ? 'opacity-90' : 'opacity-100'
           }`} />
         </div>
       </div>

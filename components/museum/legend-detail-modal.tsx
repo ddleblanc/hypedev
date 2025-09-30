@@ -50,6 +50,7 @@ interface LegendDetailModalProps {
   immersiveMode: boolean;
   setImmersiveMode: (immersive: boolean) => void;
   mousePosition: { x: number; y: number };
+  isMobile: boolean;
 }
 
 type StoryStep = {
@@ -58,14 +59,15 @@ type StoryStep = {
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
 };
 
-export function LegendDetailModal({ 
-  legend, 
-  onClose, 
-  isMuted, 
+export function LegendDetailModal({
+  legend,
+  onClose,
+  isMuted,
   setIsMuted,
   immersiveMode,
   setImmersiveMode,
-  mousePosition 
+  mousePosition,
+  isMobile
 }: LegendDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'story' | 'timeline' | 'artifacts' | 'achievements'>('story');
   const [storyProgress, setStoryProgress] = useState(0);
@@ -149,65 +151,67 @@ export function LegendDetailModal({
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
             
             {/* Interactive particles that respond to mouse */}
-            <div 
+            <div
               className="absolute inset-0 opacity-40"
               style={{
-                backgroundImage: `radial-gradient(2px 2px at ${mousePosition.x}% ${mousePosition.y}%, ${legend.color}80, transparent),
-                                 radial-gradient(1px 1px at ${mousePosition.x + 20}% ${mousePosition.y + 30}%, ${legend.color}60, transparent),
-                                 radial-gradient(3px 3px at ${mousePosition.x - 15}% ${mousePosition.y - 20}%, ${legend.color}40, transparent)`,
+                backgroundImage: `radial-gradient(2px 2px at ${mousePosition.x}% ${mousePosition.y}%, rgba(255,255,255,0.15), transparent),
+                                 radial-gradient(1px 1px at ${mousePosition.x + 20}% ${mousePosition.y + 30}%, rgba(255,255,255,0.1), transparent),
+                                 radial-gradient(3px 3px at ${mousePosition.x - 15}% ${mousePosition.y - 20}%, rgba(255,255,255,0.08), transparent)`,
                 backgroundSize: '150px 120px, 100px 80px, 200px 160px'
               }}
             />
           </div>
           
           {/* Advanced Controls */}
-          <div className="absolute top-8 left-8 flex items-center gap-4 z-20">
+          <div className="absolute top-4 md:top-8 left-4 md:left-8 flex items-center gap-2 md:gap-4 z-20">
             <Button
               variant="ghost"
-              size="sm"
+              size={isMobile ? "sm" : "default"}
               onClick={onClose}
-              className="text-white hover:bg-white/10 font-bold backdrop-blur-sm"
+              className="text-white hover:bg-white/10 font-bold backdrop-blur-sm px-2 md:px-4"
             >
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              Back to Hall
+              <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 md:mr-2" />
+              <span className="hidden md:inline">Back to Hall</span>
             </Button>
-            
-            <div className="flex items-center gap-2 bg-black/40 backdrop-blur-xl rounded-lg px-4 py-2">
-              <Badge className="bg-white/10 text-white border-white/20">
-                <Eye className="w-3 h-3 mr-1" />
-                Immersive Mode
-              </Badge>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setImmersiveMode(!immersiveMode)}
-                className="text-white hover:bg-white/10"
-              >
-                {immersiveMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsMuted(!isMuted)}
-                className="text-white hover:bg-white/10"
-              >
-                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-              </Button>
-            </div>
+
+            {!isMobile && (
+              <div className="flex items-center gap-2 bg-black/40 backdrop-blur-xl rounded-lg px-4 py-2">
+                <Badge className="bg-black/80 text-white border-white/20">
+                  <Eye className="w-3 h-3 mr-1" />
+                  Immersive Mode
+                </Badge>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setImmersiveMode(!immersiveMode)}
+                  className="text-white hover:bg-white/10"
+                >
+                  {immersiveMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsMuted(!isMuted)}
+                  className="text-white hover:bg-white/10"
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </Button>
+              </div>
+            )}
           </div>
           
           {/* Hero Content with Enhanced Typography */}
-          <div className="relative z-10 px-16 max-w-7xl mx-auto">
-            <div className="flex items-start gap-16">
+          <div className="relative z-10 px-4 md:px-16 max-w-7xl mx-auto">
+            <div className="flex flex-col lg:flex-row items-start gap-8 md:gap-16">
               {/* Portrait with Advanced Hover Effects */}
-              <motion.div 
-                className="flex-shrink-0"
-                whileHover={{ scale: 1.05, rotate: 1 }}
+              <motion.div
+                className="flex-shrink-0 w-full lg:w-auto flex justify-center lg:block"
+                whileHover={isMobile ? {} : { scale: 1.05, rotate: 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
               >
-                <div className="w-96 h-[500px] rounded-3xl overflow-hidden relative group">
+                <div className="w-64 h-80 md:w-80 md:h-96 lg:w-96 lg:h-[500px] rounded-2xl md:rounded-3xl overflow-hidden relative group">
                   <MediaRenderer
                     src={legend.portrait}
                     alt={legend.name}
@@ -219,17 +223,13 @@ export function LegendDetailModal({
                   <div 
                     className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500"
                     style={{ 
-                      boxShadow: `inset 0 0 100px ${legend.color}40, 0 0 100px ${legend.color}20`
+                      boxShadow: 'inset 0 0 100px rgba(255,255,255,0.02), 0 0 50px rgba(0,0,0,0.5)'
                     }}
                   />
                   
                   {/* Rarity indicator */}
-                  <Badge 
-                    className="absolute top-6 right-6 font-bold text-sm px-3 py-1"
-                    style={{ 
-                      backgroundColor: legend.rarity === "Mythic" ? "#ff6b6b" : "#ffd93d",
-                      color: "black"
-                    }}
+                  <Badge
+                    className="absolute top-6 right-6 font-bold text-sm px-3 py-1 bg-black/80 text-white border border-white/20"
                   >
                     <Crown className="w-4 h-4 mr-1" />
                     {legend.rarity}
@@ -246,52 +246,53 @@ export function LegendDetailModal({
               </motion.div>
               
               {/* Legend Info with Advanced Animations */}
-              <div className="flex-1 pt-12 space-y-8">
+              <div className="flex-1 pt-4 md:pt-12 space-y-4 md:space-y-8">
                 <motion.div
                   initial={{ y: 30, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.3, duration: 0.8 }}
                 >
-                  <Badge 
-                    className="mb-6 text-sm font-bold px-6 py-3 backdrop-blur-sm"
-                    style={{ 
-                      backgroundColor: `${legend.color}20`, 
-                      color: legend.color, 
-                      borderColor: `${legend.color}40` 
+                  <Badge
+                    className="mb-4 md:mb-6 text-xs md:text-sm font-bold px-3 py-2 md:px-6 md:py-3 backdrop-blur-sm"
+                    style={{
+                      backgroundColor: 'rgba(255,255,255,0.05)',
+                      color: 'rgba(255,255,255,0.6)',
+                      borderColor: 'rgba(255,255,255,0.1)'
                     }}
                   >
-                    <Crown className="w-4 h-4 mr-2" />
-                    {legend.category} • {legend.impact} • {legend.era}
+                    <Crown className="w-3 h-3 md:w-4 md:h-4 mr-2" />
+                    <span className="hidden md:inline">{legend.category} • {legend.impact} • {legend.era}</span>
+                    <span className="md:hidden">{legend.category}</span>
                   </Badge>
-                  
-                  <h1 className="text-8xl font-black text-white mb-6 leading-none tracking-tight">
+
+                  <h1 className="text-4xl md:text-6xl lg:text-8xl font-black text-white mb-4 md:mb-6 leading-none tracking-tight">
                     {legend.name}
                   </h1>
-                  
-                  <p className="text-4xl font-bold mb-8" style={{ color: legend.color }}>
+
+                  <p className="text-2xl md:text-3xl lg:text-4xl font-light mb-4 md:mb-8 text-white/60">
                     {legend.title}
                   </p>
-                  
-                  <p className="text-2xl text-white/90 mb-12 max-w-4xl leading-relaxed">
+
+                  <p className="text-base md:text-xl lg:text-2xl text-white/90 mb-6 md:mb-12 max-w-4xl leading-relaxed">
                     {legend.story.heroLine}
                   </p>
                 </motion.div>
                 
                 {/* Enhanced Stats Grid */}
-                <motion.div 
-                  className="grid grid-cols-3 gap-8 mb-12"
+                <motion.div
+                  className="grid grid-cols-3 gap-2 md:gap-8 mb-6 md:mb-12"
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.5, duration: 0.8 }}
                 >
                   {Object.entries(legend.stats).slice(0, 3).map(([key, value], index) => (
                     <div key={key} className="text-center group">
-                      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:border-white/20 transition-all duration-300">
-                        <p className="text-white/60 text-sm font-medium mb-2 capitalize">
+                      <div className="bg-black/80 backdrop-blur-sm rounded-lg md:rounded-xl p-3 md:p-6 border border-white/10 hover:border-white/20 transition-all duration-300">
+                        <p className="text-white/60 text-xs md:text-sm font-medium mb-1 md:mb-2 capitalize">
                           {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                         </p>
-                        <motion.p 
-                          className="text-3xl font-black text-white"
+                        <motion.p
+                          className="text-lg md:text-2xl lg:text-3xl font-black text-white"
                           initial={{ scale: 0.8 }}
                           animate={{ scale: 1 }}
                           transition={{ delay: 0.7 + index * 0.1, type: "spring", stiffness: 200 }}
@@ -304,38 +305,39 @@ export function LegendDetailModal({
                 </motion.div>
                 
                 {/* Action Buttons with Enhanced Styling */}
-                <motion.div 
-                  className="flex items-center gap-6"
+                <motion.div
+                  className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-6"
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.7, duration: 0.8 }}
                 >
-                  <Button 
-                    size="lg"
-                    className="font-bold px-12 py-4 text-xl hover:scale-105 transition-all duration-300 backdrop-blur-sm"
-                    style={{ backgroundColor: legend.color, color: "black" }}
+                  <Button
+                    size={isMobile ? "default" : "lg"}
+                    className="w-full md:w-auto font-medium px-6 md:px-12 py-3 md:py-4 text-base md:text-xl bg-white text-[#0a0a0a] hover:bg-white/90 transition-all duration-300"
                     data-interactive="true"
                   >
-                    <PlayCircle className="w-6 h-6 mr-3" />
+                    <PlayCircle className="w-5 h-5 md:w-6 md:h-6 mr-2 md:mr-3" />
                     Begin Discovery
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    className="border-white/30 text-white hover:bg-white/10 font-bold px-8 py-4 backdrop-blur-sm"
+                  <Button
+                    variant="outline"
+                    size={isMobile ? "default" : "lg"}
+                    className="w-full md:w-auto border-white/30 text-white hover:bg-white/10 font-bold px-4 md:px-8 py-3 md:py-4 backdrop-blur-sm"
                     data-collectible="true"
                   >
-                    <Gem className="w-5 h-5 mr-2" />
+                    <Gem className="w-4 h-4 md:w-5 md:h-5 mr-2" />
                     Collect NFT
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    className="border-white/30 text-white hover:bg-white/10 font-bold px-8 py-4 backdrop-blur-sm"
-                  >
-                    <Share2 className="w-5 h-5 mr-2" />
-                    Share
-                  </Button>
+                  {!isMobile && (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="border-white/30 text-white hover:bg-white/10 font-bold px-8 py-4 backdrop-blur-sm"
+                    >
+                      <Share2 className="w-5 h-5 mr-2" />
+                      Share
+                    </Button>
+                  )}
                 </motion.div>
               </div>
             </div>
@@ -353,10 +355,10 @@ export function LegendDetailModal({
         </div>
         
         {/* Interactive Storytelling Section */}
-        <div className="px-16 py-20 bg-gradient-to-b from-black via-gray-900/10 to-black">
+        <div className="px-4 md:px-16 py-10 md:py-20 bg-gradient-to-b from-black via-gray-900/10 to-black">
           {/* Navigation Tabs */}
-          <div className="flex justify-center mb-16">
-            <div className="flex bg-black/40 backdrop-blur-xl rounded-2xl p-2 border border-white/10">
+          <div className="flex justify-center mb-8 md:mb-16 overflow-x-auto">
+            <div className="flex bg-black/40 backdrop-blur-xl rounded-xl md:rounded-2xl p-1.5 md:p-2 border border-white/10">
               {(['story', 'timeline', 'artifacts', 'achievements'] as const).map((tab) => {
                 // Check if all quiz questions have been answered correctly
                 const allQuizzes = legend.timeline.filter(t => t.quiz);
@@ -380,26 +382,27 @@ export function LegendDetailModal({
                     onClick={() => isUnlocked && setActiveTab(tab)}
                     disabled={!isUnlocked}
                     className={cn(
-                      "flex items-center gap-3 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-300",
+                      "flex items-center gap-1.5 md:gap-3 px-3 py-2 md:px-8 md:py-4 rounded-lg md:rounded-xl font-bold text-sm md:text-lg transition-all duration-300 whitespace-nowrap",
                       activeTab === tab
                         ? "text-black"
-                        : isUnlocked 
-                        ? "text-white hover:bg-white/10" 
+                        : isUnlocked
+                        ? "text-white hover:bg-white/10"
                         : "text-white/30 cursor-not-allowed"
                     )}
                     style={{
-                      backgroundColor: activeTab === tab ? legend.color : 'transparent'
+                      backgroundColor: activeTab === tab ? 'rgba(255,255,255,0.1)' : 'transparent'
                     }}
                   >
-                    {isUnlocked ? <IconComponent className="w-5 h-5" /> : <Lock className="w-5 h-5" />}
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    {!isUnlocked && (
-                      <Badge className="bg-red-500/20 text-red-400 border-red-500/40 text-xs ml-2">
+                    {isUnlocked ? <IconComponent className="w-4 h-4 md:w-5 md:h-5" /> : <Lock className="w-4 h-4 md:w-5 md:h-5" />}
+                    <span className="hidden md:inline">{tab.charAt(0).toUpperCase() + tab.slice(1)}</span>
+                    <span className="md:hidden">{tab.charAt(0).toUpperCase() + tab.slice(1, 4)}</span>
+                    {!isUnlocked && !isMobile && (
+                      <Badge className="bg-black/80 text-white/40 border-white/10 text-xs ml-2">
                         Locked
                       </Badge>
                     )}
-                    {tab === 'artifacts' && allQuestionsAnswered && activeTab !== 'artifacts' && (
-                      <Badge className="bg-green-500/20 text-green-400 border-green-500/40 text-xs ml-2 animate-pulse">
+                    {tab === 'artifacts' && allQuestionsAnswered && activeTab !== 'artifacts' && !isMobile && (
+                      <Badge className="bg-black/80 text-white/70 border-white/20 text-xs ml-2 animate-pulse">
                         Unlocked!
                       </Badge>
                     )}
@@ -422,10 +425,7 @@ export function LegendDetailModal({
                   <div className="flex items-center gap-4">
                     <Button
                       onClick={() => setIsStoryAutoplay(!isStoryAutoplay)}
-                      className={cn(
-                        "font-bold",
-                        isStoryAutoplay ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"
-                      )}
+                      className="bg-black/80 text-white/70 hover:bg-black/60 font-medium"
                     >
                       {isStoryAutoplay ? <Pause className="w-4 h-4 mr-2" /> : <Play className="w-4 h-4 mr-2" />}
                       {isStoryAutoplay ? 'Pause' : 'Resume'} Auto-play
@@ -440,8 +440,7 @@ export function LegendDetailModal({
                 {/* Progress Bar */}
                 <div className="w-full bg-white/10 rounded-full h-2 mb-8">
                   <motion.div
-                    className="h-2 rounded-full"
-                    style={{ backgroundColor: legend.color }}
+                    className="h-2 rounded-full bg-white/40"
                     initial={{ width: 0 }}
                     animate={{ width: `${((storyProgress + 1) / storySteps.length) * 100}%` }}
                     transition={{ duration: 0.5 }}
@@ -460,13 +459,9 @@ export function LegendDetailModal({
                 >
                   <div>
                     <div className="flex items-center gap-4 mb-6">
-                      <div 
-                        className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                        style={{ backgroundColor: `${legend.color}20` }}
-                      >
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-black/80">
                         {React.createElement(storySteps[storyProgress].icon, {
-                          className: "w-8 h-8",
-                          style: { color: legend.color }
+                          className: "w-8 h-8 text-white/60"
                         })}
                       </div>
                       <h3 className="text-3xl font-bold text-white">
@@ -490,8 +485,7 @@ export function LegendDetailModal({
                       <Button
                         onClick={() => setStoryProgress(Math.min(storySteps.length - 1, storyProgress + 1))}
                         disabled={storyProgress === storySteps.length - 1}
-                        style={{ backgroundColor: legend.color, color: "black" }}
-                        className="font-bold"
+                        className="bg-white text-[#0a0a0a] hover:bg-white/90 font-medium"
                       >
                         Next
                         <ArrowRight className="w-4 h-4 ml-2" />
@@ -526,10 +520,10 @@ export function LegendDetailModal({
                 <p className="text-white/60 text-lg mb-6">
                   Click on glowing events to answer knowledge questions • Correct answers unlock the next event
                 </p>
-                <div className="inline-flex items-center gap-4 bg-white/5 rounded-full px-6 py-3">
-                  <CheckCircle className="w-5 h-5 text-green-400" />
+                <div className="inline-flex items-center gap-4 bg-black/80 rounded-full px-6 py-3 border border-white/10">
+                  <CheckCircle className="w-5 h-5 text-white/60" />
                   <span className="text-white/80">
-                    Questions Answered: {Object.values(quizAnswers).filter((answer, i) => 
+                    Questions Answered: {Object.values(quizAnswers).filter((answer, i) =>
                       legend.timeline[i]?.quiz && answer === legend.timeline[i].quiz?.correctAnswer
                     ).length} / {legend.timeline.filter(t => t.quiz).length}
                   </span>
@@ -558,15 +552,15 @@ export function LegendDetailModal({
                         )}
                       >
                         {/* Timeline Node */}
-                        <div 
+                        <div
                           className="absolute left-1/2 w-6 h-6 rounded-full border-4 transform -translate-x-1/2 z-10 transition-all duration-300"
-                          style={{ 
-                            backgroundColor: answeredCorrectly ? legend.color : 
-                                           canClick ? `${legend.color}60` : 
-                                           hasAnswered ? '#ef4444' : '#6b7280',
-                            borderColor: answeredCorrectly ? legend.color :
-                                       canClick ? legend.color :
-                                       hasAnswered ? '#ef4444' : '#6b7280'
+                          style={{
+                            backgroundColor: answeredCorrectly ? 'rgba(255,255,255,0.6)' :
+                                           canClick ? 'rgba(255,255,255,0.3)' :
+                                           hasAnswered ? 'rgba(255,255,255,0.15)' : 'rgba(107,114,128,0.5)',
+                            borderColor: answeredCorrectly ? 'rgba(255,255,255,0.6)' :
+                                       canClick ? 'rgba(255,255,255,0.4)' :
+                                       hasAnswered ? 'rgba(255,255,255,0.2)' : 'rgba(107,114,128,0.5)'
                           }}
                         />
                         
@@ -580,31 +574,31 @@ export function LegendDetailModal({
                             }
                           }}
                           className={cn(
-                            "w-5/12 bg-white/5 backdrop-blur-sm rounded-2xl p-8 border transition-all duration-300",
-                            canClick ? "border-yellow-500/50 hover:border-yellow-500/70 cursor-pointer" :
-                            answeredCorrectly ? "border-green-500/30" :
-                            hasAnswered && !answeredCorrectly ? "border-orange-500/50 hover:border-orange-500/70 cursor-pointer" :
+                            "w-5/12 bg-black/80 backdrop-blur-sm rounded-2xl p-8 border transition-all duration-300",
+                            canClick ? "border-white/30 hover:border-white/40 cursor-pointer" :
+                            answeredCorrectly ? "border-white/20" :
+                            hasAnswered && !answeredCorrectly ? "border-white/20 hover:border-white/30 cursor-pointer" :
                             "border-white/5 opacity-50 cursor-not-allowed"
                           )}
                         >
                         <div className="flex items-center gap-4 mb-4">
-                          <Badge 
+                          <Badge
                             className="font-bold text-lg px-4 py-2"
-                            style={{ 
-                              backgroundColor: answeredCorrectly ? `${legend.color}20` : 
-                                             canClick && !hasAnswered ? 'rgba(234,179,8,0.2)' :
-                                             hasAnswered && !answeredCorrectly ? 'rgba(249,115,22,0.2)' : 'rgba(128,128,128,0.2)',
-                              color: answeredCorrectly ? legend.color : 
-                                     canClick && !hasAnswered ? 'rgb(234,179,8)' :
-                                     hasAnswered && !answeredCorrectly ? 'rgb(249,115,22)' : 'gray'
+                            style={{
+                              backgroundColor: answeredCorrectly ? 'rgba(255,255,255,0.15)' :
+                                             canClick && !hasAnswered ? 'rgba(255,255,255,0.1)' :
+                                             hasAnswered && !answeredCorrectly ? 'rgba(255,255,255,0.08)' : 'rgba(128,128,128,0.2)',
+                              color: answeredCorrectly ? 'rgba(255,255,255,0.7)' :
+                                     canClick && !hasAnswered ? 'rgba(255,255,255,0.6)' :
+                                     hasAnswered && !answeredCorrectly ? 'rgba(255,255,255,0.5)' : 'gray'
                             }}
                           >
                             {event.year}
                           </Badge>
                           {!isAvailable && <Lock className="w-5 h-5 text-gray-400" />}
-                          {canClick && !hasAnswered && <Sparkles className="w-5 h-5 text-yellow-500" />}
-                          {hasAnswered && !answeredCorrectly && <ArrowRight className="w-5 h-5 text-orange-500" />}
-                          {answeredCorrectly && <CheckCircle className="w-5 h-5 text-green-400" />}
+                          {canClick && !hasAnswered && <Sparkles className="w-5 h-5 text-white/60" />}
+                          {hasAnswered && !answeredCorrectly && <ArrowRight className="w-5 h-5 text-white/40" />}
+                          {answeredCorrectly && <CheckCircle className="w-5 h-5 text-white/60" />}
                         </div>
                         
                         <h3 className={cn(
@@ -629,8 +623,8 @@ export function LegendDetailModal({
                         )}
                         
                         {canClick && !hasAnswered && (
-                          <div className="mt-4 p-4 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
-                            <p className="text-yellow-500 text-sm font-medium flex items-center gap-2">
+                          <div className="mt-4 p-4 bg-black/80 rounded-lg border border-white/20">
+                            <p className="text-white/70 text-sm font-medium flex items-center gap-2">
                               <Sparkles className="w-4 h-4" />
                               Click to answer the knowledge question
                             </p>
@@ -638,8 +632,8 @@ export function LegendDetailModal({
                         )}
                         
                         {hasAnswered && !answeredCorrectly && (
-                          <div className="mt-4 p-4 bg-orange-500/10 rounded-lg border border-orange-500/30">
-                            <p className="text-orange-500 text-sm font-medium flex items-center gap-2">
+                          <div className="mt-4 p-4 bg-black/80 rounded-lg border border-white/20">
+                            <p className="text-white/60 text-sm font-medium flex items-center gap-2">
                               <ArrowRight className="w-4 h-4" />
                               Try again - click to retry the question
                             </p>
@@ -647,8 +641,8 @@ export function LegendDetailModal({
                         )}
                         
                         {answeredCorrectly && (
-                          <div className="mt-4 p-3 bg-green-500/10 rounded-lg border border-green-500/30">
-                            <p className="text-green-400 text-sm font-medium flex items-center gap-2">
+                          <div className="mt-4 p-3 bg-black/80 rounded-lg border border-white/10">
+                            <p className="text-white/60 text-sm font-medium flex items-center gap-2">
                               <CheckCircle className="w-4 h-4" />
                               Mastered! You've proven your understanding
                             </p>
@@ -692,8 +686,8 @@ export function LegendDetailModal({
                             <div className="mb-8">
                               <div className="flex items-center justify-between mb-4">
                                 <Badge className="text-sm px-3 py-1" style={{ 
-                                  backgroundColor: `${legend.color}20`,
-                                  color: legend.color
+                                  backgroundColor: 'rgba(255,255,255,0.05)',
+                                  color: 'rgba(255,255,255,0.6)'
                                 }}>
                                   {legend.timeline[currentQuizIndex].year} • {quiz.type === 'multiple' ? 'Multiple Choice' : 
                                    quiz.type === 'truefalse' ? 'True or False' : 
@@ -703,7 +697,7 @@ export function LegendDetailModal({
                                   <span className="text-white/60 text-sm">
                                     Difficulty: {quiz.difficulty}
                                   </span>
-                                  <Badge className="bg-yellow-500/20 text-yellow-500">
+                                  <Badge className="bg-black/80 text-white/70 border border-white/20">
                                     {quiz.points} points
                                   </Badge>
                                 </div>
@@ -724,9 +718,9 @@ export function LegendDetailModal({
                               </h4>
                               
                               {quiz.hint && !hasAnswered && (
-                                <div className="flex items-start gap-3 p-4 bg-blue-500/10 rounded-lg border border-blue-500/20 mb-6">
-                                  <Info className="w-5 h-5 text-blue-400 mt-0.5" />
-                                  <p className="text-blue-400 text-sm">
+                                <div className="flex items-start gap-3 p-4 bg-black/80 rounded-lg border border-white/20 mb-6">
+                                  <Info className="w-5 h-5 text-white/60 mt-0.5" />
+                                  <p className="text-white/70 text-sm">
                                     Hint: {quiz.hint}
                                   </p>
                                 </div>
@@ -791,10 +785,10 @@ export function LegendDetailModal({
                                       }}
                                       className={cn(
                                         "w-full text-left p-6 rounded-xl border-2 transition-all duration-300",
-                                        !hasAnswered ? "border-white/10 hover:border-white/30 hover:bg-white/5" :
-                                        isSelected && isCorrect ? "border-green-500 bg-green-500/10" :
-                                        isSelected && !isCorrect ? "border-red-500 bg-red-500/10" :
-                                        isThisCorrect ? "border-green-500/50 bg-green-500/5" :
+                                        !hasAnswered ? "border-white/10 hover:border-white/30 hover:bg-black/60" :
+                                        isSelected && isCorrect ? "border-white/30 bg-black/60" :
+                                        isSelected && !isCorrect ? "border-white/20 bg-black/40" :
+                                        isThisCorrect ? "border-white/20 bg-black/60" :
                                         "border-white/5 opacity-50"
                                       )}
                                       disabled={hasAnswered}
@@ -804,16 +798,16 @@ export function LegendDetailModal({
                                       <div className="flex items-center justify-between">
                                         <span className={cn(
                                           "text-lg",
-                                          hasAnswered && isThisCorrect ? "text-green-400" :
-                                          hasAnswered && isSelected && !isCorrect ? "text-red-400" :
+                                          hasAnswered && isThisCorrect ? "text-white/70" :
+                                          hasAnswered && isSelected && !isCorrect ? "text-white/40" :
                                           "text-white"
                                         )}>
                                           {option}
                                         </span>
                                         {hasAnswered && (
                                           <>
-                                            {isThisCorrect && <CheckCircle className="w-6 h-6 text-green-400" />}
-                                            {isSelected && !isCorrect && <X className="w-6 h-6 text-red-400" />}
+                                            {isThisCorrect && <CheckCircle className="w-6 h-6 text-white/60" />}
+                                            {isSelected && !isCorrect && <X className="w-6 h-6 text-white/40" />}
                                           </>
                                         )}
                                       </div>
@@ -830,20 +824,20 @@ export function LegendDetailModal({
                                 animate={{ opacity: 1, y: 0 }}
                                 className={cn(
                                   "p-6 rounded-xl mb-6",
-                                  isCorrect ? "bg-green-500/10 border border-green-500/30" :
-                                  "bg-red-500/10 border border-red-500/30"
+                                  isCorrect ? "bg-black/80 border border-white/10" :
+                                  "bg-black/80 border border-white/10"
                                 )}
                               >
                                 <div className="flex items-start gap-4">
                                   {isCorrect ? (
-                                    <CheckCircle className="w-8 h-8 text-green-400 mt-1" />
+                                    <CheckCircle className="w-8 h-8 text-white/60 mt-1" />
                                   ) : (
-                                    <AlertCircle className="w-8 h-8 text-red-400 mt-1" />
+                                    <AlertCircle className="w-8 h-8 text-white/40 mt-1" />
                                   )}
                                   <div className="flex-1">
                                     <h5 className={cn(
                                       "text-xl font-medium mb-2",
-                                      isCorrect ? "text-green-400" : "text-red-400"
+                                      isCorrect ? "text-white/70" : "text-white/40"
                                     )}>
                                       {isCorrect ? "Excellent! You've mastered this knowledge." : "Not quite right, but you're learning!"}
                                     </h5>
@@ -851,8 +845,8 @@ export function LegendDetailModal({
                                       {quiz.explanation}
                                     </p>
                                     {isCorrect && quiz.relatedArtifact && (
-                                      <div className="mt-4 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
-                                        <p className="text-yellow-500 text-sm flex items-center gap-2">
+                                      <div className="mt-4 p-3 bg-black/80 rounded-lg border border-white/20">
+                                        <p className="text-white/70 text-sm flex items-center gap-2">
                                           <Gem className="w-4 h-4" />
                                           You've made progress toward unlocking: {quiz.relatedArtifact}
                                         </p>
@@ -880,7 +874,7 @@ export function LegendDetailModal({
                                       });
                                       // Don't close the modal, let them try again immediately
                                     }}
-                                    className="px-8 py-3 font-medium bg-orange-500 hover:bg-orange-600 text-white"
+                                    className="px-8 py-3 font-medium bg-white text-[#0a0a0a] hover:bg-white/90"
                                   >
                                     Try Again
                                   </Button>
@@ -889,9 +883,9 @@ export function LegendDetailModal({
                                   onClick={() => setShowQuiz(false)}
                                   className={cn(
                                     "px-8 py-3 font-medium",
-                                    hasAnswered && isCorrect ? "bg-green-500 hover:bg-green-600 text-white" :
-                                    hasAnswered && !isCorrect ? "bg-white/10 hover:bg-white/20 text-white" :
-                                    "bg-white/5 hover:bg-white/10 text-white/50"
+                                    hasAnswered && isCorrect ? "bg-black/80 hover:bg-black/60 text-white" :
+                                    hasAnswered && !isCorrect ? "bg-black/80 hover:bg-black/60 text-white" :
+                                    "bg-black/40 hover:bg-black/60 text-white/50"
                                   )}
                                   disabled={!hasAnswered}
                                 >
@@ -922,14 +916,14 @@ export function LegendDetailModal({
                 <p className="text-white/70 text-lg mb-6">
                   Master the timeline to unlock these legendary artifacts
                 </p>
-                <div className="inline-flex items-center gap-6 bg-white/5 rounded-full px-8 py-4">
+                <div className="inline-flex items-center gap-6 bg-black/80 rounded-full px-8 py-4 border border-white/10">
                   <div className="flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-yellow-500" />
+                    <Trophy className="w-5 h-5 text-white/60" />
                     <span className="text-white/80">Mastery Points: {masteryPoints}</span>
                   </div>
                   <div className="w-px h-6 bg-white/20" />
                   <div className="flex items-center gap-2">
-                    <Gem className="w-5 h-5 text-purple-400" />
+                    <Gem className="w-5 h-5 text-white/60" />
                     <span className="text-white/80">Artifacts Unlocked: {unlockedArtifacts.size} / {legend.artifacts.length}</span>
                   </div>
                 </div>
@@ -961,24 +955,16 @@ export function LegendDetailModal({
                         />
                         
                         {/* Rarity Glow */}
-                        <div 
+                        <div
                           className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-all duration-500"
                           style={{
-                            background: `radial-gradient(circle at center, ${
-                              artifact.rarity === 'Mythic' ? '#ff6b6b' :
-                              artifact.rarity === 'Legendary' ? '#ffd93d' : '#4ecdc4'
-                            }40, transparent 70%)`
+                            background: 'radial-gradient(circle at center, rgba(255,255,255,0.1), transparent 70%)'
                           }}
                         />
                         
                         {/* Rarity Badge */}
-                        <Badge 
-                          className="absolute top-4 right-4 font-bold"
-                          style={{ 
-                            backgroundColor: artifact.rarity === "Mythic" ? "#ff6b6b" : 
-                                           artifact.rarity === "Legendary" ? "#ffd93d" : "#4ecdc4",
-                            color: "black"
-                          }}
+                        <Badge
+                          className="absolute top-4 right-4 font-bold bg-black/80 text-white border border-white/20"
                         >
                           <Star className="w-3 h-3 mr-1" />
                           {artifact.rarity}
@@ -1002,7 +988,7 @@ export function LegendDetailModal({
                             <p className="text-white/70 text-sm mb-3">{artifact.description}</p>
                             
                             <div className="flex items-center gap-4 text-sm">
-                              <Badge className="bg-white/10 text-white border-white/20">
+                              <Badge className="bg-black/80 text-white border-white/20">
                                 {artifact.type}
                               </Badge>
                               <span className="text-white/60">{artifact.year}</span>
@@ -1033,7 +1019,7 @@ export function LegendDetailModal({
                               : "opacity-50 cursor-not-allowed"
                           )}
                           style={{ 
-                            backgroundColor: artifact.unlocked ? legend.color : 'gray',
+                            backgroundColor: artifact.unlocked ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)',
                             color: "black"
                           }}
                           disabled={!artifact.unlocked}
@@ -1080,21 +1066,21 @@ export function LegendDetailModal({
                     whileInView={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1, duration: 0.8 }}
                     className={cn(
-                      "bg-white/5 backdrop-blur-sm rounded-2xl p-8 border transition-all duration-300",
-                      achievement.unlocked 
-                        ? "border-white/10 hover:border-white/20" 
+                      "bg-black/80 backdrop-blur-sm rounded-2xl p-8 border transition-all duration-300",
+                      achievement.unlocked
+                        ? "border-white/10 hover:border-white/20"
                         : "border-gray-600/10 opacity-50"
                     )}
                   >
                     <div className="flex items-center gap-6">
-                      <div 
+                      <div
                         className={cn(
                           "w-16 h-16 rounded-2xl flex items-center justify-center",
-                          achievement.unlocked ? "bg-green-500/20" : "bg-gray-500/20"
+                          achievement.unlocked ? "bg-black/60" : "bg-black/40"
                         )}
                       >
                         {achievement.unlocked ? (
-                          <CheckCircle className="w-8 h-8 text-green-400" />
+                          <CheckCircle className="w-8 h-8 text-white/60" />
                         ) : (
                           <Circle className="w-8 h-8 text-gray-400" />
                         )}
@@ -1103,7 +1089,7 @@ export function LegendDetailModal({
                       <div className="flex-1">
                         <div className="flex items-center gap-4 mb-2">
                           <h3 className="text-2xl font-bold text-white">{achievement.name}</h3>
-                          <Badge className="bg-white/10 text-white border-white/20 font-bold">
+                          <Badge className="bg-black/80 text-white border-white/20 font-bold">
                             {achievement.year}
                           </Badge>
                         </div>
@@ -1112,8 +1098,7 @@ export function LegendDetailModal({
                       
                       {achievement.unlocked && (
                         <Button
-                          className="font-bold"
-                          style={{ backgroundColor: legend.color, color: "black" }}
+                          className="bg-white text-[#0a0a0a] hover:bg-white/90 font-medium"
                         >
                           <Trophy className="w-4 h-4 mr-2" />
                           Commemorate
@@ -1139,8 +1124,7 @@ export function LegendDetailModal({
           </Button>
           
           <Button
-            className="w-14 h-14 rounded-full text-black font-bold hover:scale-110 transition-all"
-            style={{ backgroundColor: legend.color }}
+            className="w-14 h-14 rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-all border border-white/10"
           >
             <Heart className="w-6 h-6" />
           </Button>
