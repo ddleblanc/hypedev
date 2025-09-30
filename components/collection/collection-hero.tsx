@@ -73,7 +73,12 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
       </div>
 
       {/* Back Button & Controls */}
-      <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
+      <motion.div
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="absolute top-4 left-4 right-4 flex items-center justify-between z-10"
+      >
         <Button
           size="icon"
           variant="ghost"
@@ -101,7 +106,7 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
             {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
           </Button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Hero Content - Desktop */}
       <motion.div
@@ -110,7 +115,12 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
       >
         <div>
           {/* Creator Info */}
-          <div className="flex items-center gap-3 mb-4">
+          <motion.div
+            initial={{ x: -30, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.6 }}
+            className="flex items-center gap-3 mb-4"
+          >
             <img
               src={collection.creator.avatar}
               alt={collection.creator.name}
@@ -123,18 +133,33 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
                 <Verified className="w-4 h-4 text-blue-400 fill-current" />
               )}
             </div>
-          </div>
+          </motion.div>
 
           {/* Title & Description */}
-          <h1 className="text-6xl font-black text-white mb-3">
+          <motion.h1
+            initial={{ x: -30, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.6 }}
+            className="text-6xl font-black text-white mb-3"
+          >
             {collection.title}
-          </h1>
-          <p className="text-lg text-white/90 mb-6">
+          </motion.h1>
+          <motion.p
+            initial={{ x: -30, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.6 }}
+            className="text-lg text-white/90 mb-6"
+          >
             {collection.description}
-          </p>
+          </motion.p>
 
           {/* Quick Stats */}
-          <div className="flex flex-wrap items-center gap-6 mb-6">
+          <motion.div
+            initial={{ x: -30, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.7, duration: 0.6 }}
+            className="flex flex-wrap items-center gap-6 mb-6"
+          >
             <div>
               <p className="text-sm text-white/60">Floor Price</p>
               <div className="flex items-baseline gap-2">
@@ -167,10 +192,15 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
                 {collection.stats.owners.toLocaleString()}
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
+          <motion.div
+            initial={{ x: -30, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.8, duration: 0.6 }}
+            className="flex flex-wrap items-center gap-3"
+          >
             <Button
               size="lg"
               className="bg-black/80 text-white hover:bg-black/90 border border-white/20 font-bold"
@@ -225,7 +255,7 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
                 <TooltipContent>Twitter</TooltipContent>
               </Tooltip>
             </div>
-          </div>
+          </motion.div>
         </div>
       </motion.div>
 
@@ -236,7 +266,12 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
       >
         <div className="space-y-3">
           {/* Creator Info - Compact */}
-          <div className="flex items-center gap-2">
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className="flex items-center gap-2"
+          >
             <img
               src={collection.creator.avatar}
               alt={collection.creator.name}
@@ -247,20 +282,29 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
             {collection.creator.verified && (
               <Verified className="w-3 h-3 text-blue-400 fill-current" />
             )}
-          </div>
+          </motion.div>
 
           {/* Title & Description - Compact */}
-          <div>
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
             <h1 className="text-2xl font-black text-white mb-1">
               {collection.title}
             </h1>
             <p className="text-sm text-white/80 line-clamp-2">
               {collection.description}
             </p>
-          </div>
+          </motion.div>
 
           {/* Quick Stats - Compact Grid */}
-          <div className="grid grid-cols-4 gap-2">
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+            className="grid grid-cols-4 gap-2"
+          >
             <div className="bg-black/40 backdrop-blur rounded-lg p-2">
               <p className="text-[10px] text-white/60 mb-0.5">Floor</p>
               <p className="text-sm font-bold text-[rgb(163,255,18)]">
@@ -289,10 +333,15 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
                   : collection.stats.owners}
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Action Buttons - Compact */}
-          <div className="flex items-center gap-2">
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.7, duration: 0.5 }}
+            className="flex items-center gap-2"
+          >
             <Button
               size="sm"
               className="flex-1 bg-black/80 text-white hover:bg-black/90 border border-white/20 font-bold h-9"
@@ -327,7 +376,7 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
             >
               <Globe className="w-4 h-4" />
             </Button>
-          </div>
+          </motion.div>
         </div>
       </motion.div>
     </motion.div>

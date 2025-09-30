@@ -42,33 +42,61 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
   ];
 
   return (
-    <div className="w-full min-h-screen bg-black">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="w-full min-h-screen bg-black"
+    >
       <TooltipProvider>
-        <CollectionHero
-          collection={mockCollection}
-          isWatchlisted={isWatchlisted}
-          onWatchlistToggle={() => setIsWatchlisted(!isWatchlisted)}
-          onShare={handleShare}
-        />
+        <motion.div
+          initial={{ y: -30, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+        >
+          <CollectionHero
+            collection={mockCollection}
+            isWatchlisted={isWatchlisted}
+            onWatchlistToggle={() => setIsWatchlisted(!isWatchlisted)}
+            onShare={handleShare}
+          />
+        </motion.div>
 
         {/* Main Content */}
         <div className="relative bg-black min-h-screen pb-20 md:pb-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <CollectionTabs />
+            <motion.div
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+            >
+              <CollectionTabs />
+            </motion.div>
 
             {/* Tab Contents */}
-            <div className="px-4 md:px-6 py-8">
+            <motion.div
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
+              className="px-4 md:px-6 py-8"
+            >
               <OverviewTab collection={mockCollection} />
               <ItemsTab collection={mockCollection} />
               <AnalyticsTab />
               <ActivityTab collection={mockCollection} />
               <HoldersTab collection={mockCollection} />
-            </div>
+            </motion.div>
           </Tabs>
         </div>
 
         {/* Mobile Bottom Navigation Bar */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-30">
+        <motion.div
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.8, duration: 0.5 }}
+          className="md:hidden fixed bottom-0 left-0 right-0 z-30"
+        >
           <div className="bg-black/60 backdrop-blur-xl border-t border-white/10">
             <div className="grid grid-cols-5">
               {/* Home Button */}
@@ -102,8 +130,8 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
               })}
             </div>
           </div>
-        </div>
+        </motion.div>
       </TooltipProvider>
-    </div>
+    </motion.div>
   );
 }
