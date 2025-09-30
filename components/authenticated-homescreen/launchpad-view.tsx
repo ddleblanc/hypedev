@@ -37,8 +37,11 @@ const categories = [
   { id: "trending", name: "Trending", icon: TrendingUp, count: "0" },
 ];
 
+interface LaunchpadViewProps {
+  setViewMode: (newMode: string) => void;
+}
 
-export function LaunchpadView() {
+export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
   const router = useRouter();
   const { collections, isLoading, error } = useStudioData();
 
