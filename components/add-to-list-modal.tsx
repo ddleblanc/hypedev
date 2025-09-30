@@ -73,7 +73,7 @@ export function AddToListModal({ isOpen, onClose, item, onSuccess }: AddToListMo
           const checkData = await checkResponse.json();
 
           if (checkData.success && checkData.lists) {
-            const listIds = new Set(checkData.lists.map((l: any) => l.listId));
+            const listIds = new Set<string>(checkData.lists.map((l: any) => l.listId));
             setItemInLists(listIds);
           }
         }
