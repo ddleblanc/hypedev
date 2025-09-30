@@ -19,7 +19,7 @@ interface CollectionDetailPageProps {
   slug: string;
 }
 
-export function CollectionDetailPage() {
+export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
   const [isWatchlisted, setIsWatchlisted] = useState(false);
