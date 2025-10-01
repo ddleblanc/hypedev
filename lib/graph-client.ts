@@ -2,9 +2,9 @@ import { GraphQLClient } from 'graphql-request';
 
 // The Graph endpoints for different networks
 const GRAPH_ENDPOINTS = {
-  // Sepolia testnet - using a general NFT subgraph or our custom one
+  // Sepolia testnet - your deployed hyperchain-x subgraph
   11155111: process.env.NEXT_PUBLIC_GRAPH_SEPOLIA_ENDPOINT ||
-    'https://api.thegraph.com/subgraphs/name/your-username/your-subgraph', // Replace with your subgraph
+    'https://api.studio.thegraph.com/query/118938/hyperchain-x/v0.0.1',
 
   // Mainnet - using popular NFT subgraph
   1: 'https://api.thegraph.com/subgraphs/name/messari/nft-marketplace',
@@ -23,40 +23,53 @@ export function getGraphClient(chainId: number): GraphQLClient | null {
   return new GraphQLClient(endpoint);
 }
 
-// Collection stats query
+// Query for Transfer events and TokensClaimed events
 export const COLLECTION_STATS_QUERY = `
-  query GetCollectionStats($address: String!, $from: Int!) {
-    collection(id: $address) {
+  query GetCollectionStats($address: String!) {
+    transfers(
+      where: {
+        id_contains: $address
+      }
+      first: 1000
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      from
+      to
+      tokenId
+      blockTimestamp
+      transactionHash
+    }
+
+    tokensClaimed: tokensClaimeds(
+      where: {
+        id_contains: $address
+      }
+      first: 100
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      claimer
+      receiver
+      startTokenId
+      quantityClaimed
+      blockTimestamp
+      transactionHash
+    }
+
+    sharedMetadata: sharedMetadataUpdateds(
+      first: 1
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
       id
       name
-      symbol
-      totalSupply
-      totalVolume
-      totalSales
-      floorPrice
-      uniqueHolders
-
-      dayData(first: 30, orderBy: date, orderDirection: desc) {
-        date
-        volume
-        sales
-        averagePrice
-      }
-
-      nfts(first: 1000) {
-        id
-        tokenId
-        owner
-      }
-
-      sales(first: 100, orderBy: timestamp, orderDirection: desc) {
-        id
-        price
-        timestamp
-        from
-        to
-        tokenId
-      }
+      description
+      imageURI
+      animationURI
+      blockTimestamp
     }
   }
 `;
@@ -153,43 +166,90 @@ export async function fetchCollectionStats(
   try {
     const client = getGraphClient(chainId);
     if (!client) {
+      console.log('No Graph client for chain:', chainId);
       return null;
     }
 
-    // Try to get full collection stats first
-    try {
-      const data = await client.request(COLLECTION_STATS_QUERY, {
-        address: contractAddress.toLowerCase(),
-        from: Math.floor(Date.now() / 1000) - 86400 * 30 // Last 30 days
+    // Remove verbose logging - only log errors
+    // console.log('Fetching stats for:', contractAddress, 'on chain:', chainId);
+
+    // Query the actual entities that exist in your subgraph
+    const query = `
+      {
+        tokensClaimeds(first: 1000, orderBy: blockTimestamp, orderDirection: desc) {
+          id
+          claimer
+          receiver
+          startTokenId
+          quantityClaimed
+          blockTimestamp
+          transactionHash
+        }
+        transfers(first: 1000, orderBy: blockTimestamp, orderDirection: desc) {
+          id
+          from
+          to
+          tokenId
+          blockTimestamp
+          transactionHash
+        }
+      }
+    `;
+
+    const data = await client.request(query);
+    // console.log('Graph response:', data);
+
+    // Calculate stats from TokensClaimed events
+    let totalVolume = 0;
+    let totalSupply = 0;
+    const holders = new Set<string>();
+
+    if (data.tokensClaimeds && data.tokensClaimeds.length > 0) {
+      // console.log('Found', data.tokensClaimeds.length, 'TokensClaimed events');
+
+      // Each claim was at 0.0001 ETH per NFT (you should get this from claim conditions)
+      const pricePerNFT = 0.0001;
+
+      data.tokensClaimeds.forEach((claim: any) => {
+        const quantity = parseInt(claim.quantityClaimed);
+        totalSupply += quantity;
+        totalVolume += quantity * pricePerNFT;
+        holders.add(claim.receiver.toLowerCase());
       });
 
-      if (data.collection) {
-        return {
-          totalVolume: parseFloat(data.collection.totalVolume || '0'),
-          floorPrice: parseFloat(data.collection.floorPrice || '0'),
-          holders: data.collection.uniqueHolders || 0,
-          totalSupply: data.collection.totalSupply || 0,
-          sales: data.collection.sales || []
-        };
-      }
-    } catch (e) {
-      console.log('Full stats not available, trying simple query...');
+      // console.log('Calculated stats:', { totalVolume, totalSupply, holders: holders.size });
+
+      return {
+        totalVolume,
+        floorPrice: pricePerNFT, // Floor price is the mint price for now
+        holders: holders.size,
+        totalSupply,
+        sales: data.tokensClaimeds || []
+      };
     }
 
-    // Fallback to simple transfer analysis
-    const data = await client.request(SIMPLE_COLLECTION_STATS, {
-      address: contractAddress.toLowerCase()
-    });
+    // Also check transfers for holder count
+    if (data.transfers && data.transfers.length > 0) {
+      // console.log('Found', data.transfers.length, 'Transfer events');
 
-    const stats = calculateVolumeFromTransfers(data.transfers || []);
+      data.transfers.forEach((transfer: any) => {
+        // Add holders from transfers (excluding burn address)
+        if (transfer.to !== '0x0000000000000000000000000000000000000000') {
+          holders.add(transfer.to.toLowerCase());
+        }
+      });
 
-    return {
-      totalVolume: stats.totalVolume,
-      floorPrice: stats.floorPrice,
-      holders: stats.uniqueHolders.size,
-      totalSupply: data.mints?.length || 0,
-      sales: data.transfers || []
-    };
+      return {
+        totalVolume: 0, // No volume data from just transfers
+        floorPrice: 0,
+        holders: holders.size,
+        totalSupply: totalSupply || data.transfers.length,
+        sales: []
+      };
+    }
+
+    // console.log('No events found in subgraph');
+    return null;
 
   } catch (error) {
     console.error('Error fetching collection stats from The Graph:', error);

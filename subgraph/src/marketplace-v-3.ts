@@ -50,7 +50,7 @@ export function handleExtensionAdded(event: ExtensionAddedEvent): void {
   let entity = new ExtensionAdded(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   )
-  entity.name = event.params.name
+  entity.name = event.params.name.toString()
   entity.implementation = event.params.implementation
   entity.extension_metadata_name = event.params.extension.metadata.name
   entity.extension_metadata_metadataURI =
@@ -72,7 +72,7 @@ export function handleExtensionRemoved(event: ExtensionRemovedEvent): void {
   let entity = new ExtensionRemoved(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   )
-  entity.name = event.params.name
+  entity.name = event.params.name.toString()
   entity.extension_metadata_name = event.params.extension.metadata.name
   entity.extension_metadata_metadataURI =
     event.params.extension.metadata.metadataURI
@@ -93,7 +93,7 @@ export function handleExtensionReplaced(event: ExtensionReplacedEvent): void {
   let entity = new ExtensionReplaced(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   )
-  entity.name = event.params.name
+  entity.name = event.params.name.toString()
   entity.implementation = event.params.implementation
   entity.extension_metadata_name = event.params.extension.metadata.name
   entity.extension_metadata_metadataURI =
@@ -131,7 +131,7 @@ export function handleFunctionDisabled(event: FunctionDisabledEvent): void {
   let entity = new FunctionDisabled(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   )
-  entity.name = event.params.name
+  entity.name = event.params.name.toString()
   entity.functionSelector = event.params.functionSelector
   entity.extMetadata_name = event.params.extMetadata.name
   entity.extMetadata_metadataURI = event.params.extMetadata.metadataURI
@@ -148,7 +148,7 @@ export function handleFunctionEnabled(event: FunctionEnabledEvent): void {
   let entity = new FunctionEnabled(
     event.transaction.hash.concatI32(event.logIndex.toI32())
   )
-  entity.name = event.params.name
+  entity.name = event.params.name.toString()
   entity.functionSelector = event.params.functionSelector
   entity.extFunction_functionSelector =
     event.params.extFunction.functionSelector

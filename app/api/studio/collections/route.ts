@@ -61,21 +61,32 @@ export async function GET(request: NextRequest) {
         // Try to fetch real stats from The Graph
         let realStats = null;
         if (collection.address && collection.isDeployed) {
-          realStats = await fetchCollectionStats(
-            collection.address,
-            collection.chainId
-          );
+          // Remove verbose logging
+          // console.log('Collection from DB:', {
+          //   id: collection.id,
+          //   name: collection.name,
+          //   address: collection.address,
+          //   chainId: collection.chainId,
+          //   isDeployed: collection.isDeployed
+          // });
+
+          try {
+            realStats = await fetchCollectionStats(
+              collection.address,
+              collection.chainId
+            );
+            // console.log('Stats result for', collection.address, ':', realStats);
+          } catch (error) {
+            console.error('Error fetching stats for', collection.address, ':', error);
+          }
         }
 
-        // Use real stats if available, otherwise fall back to computed/mock data
-        const floorPrice = realStats?.floorPrice ||
-          (collection.nfts.length > 0 ? Math.random() * 2 + 0.1 : 0);
+        // Use real stats if available, otherwise default to 0
+        const floorPrice = realStats?.floorPrice || 0;
 
-        const volume = realStats?.totalVolume ||
-          (collection.nfts.length * (Math.random() * 5 + 1));
+        const volume = realStats?.totalVolume || 0;
 
-        const holders = realStats?.holders ||
-          Math.floor(collection.nfts.length * 0.7);
+        const holders = realStats?.holders || 0;
 
         const mintedSupply = realStats?.totalSupply || collection.nfts.length;
 

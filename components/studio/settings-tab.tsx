@@ -14,7 +14,11 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  Zap
+  Zap,
+  Sparkles,
+  Shield,
+  Globe,
+  ArrowRight
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,10 +28,12 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { NATIVE_TOKEN_ADDRESS } from 'thirdweb';
 import type { ClaimCondition } from '@/lib/nft-minting';
-import { setupClaimConditions } from '@/lib/nft-minting';
+import { setupClaimConditions, getClaimConditions } from '@/lib/nft-minting';
 import { useActiveAccount } from 'thirdweb/react';
+import { MagicDateTimePicker } from '@/components/ui/magic-datetime-picker';
 
 interface SettingsTabProps {
   collection: any;
@@ -39,10 +45,19 @@ export function SettingsTab({ collection }: SettingsTabProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [contractConditions, setContractConditions] = useState<any[]>([]);
 
   // Check if contract supports claim conditions
   const supportsClaimConditions = () => {
     return ['DropERC721', 'OpenEditionERC721', 'EditionDrop'].includes(collection.contractType);
+  };
+
+  // Check if contract supports multiple phases
+  const supportsMultiplePhases = () => {
+    // OpenEditionERC721 only supports single phase
+    // DropERC721 and EditionDrop support multiple phases
+    return ['DropERC721', 'EditionDrop'].includes(collection.contractType);
   };
 
   // Load claim phases from database
@@ -50,7 +65,12 @@ export function SettingsTab({ collection }: SettingsTabProps) {
     if (collection?.claimPhases) {
       try {
         const phases = JSON.parse(collection.claimPhases);
-        setClaimPhases(phases);
+        // Ensure dates are properly converted
+        const validatedPhases = phases.map((phase: any) => ({
+          ...phase,
+          startTimestamp: phase.startTimestamp ? new Date(phase.startTimestamp) : new Date()
+        }));
+        setClaimPhases(validatedPhases);
       } catch (error) {
         console.error('Error parsing claim phases:', error);
       }
@@ -83,6 +103,92 @@ export function SettingsTab({ collection }: SettingsTabProps) {
     setClaimPhases([...claimPhases, newPhase]);
   };
 
+  // Apply preset templates
+  const applyPreset = (presetType: 'public' | 'allowlist' | 'public-allowlist') => {
+    const now = new Date();
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // For single-phase contracts, only allow single phase presets
+    if (!supportsMultiplePhases() && presetType === 'public-allowlist') {
+      setErrorMessage('This contract type only supports single phase configurations. Please choose Public or Allowlist only.');
+      setSaveStatus('error');
+      setTimeout(() => {
+        setSaveStatus('idle');
+        setErrorMessage('');
+      }, 3000);
+      return;
+    }
+
+    switch (presetType) {
+      case 'public':
+        // Simple public mint
+        setClaimPhases([
+          {
+            startTimestamp: now,
+            quantityLimitPerWallet: 5, // Reasonable default limit
+            pricePerToken: "0", // Free mint by default
+            currency: NATIVE_TOKEN_ADDRESS,
+            metadata: {
+              name: "Public Sale",
+              description: "Open to everyone"
+            }
+          }
+        ]);
+        break;
+
+      case 'allowlist':
+        // Allowlist only
+        setClaimPhases([
+          {
+            startTimestamp: now,
+            quantityLimitPerWallet: 1,
+            pricePerToken: "0",
+            currency: NATIVE_TOKEN_ADDRESS,
+            merkleRootHash: "0x0000000000000000000000000000000000000000000000000000000000000000", // Will need to be set
+            metadata: {
+              name: "Allowlist Only",
+              description: "Exclusive access for allowlisted wallets"
+            }
+          }
+        ]);
+        break;
+
+      case 'public-allowlist':
+        // Two phases: Allowlist first, then public
+        // Only available for multi-phase contracts
+        if (supportsMultiplePhases()) {
+          const allowlistStart = now;
+          const publicStart = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 days after allowlist
+
+          setClaimPhases([
+            {
+              startTimestamp: allowlistStart,
+              quantityLimitPerWallet: 2,
+              pricePerToken: "0",
+              currency: NATIVE_TOKEN_ADDRESS,
+              merkleRootHash: "0x0000000000000000000000000000000000000000000000000000000000000000", // Will need to be set
+              metadata: {
+                name: "Allowlist Presale",
+                description: "Early access for allowlisted wallets"
+              }
+            },
+            {
+              startTimestamp: publicStart,
+              quantityLimitPerWallet: 1,
+              pricePerToken: (0.001 * 1e18).toString(), // 0.001 ETH
+              currency: NATIVE_TOKEN_ADDRESS,
+              metadata: {
+                name: "Public Sale",
+                description: "Open to everyone after presale"
+              }
+            }
+          ]);
+        }
+        break;
+    }
+  };
+
   // Remove a claim phase
   const removeClaimPhase = (index: number) => {
     setClaimPhases(claimPhases.filter((_, i) => i !== index));
@@ -97,6 +203,27 @@ export function SettingsTab({ collection }: SettingsTabProps) {
       updated[index] = { ...updated[index], [field]: value };
     }
     setClaimPhases(updated);
+  };
+
+  // Verify claim conditions from smart contract
+  const verifyClaimConditions = async () => {
+    setIsVerifying(true);
+    try {
+      const conditions = await getClaimConditions(collection.address, collection.chainId);
+      setContractConditions(conditions);
+      console.log('Fetched claim conditions from contract:', conditions);
+
+      // Show success message
+      setSaveStatus('success');
+      setErrorMessage('');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (error) {
+      console.error('Error verifying claim conditions:', error);
+      setErrorMessage('Failed to fetch claim conditions from contract');
+      setSaveStatus('error');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   // Save claim conditions to smart contract
@@ -205,6 +332,24 @@ export function SettingsTab({ collection }: SettingsTabProps) {
             </Badge>
           )}
           <Button
+            variant="outline"
+            onClick={verifyClaimConditions}
+            disabled={isVerifying}
+            className="border-white/20 text-white hover:bg-white/10"
+          >
+            {isVerifying ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                Verifying...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Verify On-Chain
+              </>
+            )}
+          </Button>
+          <Button
             onClick={saveClaimConditions}
             disabled={isSaving || claimPhases.length === 0}
             className="bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90"
@@ -263,6 +408,119 @@ export function SettingsTab({ collection }: SettingsTabProps) {
         </CardContent>
       </Card>
 
+      {/* On-Chain Verification Results */}
+      {contractConditions.length > 0 && (
+        <Card className="bg-black/40 border-white/10">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              On-Chain Claim Conditions
+            </CardTitle>
+            <CardDescription className="text-white/60">
+              Current conditions set on the smart contract
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <pre className="bg-black/60 p-4 rounded-lg text-xs text-white/80 overflow-x-auto">
+              {JSON.stringify(contractConditions, (key, value) => {
+                // Convert BigInt values to strings for JSON serialization
+                if (typeof value === 'bigint') {
+                  return value.toString();
+                }
+                return value;
+              }, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Preset Templates */}
+      <Card className="bg-black/40 border-white/10">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-[rgb(163,255,18)]" />
+            Quick Setup Presets
+          </CardTitle>
+          <CardDescription className="text-white/60">
+            Use a preset template to quickly configure your claim conditions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button
+              onClick={() => applyPreset('public')}
+              className="group relative p-4 rounded-lg border border-white/20 bg-black/40 hover:bg-white/5 hover:border-[rgb(163,255,18)]/50 transition-all"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <Globe className="w-5 h-5 text-[rgb(163,255,18)]" />
+                <span className="font-semibold text-white">Public Sale</span>
+              </div>
+              <p className="text-sm text-white/60 text-left">
+                Simple public mint open to everyone with a per-wallet limit
+              </p>
+            </button>
+
+            <button
+              onClick={() => applyPreset('allowlist')}
+              className="group relative p-4 rounded-lg border border-white/20 bg-black/40 hover:bg-white/5 hover:border-[rgb(163,255,18)]/50 transition-all"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <Shield className="w-5 h-5 text-[rgb(163,255,18)]" />
+                <span className="font-semibold text-white">Allowlist Only</span>
+              </div>
+              <p className="text-sm text-white/60 text-left">
+                Exclusive access for pre-approved wallet addresses only
+              </p>
+            </button>
+
+            <button
+              onClick={() => applyPreset('public-allowlist')}
+              disabled={!supportsMultiplePhases()}
+              className={cn(
+                "group relative p-4 rounded-lg border transition-all",
+                supportsMultiplePhases()
+                  ? "border-white/20 bg-black/40 hover:bg-white/5 hover:border-[rgb(163,255,18)]/50 cursor-pointer"
+                  : "border-white/10 bg-black/20 cursor-not-allowed opacity-50"
+              )}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <Zap className={cn(
+                  "w-5 h-5",
+                  supportsMultiplePhases() ? "text-[rgb(163,255,18)]" : "text-white/30"
+                )} />
+                <span className={cn(
+                  "font-semibold",
+                  supportsMultiplePhases() ? "text-white" : "text-white/50"
+                )}>
+                  Presale + Public
+                </span>
+                {!supportsMultiplePhases() && (
+                  <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-xs">
+                    Multi-phase only
+                  </Badge>
+                )}
+              </div>
+              <p className={cn(
+                "text-sm text-left",
+                supportsMultiplePhases() ? "text-white/60" : "text-white/30"
+              )}>
+                Allowlist presale followed by public sale phase
+              </p>
+            </button>
+          </div>
+
+          {claimPhases.some(phase => phase.merkleRootHash === "0x0000000000000000000000000000000000000000000000000000000000000000") && (
+            <Alert className="mt-4 border-yellow-500/30 bg-yellow-500/10">
+              <AlertCircle className="h-4 w-4 text-yellow-500" />
+              <AlertDescription className="text-yellow-500">
+                Note: You'll need to set up the allowlist merkle root for allowlist phases.
+                Upload a CSV with wallet addresses to generate the merkle tree.
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Claim Phases */}
       <Card className="bg-black/40 border-white/10">
         <CardHeader>
@@ -276,18 +534,31 @@ export function SettingsTab({ collection }: SettingsTabProps) {
                 Configure when and how users can mint from this collection
               </CardDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={addClaimPhase}
-              className="border-white/20 text-white hover:bg-white/10"
-            >
-              <Plus className="w-3 h-3 mr-2" />
-              Add Phase
-            </Button>
+            {supportsMultiplePhases() && claimPhases.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={addClaimPhase}
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                <Plus className="w-3 h-3 mr-2" />
+                Add Custom Phase
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
+          {/* Contract Type Warning */}
+          {collection.contractType === 'OpenEditionERC721' && claimPhases.length > 1 && (
+            <Alert className="mb-4 border-yellow-500/30 bg-yellow-500/10">
+              <AlertCircle className="h-4 w-4 text-yellow-500" />
+              <AlertDescription className="text-yellow-500">
+                <strong>Note:</strong> OpenEditionERC721 contracts only support one active claim condition at a time.
+                When you save multiple phases, only the currently active one will be set on the contract.
+                The phases are stored for your reference and you'll need to manually update the contract when transitioning between phases.
+              </AlertDescription>
+            </Alert>
+          )}
           {claimPhases.length === 0 ? (
             <div className="p-8 border-2 border-dashed border-white/20 rounded-lg text-center">
               <Calendar className="w-10 h-10 text-white/40 mx-auto mb-3" />
@@ -299,10 +570,31 @@ export function SettingsTab({ collection }: SettingsTabProps) {
           ) : (
             <div className="space-y-4">
               {claimPhases.map((phase, index) => {
-                const phaseStart = new Date(phase.startTimestamp);
-                const isActive = phaseStart <= now && (!claimPhases[index + 1] || new Date(claimPhases[index + 1].startTimestamp) > now);
+                const phaseStart = (() => {
+                  try {
+                    const date = phase.startTimestamp instanceof Date
+                      ? phase.startTimestamp
+                      : new Date(phase.startTimestamp);
+                    return isNaN(date.getTime()) ? new Date() : date;
+                  } catch {
+                    return new Date();
+                  }
+                })();
+
+                const nextPhaseStart = claimPhases[index + 1] ? (() => {
+                  try {
+                    const date = claimPhases[index + 1].startTimestamp instanceof Date
+                      ? claimPhases[index + 1].startTimestamp
+                      : new Date(claimPhases[index + 1].startTimestamp);
+                    return isNaN(date.getTime()) ? null : date;
+                  } catch {
+                    return null;
+                  }
+                })() : null;
+
+                const isActive = phaseStart <= now && (!nextPhaseStart || nextPhaseStart > now);
                 const isPast = phaseStart <= now && !isActive;
-                const isFuture = phaseStart > now;
+                const hasAllowlist = phase.merkleRootHash && phase.merkleRootHash !== "0x0000000000000000000000000000000000000000000000000000000000000000";
 
                 return (
                   <div
@@ -318,6 +610,37 @@ export function SettingsTab({ collection }: SettingsTabProps) {
                         <Badge className="bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)] border-[rgb(163,255,18)]/30">
                           Phase {index + 1}
                         </Badge>
+                        {index > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-white/40">
+                            <ArrowRight className="w-3 h-3" />
+                            <span>
+                              {(() => {
+                                const prevDate = claimPhases[index - 1].startTimestamp;
+                                const currDate = phase.startTimestamp;
+                                const diff = new Date(currDate).getTime() - new Date(prevDate).getTime();
+                                const hours = Math.floor(diff / (1000 * 60 * 60));
+                                const days = Math.floor(hours / 24);
+                                const weeks = Math.floor(days / 7);
+
+                                if (weeks > 0) {
+                                  return `${weeks} week${weeks > 1 ? 's' : ''} after Phase ${index}`;
+                                } else if (days > 0) {
+                                  return `${days} day${days > 1 ? 's' : ''} after Phase ${index}`;
+                                } else if (hours > 0) {
+                                  return `${hours} hour${hours > 1 ? 's' : ''} after Phase ${index}`;
+                                } else {
+                                  return `Same time as Phase ${index}`;
+                                }
+                              })()}
+                            </span>
+                          </div>
+                        )}
+                        {hasAllowlist && (
+                          <Badge className="bg-purple-500/20 text-purple-500 border-purple-500/30">
+                            <Shield className="w-3 h-3 mr-1" />
+                            Allowlist
+                          </Badge>
+                        )}
                         {isActive && (
                           <Badge className="bg-green-500/20 text-green-500 border-green-500/30">
                             <Zap className="w-3 h-3 mr-1" />
@@ -356,14 +679,54 @@ export function SettingsTab({ collection }: SettingsTabProps) {
                         />
                       </div>
 
-                      {/* Start Time */}
-                      <div>
-                        <Label className="text-white/80 text-xs">Start Date & Time</Label>
-                        <Input
-                          type="datetime-local"
-                          value={new Date(phase.startTimestamp).toISOString().slice(0, 16)}
-                          onChange={(e) => updateClaimPhase(index, 'startTimestamp', new Date(e.target.value))}
-                          className="bg-black/40 border-white/20 text-white"
+                      {/* Start Time - Premium Mobile-First Picker */}
+                      <div className="md:col-span-1">
+                        <MagicDateTimePicker
+                          label="Start Date & Time"
+                          value={(() => {
+                            try {
+                              const date = phase.startTimestamp instanceof Date
+                                ? phase.startTimestamp
+                                : new Date(phase.startTimestamp);
+
+                              // Check if date is valid
+                              if (isNaN(date.getTime())) {
+                                // Return current date as fallback
+                                return new Date();
+                              }
+
+                              return date;
+                            } catch (e) {
+                              // Return current date as fallback
+                              return new Date();
+                            }
+                          })()}
+                          onChange={(newDate) => updateClaimPhase(index, 'startTimestamp', newDate)}
+                          minDate={index > 0 && claimPhases[index - 1] ?
+                            (() => {
+                              try {
+                                const prevDate = claimPhases[index - 1].startTimestamp instanceof Date
+                                  ? claimPhases[index - 1].startTimestamp
+                                  : new Date(claimPhases[index - 1].startTimestamp);
+                                return isNaN(prevDate.getTime()) ? new Date() : prevDate;
+                              } catch {
+                                return new Date();
+                              }
+                            })()
+                            : new Date()}
+                          previousPhaseEnd={index > 0 && claimPhases[index - 1] ?
+                            (() => {
+                              try {
+                                const prevDate = claimPhases[index - 1].startTimestamp instanceof Date
+                                  ? claimPhases[index - 1].startTimestamp
+                                  : new Date(claimPhases[index - 1].startTimestamp);
+                                return isNaN(prevDate.getTime()) ? new Date() : prevDate;
+                              } catch {
+                                return new Date();
+                              }
+                            })()
+                            : undefined}
+                          phaseIndex={index}
                         />
                       </div>
 
@@ -481,6 +844,42 @@ export function SettingsTab({ collection }: SettingsTabProps) {
                           rows={2}
                           className="bg-black/40 border-white/20 text-white placeholder:text-white/40 resize-none"
                         />
+                      </div>
+
+                      {/* Allowlist Section */}
+                      <div className="md:col-span-2">
+                        <Label className="text-white/80 text-xs flex items-center gap-2">
+                          <Shield className="w-3 h-3" />
+                          Allowlist Configuration (Optional)
+                        </Label>
+                        <div className="mt-2 p-3 bg-black/20 rounded-lg space-y-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={!!phase.merkleRootHash && phase.merkleRootHash !== "0x0000000000000000000000000000000000000000000000000000000000000000"}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  updateClaimPhase(index, 'merkleRootHash', "0x0000000000000000000000000000000000000000000000000000000000000000");
+                                } else {
+                                  updateClaimPhase(index, 'merkleRootHash', undefined);
+                                }
+                              }}
+                              className="rounded border-white/20 bg-black/40 text-[rgb(163,255,18)] focus:ring-[rgb(163,255,18)]"
+                            />
+                            <Label className="text-white text-sm cursor-pointer">
+                              Enable allowlist for this phase
+                            </Label>
+                          </div>
+
+                          {phase.merkleRootHash && phase.merkleRootHash !== "0x0000000000000000000000000000000000000000000000000000000000000000" && (
+                            <Alert className="border-yellow-500/30 bg-yellow-500/10">
+                              <AlertCircle className="h-3 w-3 text-yellow-500" />
+                              <AlertDescription className="text-yellow-500 text-xs">
+                                Upload a CSV file with wallet addresses to generate the merkle root automatically
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

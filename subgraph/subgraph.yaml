@@ -36,17 +36,20 @@ dataSources:
       eventHandlers:
         - event: ContractURIUpdated(string,string)
           handler: handleContractURIUpdated
-        - event: ExtensionAdded(indexed string,indexed address,((string,string,address),(bytes4,string)[]))
+        - event: ExtensionAdded(indexed string,indexed
+            address,((string,string,address),(bytes4,string)[]))
           handler: handleExtensionAdded
         - event: ExtensionRemoved(indexed string,((string,string,address),(bytes4,string)[]))
           handler: handleExtensionRemoved
-        - event: ExtensionReplaced(indexed string,indexed address,((string,string,address),(bytes4,string)[]))
+        - event: ExtensionReplaced(indexed string,indexed
+            address,((string,string,address),(bytes4,string)[]))
           handler: handleExtensionReplaced
         - event: FlatPlatformFeeUpdated(address,uint256)
           handler: handleFlatPlatformFeeUpdated
         - event: FunctionDisabled(indexed string,indexed bytes4,(string,string,address))
           handler: handleFunctionDisabled
-        - event: FunctionEnabled(indexed string,indexed bytes4,(bytes4,string),(string,string,address))
+        - event: FunctionEnabled(indexed string,indexed
+            bytes4,(bytes4,string),(string,string,address))
           handler: handleFunctionEnabled
         - event: Initialized(uint8)
           handler: handleInitialized
@@ -63,3 +66,74 @@ dataSources:
         - event: RoyaltyEngineUpdated(indexed address,indexed address)
           handler: handleRoyaltyEngineUpdated
       file: ./src/marketplace-v-3.ts
+  - kind: ethereum
+    name: OpenEditionERC721
+    network: sepolia
+    source:
+      address: "0xeb9B662E084B079Ca93c35494BBf06542964bEF1"
+      abi: OpenEditionERC721
+      startBlock: 9316420
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Approval
+        - ApprovalForAll
+        - BatchMetadataUpdate
+        - ClaimConditionsUpdated
+        - ConsecutiveTransfer
+        - OpenEditionERC721ContractURIUpdated
+        - DefaultRoyalty
+        - OpenEditionERC721Initialized
+        - MetadataUpdate
+        - OwnerUpdated
+        - PrimarySaleRecipientUpdated
+        - OpenEditionERC721RoleAdminChanged
+        - OpenEditionERC721RoleGranted
+        - OpenEditionERC721RoleRevoked
+        - RoyaltyForToken
+        - SharedMetadataUpdated
+        - TokensClaimed
+        - Transfer
+      abis:
+        - name: OpenEditionERC721
+          file: ./abis/OpenEditionERC721.json
+      eventHandlers:
+        - event: Approval(indexed address,indexed address,indexed uint256)
+          handler: handleApproval
+        - event: ApprovalForAll(indexed address,indexed address,bool)
+          handler: handleApprovalForAll
+        - event: BatchMetadataUpdate(uint256,uint256)
+          handler: handleBatchMetadataUpdate
+        - event: ClaimConditionsUpdated((uint256,uint256,uint256,uint256,bytes32,uint256,address,string)[],bool)
+          handler: handleClaimConditionsUpdated
+        - event: ConsecutiveTransfer(indexed uint256,uint256,indexed address,indexed address)
+          handler: handleConsecutiveTransfer
+        - event: ContractURIUpdated(string,string)
+          handler: handleContractURIUpdated
+        - event: DefaultRoyalty(indexed address,uint256)
+          handler: handleDefaultRoyalty
+        - event: Initialized(uint8)
+          handler: handleInitialized
+        - event: MetadataUpdate(uint256)
+          handler: handleMetadataUpdate
+        - event: OwnerUpdated(indexed address,indexed address)
+          handler: handleOwnerUpdated
+        - event: PrimarySaleRecipientUpdated(indexed address)
+          handler: handlePrimarySaleRecipientUpdated
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleRoleAdminChanged
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleRoleRevoked
+        - event: RoyaltyForToken(indexed uint256,indexed address,uint256)
+          handler: handleRoyaltyForToken
+        - event: SharedMetadataUpdated(string,string,string,string)
+          handler: handleSharedMetadataUpdated
+        - event: TokensClaimed(indexed uint256,indexed address,indexed address,uint256,uint256)
+          handler: handleTokensClaimed
+        - event: Transfer(indexed address,indexed address,indexed uint256)
+          handler: handleTransfer
+      file: ./src/open-edition-erc-721.ts

@@ -8,12 +8,12 @@ import {
   Users, Eye, ShoppingCart, Zap, Crown, ChevronDown, ChevronUp, Search,
   Filter, Grid3x3, List, MoreHorizontal, ArrowLeft, Sparkles, Activity,
   X, ExternalLink, Copy, Check, SlidersHorizontal, Info, Shield, Clock,
-  Award, Wallet, BarChart3, PieChart, Globe, Twitter, Send, Calendar,
+  Award, Wallet, BarChart3, PieChart, Globe, Send, Calendar,
   AlertCircle, ArrowUpRight, ArrowDownRight, Flame, Target,
   Coins, DollarSign, Percent, Hash, RefreshCw, Bell, Settings, Verified,
   Bookmark, Download, Upload, Image, Layers, Box, Gauge, TrendingDown,
   Link2, Flag, MessageCircle, ThumbsUp, CheckCircle2, Timer, Gift, Rocket,
-  Gamepad2, Minus
+  Gamepad2, Minus, Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,11 +33,11 @@ import { cn } from "@/lib/utils";
 import { useStudioData, Collection } from "@/hooks/use-studio-data";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { AddToListModal } from "@/components/add-to-list-modal";
-import { useActiveAccount, useActiveWalletChain } from "thirdweb/react";
-import { claimNFT } from "@/lib/nft-minting";
-import { switchChain } from "thirdweb/wallets";
+import { useActiveAccount, useActiveWalletChain, useSwitchActiveWalletChain } from "thirdweb/react";
+import { claimNFT, getUserClaimStatus } from "@/lib/nft-minting";
 import { defineChain } from "thirdweb/chains";
 import { client } from "@/lib/thirdweb";
+import { useTransaction } from "@/contexts/transaction-context";
 
 interface LaunchpadProjectDetailProps {
   projectId: string;
@@ -213,6 +213,22 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
   const [watchlistId, setWatchlistId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
+  const [userClaimStatus, setUserClaimStatus] = useState<{
+    claimed: number;
+    limit: number;
+    remaining: number;
+  }>({ claimed: 0, limit: -1, remaining: -1 });
+  const [errorModal, setErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'exceed_limit' | 'cancelled' | 'insufficient_funds' | 'supply_exceeded' | 'no_conditions' | 'generic';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'generic'
+  });
 
   const router = useRouter();
   const heroRef = useRef<HTMLDivElement>(null);
@@ -220,10 +236,25 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
   const { user } = useWalletAuthOptimized();
   const account = useActiveAccount();
   const activeChain = useActiveWalletChain();
+  const switchChain = useSwitchActiveWalletChain();
+  const { startTransaction, updateStep, completeTransaction, setError, setTxHash } = useTransaction();
 
   // Get real collection data
   const { collections, isLoading, error, fetchCollections } = useStudioData();
   const collection = collections.find(c => c.id === projectId);
+
+  // Debug log - commented out to reduce noise
+  // if (collection) {
+  //   console.log('Collection data in UI:', {
+  //     id: collection.id,
+  //     name: collection.name,
+  //     address: collection.address,
+  //     volume: collection.volume,
+  //     floorPrice: collection.floorPrice,
+  //     holders: collection.holders,
+  //     mintedSupply: collection.mintedSupply
+  //   });
+  // }
 
   // Parse claim phases from collection
   const claimPhases = collection?.claimPhases ? JSON.parse(collection.claimPhases) : [];
@@ -330,6 +361,36 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
     return () => clearInterval(timer);
   }, [claimPhases]);
 
+  // Fetch user's claim status when wallet connects or collection changes
+  useEffect(() => {
+    const fetchUserClaimStatus = async () => {
+      if (!account || !collection) {
+        setUserClaimStatus({ claimed: 0, limit: -1, remaining: -1 });
+        return;
+      }
+
+      try {
+        if (!collection.address) {
+          console.error('Collection address is undefined');
+          return;
+        }
+
+        const status = await getUserClaimStatus(
+          collection.address,
+          collection.chainId,
+          account.address
+        );
+        setUserClaimStatus(status);
+        console.log('User claim status:', status);
+      } catch (error) {
+        console.error('Error fetching user claim status:', error);
+        setUserClaimStatus({ claimed: 0, limit: -1, remaining: -1 });
+      }
+    };
+
+    fetchUserClaimStatus();
+  }, [account, collection]);
+
   // Show loading or error states
   if (isLoading) {
     return (
@@ -378,22 +439,46 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
     }
 
     setIsMinting(true);
+
+    // Start the transaction tracking
+    startTransaction(
+      {
+        id: collection.id,
+        name: collection.name,
+        image: collection.image || collection.bannerImage || '',
+        collection: collection.name,
+        contractAddress: collection.address,
+      },
+      'buy',
+      mintPrice * mintQuantity
+    );
+
     try {
       // Check if user is on the correct chain
       const requiredChainId = collection.chainId || 1; // Default to mainnet if not specified
 
+      // Update to checkout step
+      updateStep('checkout', 20);
+
       // If on wrong chain, prompt to switch
       if (activeChain?.id !== requiredChainId) {
         const targetChain = defineChain(requiredChainId);
-        await switchChain(account.wallet, targetChain);
+        await switchChain(targetChain);
       }
 
       // Calculate the total price for the mint
       const totalPrice = mintPrice * mintQuantity;
       const priceInWei = totalPrice > 0 ? BigInt(Math.floor(totalPrice * 1e18)) : undefined;
 
+      // Update to approve step (waiting for wallet confirmation)
+      updateStep('approve', 40);
+
       // Call the claim function with value if there's a price
       console.log("Submitting mint transaction...");
+
+      // Update to confirm step (user is confirming in wallet)
+      updateStep('confirm', 60);
+
       const txHash = await claimNFT(
         {
           contractAddress: collection.address,
@@ -407,6 +492,10 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
 
       console.log("Mint transaction submitted! Tx hash:", txHash);
       console.log("Waiting for blockchain confirmation...");
+
+      // Update to pending step (transaction submitted)
+      updateStep('pending', 80);
+      setTxHash(txHash);
 
       // Wait for transaction to be mined (you can add a loading state here)
       // The transaction is already confirmed when sendTransaction returns
@@ -464,19 +553,123 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
       console.log("Refreshing collection data...");
       await fetchCollections();
 
+      // Refresh user's claim status
+      if (collection.address) {
+        try {
+          const status = await getUserClaimStatus(
+            collection.address,
+            collection.chainId,
+            account.address
+          );
+          setUserClaimStatus(status);
+          console.log('Updated user claim status after mint:', status);
+        } catch (error) {
+          console.error('Error updating claim status:', error);
+        }
+      }
+
       // Show success message
       console.log("Mint complete! Transaction hash:", txHash);
 
+      // Mark transaction as successful
+      updateStep('success', 100);
+
+      // Complete the transaction after a short delay to show success state
+      setTimeout(() => {
+        completeTransaction();
+      }, 3000);
+
     } catch (error: any) {
       console.error("Minting failed:", error);
+      console.log("Error message:", error.message);
+      console.log("Error toString:", error.toString());
+
+      // Mark transaction as error in the pill
+      updateStep('error', 0);
+      setError(error.message || 'Transaction failed');
 
       // Handle specific error cases
-      if (error.message?.includes('user rejected')) {
+      // Check both error.message and error.toString() as Thirdweb might format it differently
+      const errorString = error.message || error.toString() || '';
+
+      if (errorString.includes('DropClaimExceedLimit')) {
+        // Extract the numbers from the error message
+        // Format: DropClaimExceedLimit - [already_claimed],[total_limit]
+        const match = errorString.match(/DropClaimExceedLimit - (\d+),(\d+)/);
+        let alreadyClaimed = 0;
+        let totalLimit = 0;
+        let remainingClaims = 0;
+
+        if (match) {
+          alreadyClaimed = parseInt(match[1]);
+          totalLimit = parseInt(match[2]);
+          remainingClaims = totalLimit - alreadyClaimed;
+        }
+
+        // Create appropriate message based on the situation
+        let message = '';
+        if (remainingClaims > 0) {
+          // User still has claims left but tried to mint too many
+          if (mintQuantity > remainingClaims) {
+            message = `You've already claimed ${alreadyClaimed} out of your ${totalLimit} allowed NFT${totalLimit !== 1 ? 's' : ''}. You tried to mint ${mintQuantity} more, but you can only claim ${remainingClaims} more! Try again with ${remainingClaims === 1 ? '1 NFT' : `${remainingClaims} or fewer NFTs`}. 📊`;
+          } else {
+            // This shouldn't happen but handle it anyway
+            message = `You've already claimed ${alreadyClaimed} out of your ${totalLimit} allowed NFT${totalLimit !== 1 ? 's' : ''}. You can still claim up to ${remainingClaims} more!`;
+          }
+        } else {
+          // User has hit their limit completely
+          message = `You've already claimed all ${totalLimit} of your allowed NFT${totalLimit !== 1 ? 's' : ''} from this collection! You're all maxed out, time to let others join the party! 🎉`;
+        }
+
+        setErrorModal({
+          isOpen: true,
+          title: remainingClaims > 0 ? "Slow down there, collector! 📦" : "You're all set! ✨",
+          message: message,
+          type: 'exceed_limit'
+        });
+      } else if (errorString.includes('user rejected') || errorString.includes('User rejected') || errorString.includes('rejected by user')) {
         console.log("User cancelled the transaction");
-      } else if (error.message?.includes('insufficient funds')) {
-        console.error("Insufficient funds for minting");
+        setErrorModal({
+          isOpen: true,
+          title: "Cold feet? 🦶",
+          message: "No worries, we get it. Sometimes you need a moment to think. Come back when you're ready to join the club!",
+          type: 'cancelled'
+        });
+      } else if (errorString.includes('insufficient funds') || errorString.includes('Insufficient funds')) {
+        setErrorModal({
+          isOpen: true,
+          title: "Uh oh, wallet's looking light! 💸",
+          message: "Looks like you need to top up your wallet. Even digital art costs digital money! Time to add some ETH.",
+          type: 'insufficient_funds'
+        });
+      } else if (errorString.includes('!Qty') || errorString.includes('!QTY')) {
+        setErrorModal({
+          isOpen: true,
+          title: "Supply crisis alert! 🚨",
+          message: "Bad news - there aren't enough NFTs left for your order. Try reducing the quantity or be quicker next time!",
+          type: 'supply_exceeded'
+        });
+      } else if (errorString.includes('!CONDITION') || errorString.includes('!Condition')) {
+        setErrorModal({
+          isOpen: true,
+          title: "Not so fast! ⏰",
+          message: "The minting hasn't started yet or the conditions aren't set. Check back soon or contact the creator!",
+          type: 'no_conditions'
+        });
       } else {
-        console.error("An error occurred during minting:", error.message || error);
+        // For debugging, let's log the full error to help identify other patterns
+        console.error("Unhandled error pattern. Full error details:", {
+          message: error.message,
+          toString: error.toString(),
+          error: error
+        });
+
+        setErrorModal({
+          isOpen: true,
+          title: "Oops, something went wrong! 🤷",
+          message: "We hit a snag trying to mint your NFT. Don't worry, no funds were lost. Try again in a moment!",
+          type: 'generic'
+        });
       }
     } finally {
       setIsMinting(false);
@@ -764,7 +957,13 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button size="icon" variant="ghost" className="text-white hover:bg-white/10">
-                      <Twitter className="w-5 h-5" />
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="w-5 h-5 fill-current"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                      </svg>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Twitter</TooltipContent>
@@ -955,11 +1154,11 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                             <Separator className="bg-white/10" />
                             <div className="flex justify-between">
                               <span className="text-white/60">Floor Price</span>
-                              <span className="text-[rgb(163,255,18)] font-bold">{collection.floorPrice.toFixed(3)} ETH</span>
+                              <span className="text-[rgb(163,255,18)] font-bold">{collection.floorPrice < 0.01 ? collection.floorPrice.toFixed(4) : collection.floorPrice.toFixed(3)} ETH</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-white/60">Total Volume</span>
-                              <span className="text-white font-bold">{collection.volume.toFixed(1)} ETH</span>
+                              <span className="text-white font-bold">{collection.volume < 0.01 ? collection.volume.toFixed(4) : collection.volume.toFixed(1)} ETH</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-white/60">Created</span>
@@ -1292,7 +1491,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                             <CardContent className="p-4 text-center">
                               <Activity className="w-6 h-6 text-white/60 mx-auto mb-2" />
                               <p className="text-2xl font-black text-white mb-1">
-                                {collection.volume.toFixed(1)}
+                                {collection.volume < 0.01 ? collection.volume.toFixed(4) : collection.volume.toFixed(1)}
                               </p>
                               <p className="text-white/40 text-xs">Volume ETH</p>
                             </CardContent>
@@ -1301,7 +1500,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                             <CardContent className="p-4 text-center">
                               <TrendingUp className="w-6 h-6 text-white/60 mx-auto mb-2" />
                               <p className="text-2xl font-black text-white mb-1">
-                                {collection.floorPrice.toFixed(3)}
+                                {collection.floorPrice < 0.01 ? collection.floorPrice.toFixed(4) : collection.floorPrice.toFixed(3)}
                               </p>
                               <p className="text-white/40 text-xs">Floor ETH</p>
                             </CardContent>
@@ -1649,12 +1848,56 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                   </div>
                                 )}
 
+                                   {/* User Claim Status Indicator */}
+                                {account && userClaimStatus.limit !== -1 && (
+                                  <div className="bg-white/5 rounded-lg p-3 border border-white/10 mb-4">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Shield className="w-4 h-4 text-[rgb(163,255,18)]" />
+                                        <span className="text-white/80 text-sm">Your Claim Status</span>
+                                      </div>
+                                      <div className="text-right">
+                                        {userClaimStatus.remaining > 0 ? (
+                                          <div>
+                                            <span className="text-[rgb(163,255,18)] font-bold">
+                                              {userClaimStatus.remaining}
+                                            </span>
+                                            <span className="text-white/60 text-sm ml-1">
+                                              remaining
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-red-400 font-semibold text-sm">
+                                            Max claimed
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {userClaimStatus.claimed > 0 && (
+                                      <div className="mt-2 pt-2 border-t border-white/10">
+                                        <div className="flex justify-between text-xs">
+                                          <span className="text-white/40">
+                                            You've claimed {userClaimStatus.claimed} / {userClaimStatus.limit} NFTs
+                                          </span>
+                                          {userClaimStatus.remaining > 0 && (
+                                            <span className="text-[rgb(163,255,18)]/80">
+                                              {mintQuantity > userClaimStatus.remaining &&
+                                                `⚠️ Max: ${userClaimStatus.remaining}`
+                                              }
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
                                 {/* Price Display */}
-                                <div className="bg-black/60 rounded-xl p-6 border border-white/10">
+                                {/* <div className="bg-black/60 rounded-xl p-6 border border-white/10">
                                   <div className="flex items-center justify-between mb-2">
                                     <p className="text-white/60">Mint Price</p>
                                     <p className="text-white text-2xl font-black">
-                                      {mintPrice > 0 ? `${mintPrice.toFixed(4)} ETH` : 'FREE'}
+                                      {mintPrice > 0 ? `${mintPrice.toFixed(5)} ETH` : 'FREE'}
                                     </p>
                                   </div>
                                   {mintPrice > 0 && (
@@ -1662,7 +1905,27 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                       ≈ ${(mintPrice * 1800).toFixed(2)} USD
                                     </p>
                                   )}
+                                </div> */}
+
+
+                                {/* Total Cost */}
+                                <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                                  <p className="text-white/60 mb-2 text-sm font-medium">Total Cost</p>
+                                  <div className="flex items-baseline gap-3">
+                                    <p className="text-5xl font-black text-white">
+                                      {mintPrice > 0 ? (mintPrice * mintQuantity).toFixed(5) : 'FREE'}
+                                    </p>
+                                    {mintPrice > 0 && <p className="text-2xl text-white/60">ETH</p>}
+                                  </div>
+                                  {mintPrice > 0 && (
+                                    <p className="text-white/40 mt-2">
+                                      ≈ ${((mintPrice * mintQuantity) * 1800).toFixed(2)} USD
+                                    </p>
+                                  )}
                                 </div>
+
+                             
+
 
                                 {/* Quantity Selector */}
                                 <div>
@@ -1710,27 +1973,11 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                   </div>
                                 </div>
 
-                                {/* Total Cost */}
-                                <div className="bg-white/5 rounded-xl p-6 border border-white/10">
-                                  <p className="text-white/60 mb-2 text-sm font-medium">Total Cost</p>
-                                  <div className="flex items-baseline gap-3">
-                                    <p className="text-5xl font-black text-white">
-                                      {mintPrice > 0 ? (mintPrice * mintQuantity).toFixed(4) : 'FREE'}
-                                    </p>
-                                    {mintPrice > 0 && <p className="text-2xl text-white/60">ETH</p>}
-                                  </div>
-                                  {mintPrice > 0 && (
-                                    <p className="text-white/40 mt-2">
-                                      ≈ ${((mintPrice * mintQuantity) * 1800).toFixed(2)} USD
-                                    </p>
-                                  )}
-                                </div>
-
                                 {/* Mint Button */}
                                 <Button
                                   size="lg"
                                   className="w-full bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-black text-xl h-16"
-                                  disabled={isMinting || !account}
+                                  disabled={isMinting || !account || (userClaimStatus.remaining === 0 && userClaimStatus.limit !== -1)}
                                   onClick={handleMint}
                                 >
                                   {isMinting ? (
@@ -1742,6 +1989,11 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                     <>
                                       <Wallet className="w-6 h-6 mr-3" />
                                       Connect Wallet to Mint
+                                    </>
+                                  ) : userClaimStatus.remaining === 0 && userClaimStatus.limit !== -1 ? (
+                                    <>
+                                      <X className="w-6 h-6 mr-3" />
+                                      Claim Limit Reached
                                     </>
                                   ) : (
                                     <>
@@ -1891,6 +2143,91 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
           setIsWatchlisted(true);
         }}
       />
+
+      {/* Error Modal */}
+      <AnimatePresence>
+        {errorModal.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className="relative max-w-md w-full bg-gradient-to-br from-purple-900/90 to-black/90 rounded-2xl p-6 border border-purple-500/30 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              <button
+                onClick={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+                className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              {/* Icon based on error type */}
+              <div className="flex justify-center mb-4">
+                {errorModal.type === 'exceed_limit' && (
+                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8 text-red-400" />
+                  </div>
+                )}
+                {errorModal.type === 'insufficient_funds' && (
+                  <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                    <Wallet className="w-8 h-8 text-yellow-400" />
+                  </div>
+                )}
+                {errorModal.type === 'cancelled' && (
+                  <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center">
+                    <X className="w-8 h-8 text-blue-400" />
+                  </div>
+                )}
+                {errorModal.type === 'supply_exceeded' && (
+                  <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center">
+                    <Package className="w-8 h-8 text-orange-400" />
+                  </div>
+                )}
+                {errorModal.type === 'no_conditions' && (
+                  <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-purple-400" />
+                  </div>
+                )}
+                {errorModal.type === 'generic' && (
+                  <div className="w-16 h-16 bg-gray-500/20 rounded-full flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8 text-gray-400" />
+                  </div>
+                )}
+              </div>
+
+              {/* Title */}
+              <h3 className="text-xl font-bold text-white text-center mb-3">
+                {errorModal.title}
+              </h3>
+
+              {/* Message */}
+              <p className="text-white/80 text-center mb-6 leading-relaxed">
+                {errorModal.message}
+              </p>
+
+              {/* Action button */}
+              <button
+                onClick={() => setErrorModal(prev => ({ ...prev, isOpen: false }))}
+                className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105"
+              >
+                {errorModal.type === 'insufficient_funds' ? 'Got It, Need More ETH' :
+                 errorModal.type === 'exceed_limit' ? "OK, I'll Play Nice" :
+                 errorModal.type === 'cancelled' ? "Maybe Later" :
+                 "Got It!"}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
                   where: { collectionId, traitType: attr.trait_type }
                 }))!.id,
                 value: String(attr.value),
-                count: 1
+                frequency: 1
               }
             });
           } else {
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
               await prisma.collectionTraitValue.update({
                 where: { id: existingValue.id },
                 data: {
-                  count: { increment: 1 }
+                  frequency: { increment: 1 }
                 }
               });
             } else {
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
                 data: {
                   traitId: collectionTrait.id,
                   value: String(attr.value),
-                  count: 1
+                  frequency: 1
                 }
               });
 

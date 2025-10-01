@@ -1,6 +1,6 @@
 "use client";
 
-import { Upload } from "lucide-react";
+import { Upload, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface TabNavigationProps {
@@ -41,6 +41,11 @@ export function TabNavigation({
                   {uploadFilesCount}
                 </Badge>
               )}
+            </div>
+          ) : tab === 'settings' ? (
+            <div className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </div>
           ) : (
             tab.charAt(0).toUpperCase() + tab.slice(1)

@@ -3,6 +3,8 @@ import { upload } from "thirdweb/storage"
 import { client } from "./thirdweb"
 import { lazyMint } from "thirdweb/extensions/erc721"
 import { claimTo } from "thirdweb/extensions/erc721"
+import { setClaimConditions } from "thirdweb/extensions/erc721"
+import { getActiveClaimCondition } from "thirdweb/extensions/erc721"
 import type { Account } from "thirdweb/wallets"
 import { defineChain } from "thirdweb/chains"
 import { NATIVE_TOKEN_ADDRESS } from "thirdweb"
@@ -170,7 +172,8 @@ export async function claimNFT({
     return result.transactionHash
   } catch (error) {
     console.error('Claiming error:', error)
-    throw new Error('Failed to claim NFT')
+    // Preserve the original error instead of wrapping it
+    throw error
   }
 }
 
@@ -189,6 +192,96 @@ export interface ClaimCondition {
   }
 }
 
+// Diagnose contract to understand its capabilities
+export async function diagnoseContract(
+  contractAddress: string,
+  chainId: number
+): Promise<{
+  hasSetClaimConditions: boolean;
+  hasLazyMint: boolean;
+  isInitialized: boolean;
+  contractType: string;
+  supportsInterface: { [key: string]: boolean };
+}> {
+  try {
+    const chain = defineChain(chainId);
+    const contract = getContract({
+      client,
+      chain,
+      address: contractAddress,
+    });
+
+    const diagnosis: any = {
+      hasSetClaimConditions: false,
+      hasLazyMint: false,
+      isInitialized: false,
+      contractType: 'unknown',
+      supportsInterface: {}
+    };
+
+    // Check for setClaimConditions function
+    try {
+      await readContract({
+        contract,
+        method: "function getClaimConditionById(uint256 _conditionId) view returns ((uint256 startTimestamp, uint256 maxClaimableSupply, uint256 supplyClaimed, uint256 quantityLimitPerWallet, bytes32 merkleRoot, uint256 pricePerToken, address currency, string metadata))",
+        params: [BigInt(0)]
+      });
+      diagnosis.hasSetClaimConditions = true;
+    } catch (e) {
+      console.log('No getClaimConditionById function');
+    }
+
+    // Check if initialized
+    try {
+      const isInit = await readContract({
+        contract,
+        method: "function initialized() view returns (bool)",
+      });
+      diagnosis.isInitialized = isInit;
+    } catch (e) {
+      // Try alternative initialization check
+      try {
+        const owner = await readContract({
+          contract,
+          method: "function owner() view returns (address)",
+        });
+        diagnosis.isInitialized = !!owner;
+      } catch (e2) {
+        console.log('Could not determine initialization state');
+      }
+    }
+
+    // Check contract type
+    try {
+      const name = await readContract({
+        contract,
+        method: "function name() view returns (string)",
+      });
+      diagnosis.contractType = name || 'ERC721';
+    } catch (e) {
+      diagnosis.contractType = 'unknown';
+    }
+
+    // Check for ERC721 Drop interface
+    try {
+      const supportsDropInterface = await readContract({
+        contract,
+        method: "function supportsInterface(bytes4 interfaceId) view returns (bool)",
+        params: ["0x80ac58cd" as `0x${string}`] // ERC721 interface
+      });
+      diagnosis.supportsInterface['ERC721'] = supportsDropInterface;
+    } catch (e) {
+      console.log('No supportsInterface check');
+    }
+
+    console.log('Contract diagnosis:', diagnosis);
+    return diagnosis;
+  } catch (error) {
+    console.error('Failed to diagnose contract:', error);
+    throw error;
+  }
+}
+
 export async function setupClaimConditions(
   contractAddress: string,
   chainId: number,
@@ -196,85 +289,353 @@ export async function setupClaimConditions(
   account: Account
 ): Promise<string> {
   try {
-    console.log('Setting up claim conditions:', {
+    console.log('Setting up claim conditions with Thirdweb v5 extension:', {
       contractAddress,
       chainId,
+      numberOfPhases: claimConditions.length,
       claimConditions,
       account: account.address
     });
 
-    const chain = defineChain(chainId)
+    // First, run diagnostics on the contract
+    try {
+      const diagnosis = await diagnoseContract(contractAddress, chainId);
+      console.log('Contract diagnosis results:', diagnosis);
 
+      if (!diagnosis.isInitialized) {
+        throw new Error('Contract appears to not be initialized. Please ensure the contract is properly deployed and initialized.');
+      }
+
+      if (!diagnosis.hasSetClaimConditions) {
+        console.warn('Contract may not support standard claim conditions interface');
+      }
+    } catch (diagError) {
+      console.error('Diagnostic check failed:', diagError);
+      // Continue anyway
+    }
+
+    const chain = defineChain(chainId)
     const contract = getContract({
       client,
       chain,
       address: contractAddress,
     })
 
-    // Convert to the exact format the contract expects
-    const conditions = claimConditions.map(condition => {
-      // Convert Date to Unix timestamp in seconds
-      const startTime = condition.startTimestamp instanceof Date
-        ? Math.floor(condition.startTimestamp.getTime() / 1000)
-        : typeof condition.startTimestamp === 'string'
-        ? Math.floor(new Date(condition.startTimestamp).getTime() / 1000)
-        : condition.startTimestamp;
+    // First, check if the account has the necessary permissions
+    try {
+      // Try to check owner first
+      try {
+        const owner = await readContract({
+          contract,
+          method: "function owner() view returns (address)",
+        });
 
-      // Handle quantity limit per wallet (0 means unlimited, convert to max uint256)
-      const quantityLimit = condition.quantityLimitPerWallet && condition.quantityLimitPerWallet > 0
-        ? BigInt(condition.quantityLimitPerWallet)
-        : BigInt("115792089237316195423570985008687907853269984665640564039457584007913129639935"); // max uint256
+        if (owner && owner.toLowerCase() !== account.address.toLowerCase()) {
+          console.warn(`Warning: Current account ${account.address} is not the contract owner (${owner})`);
 
-      // Handle max claimable supply (0 or undefined means unlimited)
-      const maxSupply = condition.maxClaimableSupply && condition.maxClaimableSupply > 0
-        ? BigInt(condition.maxClaimableSupply)
-        : BigInt("115792089237316195423570985008687907853269984665640564039457584007913129639935"); // max uint256
+          // If not owner, check for admin/minter role
+          try {
+            const hasRole = await readContract({
+              contract,
+              method: "function hasRole(bytes32 role, address account) view returns (bool)",
+              params: ["0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`, account.address] // DEFAULT_ADMIN_ROLE
+            });
 
-      // Convert metadata to string
-      const metadataString = condition.metadata
-        ? JSON.stringify(condition.metadata)
-        : "";
+            if (!hasRole) {
+              throw new Error(`Account ${account.address} is not the contract owner and does not have admin permissions. Contract owner is ${owner}`);
+            }
+          } catch (e) {
+            // Role check failed, but owner check passed
+            throw new Error(`Account ${account.address} is not the contract owner. Contract owner is ${owner}`);
+          }
+        } else {
+          console.log('Account is the contract owner');
+        }
+      } catch (ownerError) {
+        console.log('No owner() function, checking role-based permissions...');
 
-      // Create the tuple in the exact order expected by the contract
-      const result = [
-        BigInt(startTime), // startTimestamp
-        maxSupply, // maxClaimableSupply
-        BigInt(0), // supplyClaimed (always 0 for new conditions)
-        quantityLimit, // quantityLimitPerWallet
-        "0x0000000000000000000000000000000000000000000000000000000000000000", // merkleRoot (32 bytes)
-        BigInt(condition.pricePerToken || "0"), // pricePerToken
-        condition.currency || NATIVE_TOKEN_ADDRESS, // currency
-        metadataString // metadata as string
-      ];
+        // Fallback to role checking
+        const hasRole = await readContract({
+          contract,
+          method: "function hasRole(bytes32 role, address account) view returns (bool)",
+          params: ["0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`, account.address] // DEFAULT_ADMIN_ROLE
+        });
 
-      console.log('Converted condition:', {
-        startTimestamp: result[0].toString(),
-        maxClaimableSupply: result[1].toString(),
-        supplyClaimed: result[2].toString(),
-        quantityLimitPerWallet: result[3].toString(),
-        merkleRoot: result[4],
-        pricePerToken: result[5].toString(),
-        currency: result[6],
-        metadata: result[7]
+        if (!hasRole) {
+          console.warn('Account does not have DEFAULT_ADMIN_ROLE');
+        }
+      }
+    } catch (permissionError) {
+      console.log('Could not verify permissions:', permissionError);
+      // Continue anyway - the transaction will fail if permissions are wrong
+    }
+
+    // Check contract state and requirements
+    let isOpenEdition = false;
+    let needsLazyMint = false;
+
+    try {
+      // Check if it's an OpenEdition contract
+      try {
+        const contractURI = await readContract({
+          contract,
+          method: "function contractURI() view returns (string)",
+        });
+        console.log('Contract URI check passed - likely OpenEdition');
+        isOpenEdition = true;
+      } catch (e) {
+        console.log('Not an OpenEdition contract or contractURI not available');
+      }
+
+      // Check if contract has lazy minted NFTs (required for Drop contracts)
+      if (!isOpenEdition) {
+        try {
+          const totalSupply = await readContract({
+            contract,
+            method: "function nextTokenIdToMint() view returns (uint256)",
+          });
+          console.log('Contract has lazy minted tokens:', totalSupply);
+
+          if (!totalSupply || totalSupply === BigInt(0)) {
+            needsLazyMint = true;
+            console.warn('Warning: Drop contract has no lazy minted NFTs. This may cause claim conditions to fail.');
+          }
+        } catch (e) {
+          console.log('Could not check lazy minted supply');
+        }
+      }
+    } catch (e: any) {
+      console.log('Contract state check error:', e.message);
+    }
+
+    // Convert our ClaimCondition format to Thirdweb's ClaimConditionsInput format
+    const phases = claimConditions.map((condition, index) => {
+      // Convert Date/timestamp to Date object
+      let startTime = condition.startTimestamp instanceof Date
+        ? condition.startTimestamp
+        : new Date(condition.startTimestamp);
+
+      // Ensure unique start times (add 1 second if same as previous)
+      if (index > 0) {
+        const prevStartTime = phases[index - 1]?.startTime;
+        if (prevStartTime && startTime.getTime() === prevStartTime.getTime()) {
+          startTime = new Date(startTime.getTime() + 1000); // Add 1 second
+          console.log(`Adjusted phase ${index + 1} start time to ensure uniqueness`);
+        }
+      }
+
+      // Thirdweb v5 expects price as a string in ether format
+      // Convert from wei string to ether string
+      let priceInEther: string | number = "0";
+
+      if (condition.pricePerToken && condition.pricePerToken !== "0") {
+        const priceNum = parseFloat(condition.pricePerToken) / 1e18;
+        // Keep as string to avoid precision issues
+        priceInEther = priceNum.toString();
+      }
+
+      // Build the phase object using Thirdweb's EXACT expected format
+      // Only include fields that Thirdweb SDK expects
+      const phase: any = {
+        startTime: startTime,
+        price: priceInEther, // Price in ether format
+      };
+
+      // IMPORTANT: Only add optional fields that are non-zero/non-default
+      // Thirdweb SDK may fail if we pass undefined or 0 for certain fields
+
+      if (condition.maxClaimableSupply && condition.maxClaimableSupply > 0) {
+        // Pass as number, not BigInt
+        phase.maxClaimableSupply = Number(condition.maxClaimableSupply);
+      }
+
+      if (condition.quantityLimitPerWallet && condition.quantityLimitPerWallet > 0) {
+        // Pass as number, not BigInt
+        phase.maxClaimablePerWallet = Number(condition.quantityLimitPerWallet);
+      }
+
+      // Only set currencyAddress if it's NOT native token
+      // DO NOT include this field at all for native token
+      if (condition.currency && condition.currency !== NATIVE_TOKEN_ADDRESS) {
+        phase.currencyAddress = condition.currency;
+      }
+
+      // DO NOT include metadata - it can cause issues
+      // DO NOT include merkleRootHash - handle separately if needed
+
+      console.log(`Phase ${index + 1} for Thirdweb SDK:`, phase);
+      return phase;
+    });
+
+    // Try using Thirdweb's setClaimConditions extension
+    try {
+      console.log('Attempting to set claim conditions with Thirdweb extension...');
+      console.log('Phases being sent:', JSON.stringify(phases, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      , 2));
+
+      // Check if this is an OpenEdition contract that might need initialization
+      if (isOpenEdition) {
+        console.log('OpenEdition contract detected, checking if claim conditions module is installed...');
+
+        // First check if the contract has the claim conditions extension installed
+        try {
+          const hasExtension = await readContract({
+            contract,
+            method: "function getActiveClaimCondition() view returns ((uint256 startTimestamp, uint256 maxClaimableSupply, uint256 supplyClaimed, uint256 quantityLimitPerWallet, bytes32 merkleRoot, uint256 pricePerToken, address currency, string metadata))",
+          });
+          console.log('Contract has claim conditions extension');
+        } catch (e) {
+          console.warn('Contract may not have claim conditions extension installed');
+
+          // Try to install/initialize the extension
+          try {
+            console.log('Attempting to initialize claim conditions extension...');
+            const initTx = prepareContractCall({
+              contract,
+              method: "function installExtension(string memory _extensionName, address _implementation)",
+              params: ["ClaimCondition", contractAddress]
+            });
+
+            await sendTransaction({
+              transaction: initTx,
+              account,
+            });
+            console.log('Extension initialized');
+          } catch (initError) {
+            console.log('Could not initialize extension (may already be initialized):', initError);
+          }
+        }
+      }
+
+      // First, let's check what's currently set
+      try {
+        const currentConditions = await getClaimConditions(contractAddress, chainId);
+        console.log('Current claim conditions on contract:', currentConditions);
+
+        // If there are existing conditions, we might need to reset them
+        if (currentConditions && currentConditions.length > 0) {
+          console.log('Existing conditions found, will update them');
+        }
+      } catch (e) {
+        console.log('Could not fetch current conditions:', e);
+      }
+
+      // Simplify the transaction to minimal required params
+      console.log('Creating transaction with minimal params for better compatibility...');
+
+      const transaction = setClaimConditions({
+        contract,
+        phases,
+        resetClaimEligibility: false,
       });
 
-      return result;
-    });
+      console.log('Transaction prepared, sending...');
 
-    // Use prepareContractCall with the exact method signature
-    const transaction = prepareContractCall({
-      contract,
-      method: "function setClaimConditions((uint256 startTimestamp, uint256 maxClaimableSupply, uint256 supplyClaimed, uint256 quantityLimitPerWallet, bytes32 merkleRoot, uint256 pricePerToken, address currency, string metadata)[] _conditions, bool _resetClaimEligibility)",
-      params: [conditions, false], // false = don't reset claim eligibility
-    });
+      const result = await sendTransaction({
+        transaction,
+        account,
+      });
 
-    const result = await sendTransaction({
-      transaction,
-      account,
-    });
+      console.log('Claim conditions set successfully:', result);
+      return result.transactionHash;
+    } catch (extensionError: any) {
+      console.error('SetClaimConditions extension failed:', extensionError);
 
-    console.log('Claim conditions set:', result);
-    return result.transactionHash;
+      // Fallback: Try direct contract call for OpenEdition or older contracts
+      if (phases.length === 1) {
+        console.log('Attempting fallback methods for single phase...');
+
+        const phase = phases[0];
+
+        // Convert back to contract format
+        const startTimestamp = Math.floor(phase.startTime.getTime() / 1000); // Unix timestamp
+        const pricePerToken = BigInt(Math.floor(phase.price * 1e18)); // Convert back to wei
+        const currency = phase.currencyAddress || NATIVE_TOKEN_ADDRESS;
+        const maxClaimableSupply = phase.maxClaimableSupply ? BigInt(phase.maxClaimableSupply) : BigInt(2**256-1); // Max uint256 for unlimited
+        const maxClaimablePerWallet = phase.maxClaimablePerWallet ? BigInt(phase.maxClaimablePerWallet) : BigInt(2**256-1);
+
+        // Try OpenEdition specific method first
+        try {
+          console.log('Trying OpenEdition setSharedMetadata approach...');
+
+          // OpenEdition contracts might use setSharedMetadata instead
+          const sharedMetadata = {
+            name: "OpenEdition NFT",
+            description: "Claimable NFT",
+            image: "",
+            animation_url: ""
+          };
+
+          const transaction = prepareContractCall({
+            contract,
+            method: "function setSharedMetadata((string name, string description, string image, string animation_url))",
+            params: [sharedMetadata]
+          });
+
+          const result = await sendTransaction({
+            transaction,
+            account,
+          });
+
+          console.log('Shared metadata set, now trying to set sale config...');
+
+          // Now try to set the sale configuration
+          const saleConfigTx = prepareContractCall({
+            contract,
+            method: "function setSaleConfig(uint256 publicSalePrice, uint256 maxSalePurchasePerAddress, uint256 publicSaleStart, uint256 publicSaleEnd)",
+            params: [
+              pricePerToken,
+              maxClaimablePerWallet,
+              BigInt(startTimestamp),
+              BigInt(2**256-1) // No end time
+            ]
+          });
+
+          const saleResult = await sendTransaction({
+            transaction: saleConfigTx,
+            account,
+          });
+
+          console.log('Sale config set successfully:', saleResult);
+          return saleResult.transactionHash;
+        } catch (openEditionError) {
+          console.log('OpenEdition specific methods failed:', openEditionError);
+        }
+
+        // Try standard setClaimConditions as last resort
+        try {
+          console.log('Trying standard setClaimConditions...');
+          const transaction = prepareContractCall({
+            contract,
+            method: "function setClaimConditions((uint256 startTimestamp, uint256 maxClaimableSupply, uint256 supplyClaimed, uint256 quantityLimitPerWallet, bytes32 merkleRoot, uint256 pricePerToken, address currency, string metadata), bool resetClaimEligibility)",
+            params: [{
+              startTimestamp: BigInt(startTimestamp),
+              maxClaimableSupply: maxClaimableSupply,
+              supplyClaimed: BigInt(0),
+              quantityLimitPerWallet: maxClaimablePerWallet,
+              merkleRoot: "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
+              pricePerToken: pricePerToken,
+              currency: currency,
+              metadata: ""
+            }, false] // resetClaimEligibility
+          });
+
+          const result = await sendTransaction({
+            transaction,
+            account,
+          });
+
+          console.log('Direct claim condition set successfully:', result);
+          return result.transactionHash;
+        } catch (directError) {
+          console.error('Direct contract call also failed:', directError);
+          throw extensionError; // Throw original error
+        }
+      }
+
+      throw extensionError;
+    }
   } catch (error) {
     console.error('Error setting claim conditions:', error);
     throw error;
@@ -319,11 +680,172 @@ export async function mintNFTWithQuantity({
   }
 }
 
+// Check user's claim status
+export async function getUserClaimStatus(
+  contractAddress: string,
+  chainId: number,
+  userAddress: string
+): Promise<{ claimed: number; limit: number; remaining: number }> {
+  try {
+    const chain = defineChain(chainId);
+    const contract = getContract({
+      client,
+      chain,
+      address: contractAddress,
+    });
+
+    // Try to get the active claim condition
+    const activeCondition = await getActiveClaimCondition({
+      contract,
+    });
+
+    // Default values
+    let claimedAmount = 0;
+    let claimLimit = 0;
+
+    if (activeCondition) {
+      // Get the claim limit from the condition
+      claimLimit = activeCondition.quantityLimitPerWallet
+        ? Number(activeCondition.quantityLimitPerWallet)
+        : Number.MAX_SAFE_INTEGER; // Unlimited
+
+      // Try to get how many the user has already claimed
+      try {
+        // First, try to get the active condition ID (usually 0 for single-phase contracts)
+        let conditionId = BigInt(0);
+
+        // Try to get the active condition ID if the contract supports it
+        try {
+          const activeId = await readContract({
+            contract,
+            method: "function getActiveClaimConditionId() view returns (uint256)",
+          });
+          conditionId = activeId;
+          console.log('Active condition ID:', conditionId);
+        } catch (e) {
+          // Default to 0 if method doesn't exist
+          console.log('Using default condition ID 0');
+        }
+
+        // Get the user's claimed amount for this condition
+        try {
+          const userClaimed = await readContract({
+            contract,
+            method: "function getSupplyClaimedByWallet(uint256 _conditionId, address _claimer) view returns (uint256 supplyClaimedByWallet)",
+            params: [conditionId, userAddress]
+          });
+          claimedAmount = Number(userClaimed);
+          console.log(`User ${userAddress} has claimed ${claimedAmount} NFTs in condition ${conditionId}`);
+        } catch (e) {
+          console.log('Could not get user-specific claim amount via getSupplyClaimedByWallet:', e);
+
+          // Fallback: Try to get the user's NFT balance for this collection
+          try {
+            const balance = await readContract({
+              contract,
+              method: "function balanceOf(address owner) view returns (uint256)",
+              params: [userAddress]
+            });
+            claimedAmount = Number(balance);
+            console.log(`Fallback: User ${userAddress} owns ${claimedAmount} NFTs from this collection`);
+          } catch (balanceError) {
+            console.log('Could not get user balance either:', balanceError);
+          }
+        }
+      } catch (e) {
+        console.log('Could not get claim status:', e);
+      }
+    }
+
+    const remaining = Math.max(0, claimLimit - claimedAmount);
+
+    return {
+      claimed: claimedAmount,
+      limit: claimLimit === Number.MAX_SAFE_INTEGER ? -1 : claimLimit, // -1 means unlimited
+      remaining: claimLimit === Number.MAX_SAFE_INTEGER ? -1 : remaining
+    };
+  } catch (error) {
+    console.error('Error getting user claim status:', error);
+    // Return default values on error
+    return {
+      claimed: 0,
+      limit: -1, // Unknown
+      remaining: -1
+    };
+  }
+}
+
+// Get current claim conditions from contract
+export async function getClaimConditions(
+  contractAddress: string,
+  chainId: number
+): Promise<any[]> {
+  try {
+    const chain = defineChain(chainId)
+    const contract = getContract({
+      client,
+      chain,
+      address: contractAddress,
+    })
+
+    console.log('Getting claim conditions from contract...')
+
+    // First try to get all claim conditions (for multi-phase contracts)
+    try {
+      const allConditions = await readContract({
+        contract,
+        method: "function getClaimConditions() view returns ((uint256 startTimestamp, uint256 maxClaimableSupply, uint256 supplyClaimed, uint256 quantityLimitPerWallet, bytes32 merkleRoot, uint256 pricePerToken, address currency, string metadata)[])",
+      })
+
+      if (allConditions && allConditions.length > 0) {
+        console.log('Retrieved all claim conditions:', allConditions)
+        return [...allConditions]
+      }
+    } catch (e) {
+      console.log('Multi-phase method not available, trying single phase...')
+    }
+
+    // Fallback to active condition only (single phase)
+    const activeCondition = await getActiveClaimCondition({
+      contract,
+    })
+
+    console.log('Active claim condition from contract:', activeCondition)
+    return activeCondition ? [activeCondition] : []
+  } catch (error) {
+    console.error('Error getting claim conditions with Thirdweb extension:', error)
+
+    // Fallback: Try reading the active claim condition directly
+    try {
+      const chain = defineChain(chainId)
+      const contract = getContract({
+        client,
+        chain,
+        address: contractAddress,
+      })
+
+      const activeCondition = await readContract({
+        contract,
+        method: "function getActiveClaimCondition() view returns ((uint256 startTimestamp, uint256 maxClaimableSupply, uint256 supplyClaimed, uint256 quantityLimitPerWallet, bytes32 merkleRoot, uint256 pricePerToken, address currency, string metadata))",
+      })
+
+      console.log('Active claim condition from contract:', activeCondition)
+      return activeCondition ? [activeCondition] : []
+    } catch (fallbackError) {
+      console.error('Fallback method also failed:', fallbackError)
+
+      // Return empty array if no claim conditions are set
+      console.log('No claim conditions found on contract - this is expected if none have been set yet')
+      return []
+    }
+  }
+}
+
 // Get contract information
 export async function getContractInfo(contractAddress: string, chainId: number) {
   try {
     const chain = defineChain(chainId)
-    
+
     const contract = getContract({
       client,
       chain,

@@ -3,6 +3,9 @@
     "MarketplaceV3": {
       "address": "0xB30af61443eeD475e07226169aFC0753eeE8BBc0",
       "startBlock": 8656507
+    },
+    "OpenEditionERC721": {
+      "address": "0xeb9B662E084B079Ca93c35494BBf06542964bEF1"
     }
   }
 }
