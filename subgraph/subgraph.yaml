@@ -1,0 +1,65 @@
+specVersion: 1.3.0
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: MarketplaceV3
+    network: sepolia
+    source:
+      address: "0xB30af61443eeD475e07226169aFC0753eeE8BBc0"
+      abi: MarketplaceV3
+      startBlock: 8656507
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - ContractURIUpdated
+        - ExtensionAdded
+        - ExtensionRemoved
+        - ExtensionReplaced
+        - FlatPlatformFeeUpdated
+        - FunctionDisabled
+        - FunctionEnabled
+        - Initialized
+        - PlatformFeeInfoUpdated
+        - PlatformFeeTypeUpdated
+        - RoleAdminChanged
+        - RoleGranted
+        - RoleRevoked
+        - RoyaltyEngineUpdated
+      abis:
+        - name: MarketplaceV3
+          file: ./abis/MarketplaceV3.json
+      eventHandlers:
+        - event: ContractURIUpdated(string,string)
+          handler: handleContractURIUpdated
+        - event: ExtensionAdded(indexed string,indexed address,((string,string,address),(bytes4,string)[]))
+          handler: handleExtensionAdded
+        - event: ExtensionRemoved(indexed string,((string,string,address),(bytes4,string)[]))
+          handler: handleExtensionRemoved
+        - event: ExtensionReplaced(indexed string,indexed address,((string,string,address),(bytes4,string)[]))
+          handler: handleExtensionReplaced
+        - event: FlatPlatformFeeUpdated(address,uint256)
+          handler: handleFlatPlatformFeeUpdated
+        - event: FunctionDisabled(indexed string,indexed bytes4,(string,string,address))
+          handler: handleFunctionDisabled
+        - event: FunctionEnabled(indexed string,indexed bytes4,(bytes4,string),(string,string,address))
+          handler: handleFunctionEnabled
+        - event: Initialized(uint8)
+          handler: handleInitialized
+        - event: PlatformFeeInfoUpdated(indexed address,uint256)
+          handler: handlePlatformFeeInfoUpdated
+        - event: PlatformFeeTypeUpdated(uint8)
+          handler: handlePlatformFeeTypeUpdated
+        - event: RoleAdminChanged(indexed bytes32,indexed bytes32,indexed bytes32)
+          handler: handleRoleAdminChanged
+        - event: RoleGranted(indexed bytes32,indexed address,indexed address)
+          handler: handleRoleGranted
+        - event: RoleRevoked(indexed bytes32,indexed address,indexed address)
+          handler: handleRoleRevoked
+        - event: RoyaltyEngineUpdated(indexed address,indexed address)
+          handler: handleRoyaltyEngineUpdated
+      file: ./src/marketplace-v-3.ts

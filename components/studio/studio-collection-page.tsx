@@ -20,7 +20,9 @@ import {
   TraitsTab,
   ActivityTab
 } from "./tab-contents";
+import { SettingsTab } from "./settings-tab";
 import { UploadBottomBar } from "./upload-bottom-bar";
+import { MintNFTsModal } from "./mint-nfts-modal";
 
 // This is a Studio-specific copy of CollectionDetailPage. It intentionally
 // duplicates layout so the studio can diverge (management tools, drafts, edit flows).
@@ -36,6 +38,7 @@ export function StudioCollectionPage({ collection }: { collection: any }) {
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [showUploadInterface, setShowUploadInterface] = useState(false);
+  const [showMintModal, setShowMintModal] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -299,6 +302,7 @@ export function StudioCollectionPage({ collection }: { collection: any }) {
                 viewMode={viewMode}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
+                onAddNFTs={() => setShowMintModal(true)}
               />
             )}
 
@@ -309,6 +313,8 @@ export function StudioCollectionPage({ collection }: { collection: any }) {
             {activeTab === 'traits' && <TraitsTab collection={collection} />}
 
             {activeTab === 'activity' && <ActivityTab />}
+
+            {activeTab === 'settings' && <SettingsTab collection={collection} />}
           </div>
         </div>
 
@@ -324,6 +330,18 @@ export function StudioCollectionPage({ collection }: { collection: any }) {
             onMint={handleMintNFTs}
           />
         )}
+
+        {/* Mint NFTs Modal */}
+        <MintNFTsModal
+          isOpen={showMintModal}
+          onClose={() => setShowMintModal(false)}
+          collection={collection}
+          onSuccess={() => {
+            setShowMintModal(false);
+            // Optionally refresh the collection data
+            window.location.reload();
+          }}
+        />
       </div>
     </motion.div>
   );

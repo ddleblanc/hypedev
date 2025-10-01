@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { fetchCollectionStats } from '@/lib/graph-client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -55,32 +56,62 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform collections with computed fields
-    const transformedCollections = collections.map(collection => ({
-      id: collection.id,
-      projectId: collection.projectId,
-      name: collection.name,
-      symbol: collection.symbol,
-      description: collection.description,
-      image: collection.image,
-      bannerImage: collection.bannerImage,
-      address: collection.address,
-      creatorAddress: collection.creatorAddress,
-      royaltyPercentage: collection.royaltyPercentage,
-      chainId: collection.chainId,
-      contractType: collection.contractType,
-      isDeployed: collection.isDeployed,
-      deployedAt: collection.deployedAt,
-      createdAt: collection.createdAt,
-      updatedAt: collection.updatedAt,
-      maxSupply: collection.maxSupply,
-      // Project information
-      project: collection.project,
-      // Computed fields
-      mintedSupply: collection.nfts.length,
-      floorPrice: collection.nfts.length > 0 ? Math.random() * 2 + 0.1 : 0, // Mock floor price
-      volume: collection.nfts.length * (Math.random() * 5 + 1), // Mock volume
-      holders: Math.floor(collection.nfts.length * 0.7), // Mock unique holders
-    }));
+    const transformedCollections = await Promise.all(
+      collections.map(async (collection) => {
+        // Try to fetch real stats from The Graph
+        let realStats = null;
+        if (collection.address && collection.isDeployed) {
+          realStats = await fetchCollectionStats(
+            collection.address,
+            collection.chainId
+          );
+        }
+
+        // Use real stats if available, otherwise fall back to computed/mock data
+        const floorPrice = realStats?.floorPrice ||
+          (collection.nfts.length > 0 ? Math.random() * 2 + 0.1 : 0);
+
+        const volume = realStats?.totalVolume ||
+          (collection.nfts.length * (Math.random() * 5 + 1));
+
+        const holders = realStats?.holders ||
+          Math.floor(collection.nfts.length * 0.7);
+
+        const mintedSupply = realStats?.totalSupply || collection.nfts.length;
+
+        return {
+          id: collection.id,
+          projectId: collection.projectId,
+          name: collection.name,
+          symbol: collection.symbol,
+          description: collection.description,
+          image: collection.image,
+          bannerImage: collection.bannerImage,
+          address: collection.address,
+          creatorAddress: collection.creatorAddress,
+          royaltyPercentage: collection.royaltyPercentage,
+          chainId: collection.chainId,
+          contractType: collection.contractType,
+          isDeployed: collection.isDeployed,
+          deployedAt: collection.deployedAt,
+          createdAt: collection.createdAt,
+          updatedAt: collection.updatedAt,
+          maxSupply: collection.maxSupply,
+          claimPhases: collection.claimPhases,
+          sharedMetadata: collection.sharedMetadata,
+          sharedMetadataSetAt: collection.sharedMetadataSetAt?.toISOString(),
+          // Project information
+          project: collection.project,
+          // Real or computed fields
+          mintedSupply,
+          floorPrice,
+          volume,
+          holders,
+          // Additional stats from The Graph
+          recentSales: realStats?.sales?.slice(0, 5) || []
+        };
+      })
+    );
 
     return NextResponse.json({
       success: true,
@@ -109,11 +140,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log('Received body:', JSON.stringify(body, null, 2));
+
+    // Support both nested format { collection: {...} } and direct format {...}
     const {
       project,  // New project data if creating new
       projectId,  // Existing project ID if using existing
-      collection  // Collection data with IPFS URLs
+      collection  // Collection data with IPFS URLs (legacy format)
     } = body;
+
+    // Extract collection data - support both formats
+    const collectionData = collection || body;
 
     const {
       name,
@@ -129,8 +166,9 @@ export async function POST(request: NextRequest) {
       category,
       tags,
       transactionHash,
-      isDeployed
-    } = collection || {};
+      isDeployed,
+      claimPhases
+    } = collectionData;
 
     if (!name || !symbol || !contractAddress) {
       return NextResponse.json(
@@ -191,15 +229,16 @@ export async function POST(request: NextRequest) {
         profileImage: image,  // Using collection image as profile image for now
         address: contractAddress.toLowerCase(),
         creatorAddress: address.toLowerCase(),
-        royaltyPercentage: royaltyPercentage || 5,
-        chainId: chainId || 11155111,  // Default to Sepolia
+        royaltyPercentage: parseFloat(royaltyPercentage) || 5,
+        chainId: parseInt(chainId) || 11155111,  // Default to Sepolia
         contractType: contractType || 'DropERC721',
-        maxSupply,
+        maxSupply: maxSupply ? parseInt(maxSupply) : null,
         category: category || null,
         tags: tags || [],
         transactionHash: transactionHash || null,
         isDeployed: isDeployed !== undefined ? isDeployed : true,
         deployedAt: isDeployed ? new Date() : null,
+        claimPhases: claimPhases || null,  // Store claim phases as JSON string
       },
     });
 
@@ -227,6 +266,7 @@ export async function POST(request: NextRequest) {
         category: newCollection.category,
         tags: newCollection.tags,
         transactionHash: newCollection.transactionHash,
+        claimPhases: newCollection.claimPhases,
         mintedSupply: 0,
         floorPrice: 0,
         volume: 0,
@@ -236,8 +276,52 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error creating collection:', error);
+    // Return more detailed error for debugging
     return NextResponse.json(
-      { success: false, error: 'Failed to create collection' },
+      {
+        success: false,
+        error: 'Failed to create collection',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { collectionId, sharedMetadata } = body;
+
+    if (!collectionId) {
+      return NextResponse.json(
+        { success: false, error: 'Collection ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Update the collection with shared metadata
+    const updatedCollection = await prisma.collection.update({
+      where: { id: collectionId },
+      data: {
+        sharedMetadata: sharedMetadata,
+        sharedMetadataSetAt: new Date()
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      collection: updatedCollection
+    });
+
+  } catch (error) {
+    console.error('Error updating collection:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to update collection',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

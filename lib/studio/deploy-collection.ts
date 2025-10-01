@@ -1,6 +1,8 @@
 import { client } from "@/lib/thirdweb";
 import { defineChain, sepolia, polygon, ethereum, arbitrum } from "thirdweb/chains";
 import { deployERC721Contract } from "thirdweb/deploys";
+import type { ClaimCondition } from '@/lib/nft-minting';
+import { setupClaimConditions } from '@/lib/nft-minting';
 
 interface ProjectData {
   name: string;
@@ -47,7 +49,8 @@ export async function deployCollection(
   selectedProject: string,
   projectData: ProjectData,
   collectionData: CollectionData,
-  account: any
+  account: any,
+  claimPhases?: ClaimCondition[]
 ): Promise<DeploymentResult> {
   try {
     // Step 1: Validate all required data
@@ -99,6 +102,23 @@ export async function deployCollection(
 
     console.log("Contract deployed:", deployedContract);
 
+    // Step 4.5: Set up claim conditions if provided
+    if (claimPhases && claimPhases.length > 0 && ['DropERC721', 'OpenEditionERC721', 'EditionDrop'].includes(collectionData.contractType)) {
+      try {
+        console.log("Setting up claim conditions...");
+        await setupClaimConditions(
+          deployedContract.contractAddress,
+          parseInt(collectionData.chainId),
+          claimPhases,
+          account
+        );
+        console.log("Claim conditions set successfully");
+      } catch (error) {
+        console.error("Error setting claim conditions:", error);
+        // Continue with deployment even if claim conditions fail
+      }
+    }
+
     // Step 5: Prepare data for backend
     const dataToSave: DeploymentData = {
       project: createMode === 'new-project' ? projectData : null,
@@ -118,7 +138,8 @@ export async function deployCollection(
         contractAddress: deployedContract.contractAddress,
         transactionHash: deployedContract.transactionHash,
         deployedAt: new Date().toISOString(),
-        isDeployed: true
+        isDeployed: true,
+        claimPhases: claimPhases && claimPhases.length > 0 ? JSON.stringify(claimPhases) : null
       }
     };
 

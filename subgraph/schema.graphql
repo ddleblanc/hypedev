@@ -1,0 +1,145 @@
+type ContractURIUpdated @entity(immutable: true) {
+  id: Bytes!
+  prevURI: String! # string
+  newURI: String! # string
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ExtensionAdded @entity(immutable: true) {
+  id: Bytes!
+  name: String! # string
+  implementation: Bytes! # address
+  extension_metadata_name: String! # string
+  extension_metadata_metadataURI: String! # string
+  extension_metadata_implementation: Bytes! # address
+  extension_functions: [Bytes!]! # tuple[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ExtensionRemoved @entity(immutable: true) {
+  id: Bytes!
+  name: String! # string
+  extension_metadata_name: String! # string
+  extension_metadata_metadataURI: String! # string
+  extension_metadata_implementation: Bytes! # address
+  extension_functions: [Bytes!]! # tuple[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type ExtensionReplaced @entity(immutable: true) {
+  id: Bytes!
+  name: String! # string
+  implementation: Bytes! # address
+  extension_metadata_name: String! # string
+  extension_metadata_metadataURI: String! # string
+  extension_metadata_implementation: Bytes! # address
+  extension_functions: [Bytes!]! # tuple[]
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type FlatPlatformFeeUpdated @entity(immutable: true) {
+  id: Bytes!
+  platformFeeRecipient: Bytes! # address
+  flatFee: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type FunctionDisabled @entity(immutable: true) {
+  id: Bytes!
+  name: String! # string
+  functionSelector: Bytes! # bytes4
+  extMetadata_name: String! # string
+  extMetadata_metadataURI: String! # string
+  extMetadata_implementation: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type FunctionEnabled @entity(immutable: true) {
+  id: Bytes!
+  name: String! # string
+  functionSelector: Bytes! # bytes4
+  extFunction_functionSelector: Bytes! # bytes4
+  extFunction_functionSignature: String! # string
+  extMetadata_name: String! # string
+  extMetadata_metadataURI: String! # string
+  extMetadata_implementation: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Initialized @entity(immutable: true) {
+  id: Bytes!
+  version: Int! # uint8
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type PlatformFeeInfoUpdated @entity(immutable: true) {
+  id: Bytes!
+  platformFeeRecipient: Bytes! # address
+  platformFeeBps: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type PlatformFeeTypeUpdated @entity(immutable: true) {
+  id: Bytes!
+  feeType: Int! # uint8
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RoleAdminChanged @entity(immutable: true) {
+  id: Bytes!
+  role: Bytes! # bytes32
+  previousAdminRole: Bytes! # bytes32
+  newAdminRole: Bytes! # bytes32
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RoleGranted @entity(immutable: true) {
+  id: Bytes!
+  role: Bytes! # bytes32
+  account: Bytes! # address
+  sender: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RoleRevoked @entity(immutable: true) {
+  id: Bytes!
+  role: Bytes! # bytes32
+  account: Bytes! # address
+  sender: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type RoyaltyEngineUpdated @entity(immutable: true) {
+  id: Bytes!
+  previousAddress: Bytes! # address
+  newAddress: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}

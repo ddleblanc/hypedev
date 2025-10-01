@@ -21,7 +21,7 @@ interface CollectionDetailPageProps {
 
 export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('items');
   const [isWatchlisted, setIsWatchlisted] = useState(false);
 
   const handleShare = () => {

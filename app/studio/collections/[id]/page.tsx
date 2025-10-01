@@ -45,6 +45,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       videoUrl: undefined,
       bannerImage: collection.bannerImage ?? collection.image ?? undefined,
       logo: collection.image ?? undefined,
+      address: collection.address,
+      contractType: collection.contractType,
+      chainId: collection.chainId,
+      claimPhases: collection.claimPhases,
+      sharedMetadata: collection.sharedMetadata,
+      sharedMetadataSetAt: collection.sharedMetadataSetAt?.toISOString(),
       stats: {
         owners: ownersSet.size,
         floorPrice: null,

@@ -17,8 +17,8 @@ export function TabNavigation({
   onTabChange
 }: TabNavigationProps) {
   const tabs = showUploadInterface
-    ? ['upload', 'about', 'items', 'offers', 'holders', 'traits', 'activity']
-    : ['about', 'items', 'offers', 'holders', 'traits', 'activity'];
+    ? ['upload', 'about', 'items', 'offers', 'holders', 'traits', 'activity', 'settings']
+    : ['about', 'items', 'offers', 'holders', 'traits', 'activity', 'settings'];
 
   return (
     <div className="flex items-center gap-3 mb-6 overflow-x-auto">

@@ -33,6 +33,11 @@ import { cn } from "@/lib/utils";
 import { useStudioData, Collection } from "@/hooks/use-studio-data";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { AddToListModal } from "@/components/add-to-list-modal";
+import { useActiveAccount, useActiveWalletChain } from "thirdweb/react";
+import { claimNFT } from "@/lib/nft-minting";
+import { switchChain } from "thirdweb/wallets";
+import { defineChain } from "thirdweb/chains";
+import { client } from "@/lib/thirdweb";
 
 interface LaunchpadProjectDetailProps {
   projectId: string;
@@ -213,16 +218,42 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
   const heroRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { user } = useWalletAuthOptimized();
+  const account = useActiveAccount();
+  const activeChain = useActiveWalletChain();
 
   // Get real collection data
-  const { collections, isLoading, error } = useStudioData();
+  const { collections, isLoading, error, fetchCollections } = useStudioData();
   const collection = collections.find(c => c.id === projectId);
 
+  // Parse claim phases from collection
+  const claimPhases = collection?.claimPhases ? JSON.parse(collection.claimPhases) : [];
+
+  // Determine active phase
+  const now = new Date();
+  const activePhase = claimPhases.find((phase: any) => {
+    const phaseStart = new Date(phase.startTimestamp);
+    return phaseStart <= now;
+  });
+
+  // Get the next upcoming phase
+  const upcomingPhase = claimPhases.find((phase: any) => {
+    const phaseStart = new Date(phase.startTimestamp);
+    return phaseStart > now;
+  });
+
+  // Get mint price from active phase or default to 0
+  const mintPrice = activePhase ? (parseFloat(activePhase.pricePerToken) / 1e18) : 0;
+
   // Determine launch status and timing based on collection data
-  const launchDate = collection?.deployedAt ? new Date(collection.deployedAt) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const isLive = collection?.isDeployed || false;
+  const launchDate = upcomingPhase
+    ? new Date(upcomingPhase.startTimestamp)
+    : collection?.deployedAt
+    ? new Date(collection.deployedAt)
+    : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  const isLive = collection?.isDeployed && activePhase !== undefined;
   const isSoldOut = collection?.maxSupply ? collection.mintedSupply >= collection.maxSupply : false;
-  const isUpcoming = collection ? !collection.isDeployed : false;
+  const isUpcoming = collection ? !collection.isDeployed || !activePhase : false;
 
   // Check if item is in watchlist
   useEffect(() => {
@@ -285,6 +316,20 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
     return () => clearInterval(timer);
   }, [collection, launchDate, collection?.isDeployed]);
 
+  // Phase countdown timer - Updates every second for phase transitions
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    if (!claimPhases || claimPhases.length === 0) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      forceUpdate(n => n + 1); // Force re-render to update countdowns
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [claimPhases]);
+
   // Show loading or error states
   if (isLoading) {
     return (
@@ -327,10 +372,115 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
   };
 
   const handleMint = async () => {
+    if (!account || !collection?.address) {
+      console.error("No wallet connected or collection address missing");
+      return;
+    }
+
     setIsMinting(true);
-    // Simulate minting process
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsMinting(false);
+    try {
+      // Check if user is on the correct chain
+      const requiredChainId = collection.chainId || 1; // Default to mainnet if not specified
+
+      // If on wrong chain, prompt to switch
+      if (activeChain?.id !== requiredChainId) {
+        const targetChain = defineChain(requiredChainId);
+        await switchChain(account.wallet, targetChain);
+      }
+
+      // Calculate the total price for the mint
+      const totalPrice = mintPrice * mintQuantity;
+      const priceInWei = totalPrice > 0 ? BigInt(Math.floor(totalPrice * 1e18)) : undefined;
+
+      // Call the claim function with value if there's a price
+      console.log("Submitting mint transaction...");
+      const txHash = await claimNFT(
+        {
+          contractAddress: collection.address,
+          chainId: requiredChainId,
+          recipient: account.address,
+          quantity: mintQuantity,
+          value: priceInWei // Pass the ETH value for paid mints
+        },
+        account
+      );
+
+      console.log("Mint transaction submitted! Tx hash:", txHash);
+      console.log("Waiting for blockchain confirmation...");
+
+      // Wait for transaction to be mined (you can add a loading state here)
+      // The transaction is already confirmed when sendTransaction returns
+
+      // Get the current token supply to determine token IDs that were minted
+      const isDropContract = ['DropERC721', 'ERC721Drop', 'OpenEditionERC721'].includes(collection.contractType || '');
+
+      // Prepare NFT data for database
+      const nftsToSave = [];
+      for (let i = 0; i < mintQuantity; i++) {
+        const nftData: any = {
+          name: isDropContract && collection.sharedMetadata?.name
+            ? collection.sharedMetadata.name
+            : collection.name,
+          description: isDropContract && collection.sharedMetadata?.description
+            ? collection.sharedMetadata.description
+            : collection.description,
+          image: isDropContract && collection.sharedMetadata?.image
+            ? collection.sharedMetadata.image
+            : collection.image,
+          attributes: isDropContract && collection.sharedMetadata?.attributes
+            ? collection.sharedMetadata.attributes
+            : [],
+          ownerAddress: account.address,
+          tokenId: `${Date.now()}-${i}`, // Temporary - would need to query contract for real token IDs
+          metadataUri: isDropContract && collection.sharedMetadata?.image
+            ? collection.sharedMetadata.image
+            : collection.image
+        };
+        nftsToSave.push(nftData);
+      }
+
+      // Save minted NFTs to database
+      console.log("Saving minted NFTs to database...");
+      try {
+        const response = await fetch('/api/studio/collections/nfts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            collectionId: collection.id,
+            nfts: nftsToSave
+          })
+        });
+
+        if (!response.ok) {
+          console.error('Failed to save NFTs to database, but mint was successful');
+        } else {
+          console.log("NFTs saved to database successfully");
+        }
+      } catch (dbError) {
+        console.error('Database error (mint was still successful):', dbError);
+      }
+
+      // Refresh collection data to update minted count and stats
+      console.log("Refreshing collection data...");
+      await fetchCollections();
+
+      // Show success message
+      console.log("Mint complete! Transaction hash:", txHash);
+
+    } catch (error: any) {
+      console.error("Minting failed:", error);
+
+      // Handle specific error cases
+      if (error.message?.includes('user rejected')) {
+        console.log("User cancelled the transaction");
+      } else if (error.message?.includes('insufficient funds')) {
+        console.error("Insufficient funds for minting");
+      } else {
+        console.error("An error occurred during minting:", error.message || error);
+      }
+    } finally {
+      setIsMinting(false);
+    }
   };
 
   const handleWatchlistToggle = async () => {
@@ -495,12 +645,12 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
 
               <Separator orientation="vertical" className="h-12 bg-white/20" />
 
-              {/* Floor Price */}
+              {/* Mint Price */}
               <div>
-                <p className="text-sm text-white/60">Floor Price</p>
+                <p className="text-sm text-white/60">Mint Price</p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-2xl font-bold text-[rgb(163,255,18)]">
-                    {collection.floorPrice > 0 ? collection.floorPrice.toFixed(3) : '0.000'} ETH
+                    {mintPrice > 0 ? `${mintPrice.toFixed(4)} ETH` : 'FREE'}
                   </p>
                   <p className="text-sm text-white/60">per NFT</p>
                 </div>
@@ -838,24 +988,160 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                 </span>
                               </div>
                             )}
-                            <div className="flex justify-between">
-                              <span className="text-white/60">Max per Wallet</span>
-                              <span className="text-white font-bold">5</span>
-                            </div>
-                            {collection.floorPrice > 0 && (
+                            {activePhase && (
+                              <div className="flex justify-between">
+                                <span className="text-white/60">Max per Wallet</span>
+                                <span className="text-white font-bold">
+                                  {activePhase.quantityLimitPerWallet && activePhase.quantityLimitPerWallet > 0
+                                    ? activePhase.quantityLimitPerWallet
+                                    : 'Unlimited'}
+                                </span>
+                              </div>
+                            )}
+                            {mintPrice >= 0 && (
                               <div className="flex justify-between">
                                 <span className="text-white/60">Mint Price</span>
-                                <span className="text-white font-bold">{collection.floorPrice.toFixed(3)} ETH</span>
+                                <span className="text-white font-bold">
+                                  {mintPrice > 0 ? `${mintPrice.toFixed(4)} ETH` : 'FREE'}
+                                </span>
                               </div>
                             )}
                             <div className="flex justify-between">
                               <span className="text-white/60">Current Phase</span>
                               <Badge className="bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)] capitalize">
-                                {collection.isDeployed ? 'Live' : 'Upcoming'}
+                                {activePhase ? activePhase.metadata?.name || 'Active' : upcomingPhase ? 'Upcoming' : 'Not Started'}
                               </Badge>
                             </div>
                           </CardContent>
                         </Card>
+
+                        {/* Claim Phases Timeline */}
+                        {claimPhases.length > 0 && (
+                          <Card className="bg-black/40 border border-white/10">
+                            <CardHeader>
+                              <CardTitle className="text-lg flex items-center gap-2 text-white">
+                                <Calendar className="w-5 h-5 text-[rgb(163,255,18)]" />
+                                Claim Phases
+                              </CardTitle>
+                              <CardDescription className="text-white/60">
+                                Scheduled minting phases for this collection
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {claimPhases
+                                .sort((a: any, b: any) => new Date(a.startTimestamp).getTime() - new Date(b.startTimestamp).getTime())
+                                .map((phase: any, index: number) => {
+                                  const phaseStart = new Date(phase.startTimestamp);
+                                  const isActive = phaseStart <= now && (!claimPhases[index + 1] || new Date(claimPhases[index + 1].startTimestamp) > now);
+                                  const isPast = phaseStart <= now && !isActive;
+                                  const isFuture = phaseStart > now;
+                                  const phasePrice = parseFloat(phase.pricePerToken) / 1e18;
+
+                                  return (
+                                    <div
+                                      key={index}
+                                      className={cn(
+                                        "relative p-4 rounded-lg border transition-all",
+                                        isActive && "bg-[rgb(163,255,18)]/10 border-[rgb(163,255,18)]/50",
+                                        isPast && "bg-white/5 border-white/10 opacity-60",
+                                        isFuture && "bg-white/5 border-white/20"
+                                      )}
+                                    >
+                                      {/* Phase Status Badge */}
+                                      <div className="absolute -top-2 -right-2">
+                                        {isActive && (
+                                          <Badge className="bg-[rgb(163,255,18)] text-black">
+                                            <Zap className="w-3 h-3 mr-1" />
+                                            Active Now
+                                          </Badge>
+                                        )}
+                                        {isPast && (
+                                          <Badge variant="secondary" className="bg-white/10">
+                                            <CheckCircle2 className="w-3 h-3 mr-1" />
+                                            Completed
+                                          </Badge>
+                                        )}
+                                        {isFuture && (
+                                          <Badge variant="outline" className="border-white/30">
+                                            <Clock className="w-3 h-3 mr-1" />
+                                            Upcoming
+                                          </Badge>
+                                        )}
+                                      </div>
+
+                                      <div className="space-y-3">
+                                        {/* Phase Name & Number */}
+                                        <div className="flex items-start justify-between">
+                                          <div>
+                                            <h4 className="font-semibold text-white flex items-center gap-2">
+                                              <span className="text-[rgb(163,255,18)]">Phase {index + 1}</span>
+                                              {phase.metadata?.name && (
+                                                <>
+                                                  <span className="text-white/40">•</span>
+                                                  <span>{phase.metadata.name}</span>
+                                                </>
+                                              )}
+                                            </h4>
+                                            {phase.metadata?.description && (
+                                              <p className="text-sm text-white/60 mt-1">{phase.metadata.description}</p>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Phase Details */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                          <div>
+                                            <p className="text-white/60 mb-1">Start Time</p>
+                                            <p className="text-white font-medium">
+                                              {phaseStart.toLocaleDateString()} {phaseStart.toLocaleTimeString()}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <p className="text-white/60 mb-1">Price</p>
+                                            <p className="text-white font-medium">
+                                              {phasePrice > 0 ? `${phasePrice.toFixed(4)} ETH` : 'FREE'}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <p className="text-white/60 mb-1">Per Wallet</p>
+                                            <p className="text-white font-medium">
+                                              {phase.quantityLimitPerWallet && phase.quantityLimitPerWallet > 0
+                                                ? phase.quantityLimitPerWallet
+                                                : 'Unlimited'}
+                                            </p>
+                                          </div>
+                                          {phase.maxClaimableSupply && (
+                                            <div>
+                                              <p className="text-white/60 mb-1">Phase Supply</p>
+                                              <p className="text-white font-medium">
+                                                {phase.maxClaimableSupply.toLocaleString()}
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Progress Bar for Active Phase */}
+                                        {isActive && phase.maxClaimableSupply && (
+                                          <div className="pt-2">
+                                            <div className="flex justify-between text-xs mb-1">
+                                              <span className="text-white/60">Phase Progress</span>
+                                              <span className="text-[rgb(163,255,18)]">
+                                                {phase.supplyClaimed || 0} / {phase.maxClaimableSupply}
+                                              </span>
+                                            </div>
+                                            <Progress
+                                              value={(phase.supplyClaimed || 0) / phase.maxClaimableSupply * 100}
+                                              className="h-2 bg-white/10"
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </CardContent>
+                          </Card>
+                        )}
                       </div>
                     </div>
                   </TabsContent>
@@ -869,8 +1155,16 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                         <Card className="bg-black/40 border-white/10 overflow-hidden group">
                           <div className="relative aspect-square overflow-hidden">
                             <MediaRenderer
-                              src={collection.image || collection.bannerImage || ''}
-                              alt={collection.name}
+                              src={
+                                (collection.contractType === 'DropERC721' || collection.contractType === 'ERC721Drop' || collection.contractType === 'OpenEditionERC721')
+                                  ? (collection.sharedMetadata?.image || collection.image || collection.bannerImage || '')
+                                  : (collection.image || collection.bannerImage || '')
+                              }
+                              alt={
+                                (collection.contractType === 'DropERC721' || collection.contractType === 'ERC721Drop' || collection.contractType === 'OpenEditionERC721')
+                                  ? (collection.sharedMetadata?.name || collection.name)
+                                  : collection.name
+                              }
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -890,13 +1184,61 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                             {/* Bottom Info */}
                             <div className="absolute bottom-4 left-4 right-4">
                               <p className="text-white/80 text-sm mb-2">You'll receive</p>
-                              <h3 className="text-white text-2xl font-black">{collection.name} NFT</h3>
+                              <h3 className="text-white text-2xl font-black">
+                                {(collection.contractType === 'DropERC721' || collection.contractType === 'ERC721Drop' || collection.contractType === 'OpenEditionERC721')
+                                  ? (collection.sharedMetadata?.name || collection.name)
+                                  : collection.name
+                                } NFT
+                              </h3>
                             </div>
                           </div>
                         </Card>
 
-                        {/* Possible Traits/Variations Grid */}
-                        {mockProject.traits && mockProject.traits.length > 0 && (
+                        {/* Shared Metadata Info for Drop Contracts */}
+                        {(collection.contractType === 'DropERC721' || collection.contractType === 'ERC721Drop' || collection.contractType === 'OpenEditionERC721') && collection.sharedMetadata && (
+                          <Card className="bg-black/40 border-white/10">
+                            <CardHeader>
+                              <CardTitle className="text-white flex items-center gap-2">
+                                <Info className="w-5 h-5 text-[rgb(163,255,18)]" />
+                                NFT Metadata
+                              </CardTitle>
+                              <CardDescription className="text-white/60">
+                                All NFTs in this collection share this metadata
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                              {collection.sharedMetadata.description && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-white mb-2">Description</h4>
+                                  <p className="text-white/70 text-sm">{collection.sharedMetadata.description}</p>
+                                </div>
+                              )}
+
+                              {collection.sharedMetadata.attributes && collection.sharedMetadata.attributes.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-white mb-3">Attributes</h4>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {collection.sharedMetadata.attributes.map((attr, idx) => (
+                                      <div key={idx} className="bg-white/5 rounded-lg p-3 border border-white/10">
+                                        <p className="text-xs text-white/60 mb-1">{attr.trait_type}</p>
+                                        <p className="text-sm text-white font-medium">{attr.value}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="pt-3 border-t border-white/10">
+                                <p className="text-xs text-white/50">
+                                  Each minted NFT will have a unique token ID appended to the name
+                                </p>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {/* Possible Traits/Variations Grid - Only show for non-Drop contracts */}
+                        {!(collection.contractType === 'DropERC721' || collection.contractType === 'ERC721Drop' || collection.contractType === 'OpenEditionERC721') && mockProject.traits && mockProject.traits.length > 0 && (
                           <Card className="bg-black/40 border-white/10">
                             <CardHeader>
                               <CardTitle className="text-white">Possible Traits</CardTitle>
@@ -969,6 +1311,201 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
 
                       {/* Right Side - Minting Interface */}
                       <div className="space-y-6">
+                        {/* Claim Phases Timeline - Only show if phases exist */}
+                        {claimPhases && claimPhases.length > 0 && (
+                          <Card className="bg-black/40 border-white/10">
+                            <CardHeader className="pb-4">
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="text-white flex items-center gap-2">
+                                  <Timer className="w-5 h-5 text-[rgb(163,255,18)]" />
+                                  Mint Phases
+                                </CardTitle>
+                                {(() => {
+                                  const sortedPhases = [...claimPhases].sort((a: any, b: any) =>
+                                    new Date(a.startTimestamp).getTime() - new Date(b.startTimestamp).getTime()
+                                  );
+                                  const currentPhaseIndex = sortedPhases.findIndex((phase: any) => {
+                                    const phaseStart = new Date(phase.startTimestamp);
+                                    const nextPhase = sortedPhases[sortedPhases.indexOf(phase) + 1];
+                                    const phaseEnd = nextPhase ? new Date(nextPhase.startTimestamp) : null;
+                                    return phaseStart <= now && (!phaseEnd || phaseEnd > now);
+                                  });
+                                  const nextPhase = currentPhaseIndex >= 0 && sortedPhases[currentPhaseIndex + 1]
+                                    ? sortedPhases[currentPhaseIndex + 1] : null;
+
+                                  if (currentPhaseIndex >= 0 && nextPhase) {
+                                    const timeToNext = new Date(nextPhase.startTimestamp).getTime() - now.getTime();
+                                    const hoursToNext = Math.floor(timeToNext / (1000 * 60 * 60));
+                                    const minutesToNext = Math.floor((timeToNext % (1000 * 60 * 60)) / (1000 * 60));
+
+                                    if (timeToNext > 0 && timeToNext < 24 * 60 * 60 * 1000) {
+                                      return (
+                                        <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50">
+                                          <AlertCircle className="w-3 h-3 mr-1" />
+                                          Phase ends in {hoursToNext}h {minutesToNext}m
+                                        </Badge>
+                                      );
+                                    }
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-2 pb-4">
+                              {/* Phase Timeline */}
+                              <div className="relative">
+                                {/* Timeline Line */}
+                                <div className="absolute left-6 top-8 bottom-0 w-0.5 bg-white/10" />
+
+                                {claimPhases
+                                  .sort((a: any, b: any) => new Date(a.startTimestamp).getTime() - new Date(b.startTimestamp).getTime())
+                                  .map((phase: any, index: number, sortedArray: any[]) => {
+                                    const phaseStart = new Date(phase.startTimestamp);
+                                    const nextPhase = sortedArray[index + 1];
+                                    const phaseEnd = nextPhase ? new Date(nextPhase.startTimestamp) : null;
+                                    const isActive = phaseStart <= now && (!phaseEnd || phaseEnd > now);
+                                    const isPast = phaseEnd ? phaseEnd <= now : false;
+                                    const isFuture = phaseStart > now;
+                                    const phasePrice = parseFloat(phase.pricePerToken) / 1e18;
+
+                                    // Calculate time remaining or time to start
+                                    let timeDisplay = null;
+                                    if (isActive && phaseEnd) {
+                                      const timeRemaining = phaseEnd.getTime() - now.getTime();
+                                      const days = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
+                                      const hours = Math.floor((timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                      const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+
+                                      if (timeRemaining > 0) {
+                                        timeDisplay = days > 0 ? `${days}d ${hours}h remaining` :
+                                                    hours > 0 ? `${hours}h ${minutes}m remaining` :
+                                                    `${minutes}m remaining`;
+                                      }
+                                    } else if (isFuture) {
+                                      const timeToStart = phaseStart.getTime() - now.getTime();
+                                      const days = Math.floor(timeToStart / (1000 * 60 * 60 * 24));
+                                      const hours = Math.floor((timeToStart % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                      const minutes = Math.floor((timeToStart % (1000 * 60 * 60)) / (1000 * 60));
+
+                                      timeDisplay = days > 0 ? `Starts in ${days}d ${hours}h` :
+                                                  hours > 0 ? `Starts in ${hours}h ${minutes}m` :
+                                                  `Starts in ${minutes}m`;
+                                    }
+
+                                    return (
+                                      <div key={index} className="relative flex gap-4 pb-6 last:pb-0">
+                                        {/* Phase Indicator */}
+                                        <div className="relative z-10 flex-shrink-0">
+                                          <div className={cn(
+                                            "w-12 h-12 rounded-full flex items-center justify-center transition-all",
+                                            isActive && "bg-[rgb(163,255,18)]/20 border-2 border-[rgb(163,255,18)] animate-pulse",
+                                            isPast && "bg-white/5 border-2 border-white/20",
+                                            isFuture && "bg-white/5 border-2 border-white/30"
+                                          )}>
+                                            {isActive ? (
+                                              <Zap className="w-5 h-5 text-[rgb(163,255,18)]" />
+                                            ) : isPast ? (
+                                              <CheckCircle2 className="w-5 h-5 text-white/40" />
+                                            ) : (
+                                              <Clock className="w-5 h-5 text-white/60" />
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Phase Content */}
+                                        <div className={cn(
+                                          "flex-1 p-4 rounded-lg border transition-all",
+                                          isActive && "bg-[rgb(163,255,18)]/10 border-[rgb(163,255,18)]/50",
+                                          isPast && "bg-white/5 border-white/10 opacity-60",
+                                          isFuture && "bg-white/5 border-white/20"
+                                        )}>
+                                          <div className="flex items-start justify-between mb-2">
+                                            <div>
+                                              <h4 className="font-semibold text-white flex items-center gap-2">
+                                                Phase {index + 1}
+                                                {phase.metadata?.name && (
+                                                  <span className="text-white/60">• {phase.metadata.name}</span>
+                                                )}
+                                              </h4>
+                                              {timeDisplay && (
+                                                <p className={cn(
+                                                  "text-sm mt-1",
+                                                  isActive ? "text-[rgb(163,255,18)]" : "text-white/60"
+                                                )}>
+                                                  {timeDisplay}
+                                                </p>
+                                              )}
+                                            </div>
+                                            {isActive && (
+                                              <Badge className="bg-[rgb(163,255,18)] text-black text-xs">
+                                                Active
+                                              </Badge>
+                                            )}
+                                          </div>
+
+                                          <div className="grid grid-cols-3 gap-3 text-xs">
+                                            <div>
+                                              <p className="text-white/40 mb-1">Price</p>
+                                              <p className="text-white font-medium">
+                                                {phasePrice > 0 ? `${phasePrice.toFixed(4)} ETH` : 'FREE'}
+                                              </p>
+                                            </div>
+                                            <div>
+                                              <p className="text-white/40 mb-1">Per Wallet</p>
+                                              <p className="text-white font-medium">
+                                                {phase.quantityLimitPerWallet && phase.quantityLimitPerWallet > 0
+                                                  ? phase.quantityLimitPerWallet
+                                                  : 'Unlimited'}
+                                              </p>
+                                            </div>
+                                            <div>
+                                              <p className="text-white/40 mb-1">Start</p>
+                                              <p className="text-white font-medium">
+                                                {phaseStart.toLocaleDateString('en-US', {
+                                                  month: 'short',
+                                                  day: 'numeric',
+                                                  hour: '2-digit',
+                                                  minute: '2-digit'
+                                                })}
+                                              </p>
+                                            </div>
+                                          </div>
+
+                                          {/* Price Change Warning */}
+                                          {isActive && nextPhase && (
+                                            (() => {
+                                              const nextPrice = parseFloat(nextPhase.pricePerToken) / 1e18;
+                                              if (nextPrice > phasePrice) {
+                                                return (
+                                                  <div className="mt-3 p-2 bg-orange-500/10 rounded-lg border border-orange-500/30">
+                                                    <p className="text-xs text-orange-400 flex items-center gap-1">
+                                                      <ArrowUpRight className="w-3 h-3" />
+                                                      Price increases to {nextPrice.toFixed(4)} ETH in next phase
+                                                    </p>
+                                                  </div>
+                                                );
+                                              } else if (nextPrice < phasePrice && nextPrice > 0) {
+                                                return (
+                                                  <div className="mt-3 p-2 bg-green-500/10 rounded-lg border border-green-500/30">
+                                                    <p className="text-xs text-green-400 flex items-center gap-1">
+                                                      <ArrowDownRight className="w-3 h-3" />
+                                                      Price decreases to {nextPrice.toFixed(4)} ETH in next phase
+                                                    </p>
+                                                  </div>
+                                                );
+                                              }
+                                              return null;
+                                            })()
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
                         <Card className="bg-black/60 border-white/10 backdrop-blur-xl sticky top-24">
                           <CardHeader className="border-b border-white/10 pb-6">
                             <div className="flex items-start justify-between">
@@ -990,8 +1527,64 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                           </CardHeader>
 
                           <CardContent className="pt-6 space-y-6">
+                            {/* Check if we're between phases */}
+                            {(() => {
+                              if (claimPhases && claimPhases.length > 0) {
+                                const sortedPhases = [...claimPhases].sort((a: any, b: any) =>
+                                  new Date(a.startTimestamp).getTime() - new Date(b.startTimestamp).getTime()
+                                );
+                                const nextUpcomingPhase = sortedPhases.find((phase: any) =>
+                                  new Date(phase.startTimestamp) > now
+                                );
+
+                                // If there's no active phase but there's an upcoming one, we're between phases
+                                if (!activePhase && nextUpcomingPhase) {
+                                  const timeToNext = new Date(nextUpcomingPhase.startTimestamp).getTime() - now.getTime();
+                                  const days = Math.floor(timeToNext / (1000 * 60 * 60 * 24));
+                                  const hours = Math.floor((timeToNext % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                                  const minutes = Math.floor((timeToNext % (1000 * 60 * 60)) / (1000 * 60));
+                                  const seconds = Math.floor((timeToNext % (1000 * 60)) / 1000);
+                                  const nextPhasePrice = parseFloat(nextUpcomingPhase.pricePerToken) / 1e18;
+
+                                  return (
+                                    <div className="text-center py-12">
+                                      <div className="bg-orange-500/10 rounded-full p-6 w-fit mx-auto mb-6">
+                                        <Clock className="w-16 h-16 text-orange-400" />
+                                      </div>
+                                      <h3 className="text-white text-2xl font-black mb-3">Between Phases</h3>
+                                      <p className="text-white/60 mb-2 text-base">Next phase starts soon!</p>
+                                      <p className="text-white/80 mb-8">
+                                        Price: <span className="text-[rgb(163,255,18)] font-bold">
+                                          {nextPhasePrice > 0 ? `${nextPhasePrice.toFixed(4)} ETH` : 'FREE'}
+                                        </span>
+                                      </p>
+                                      <div className="grid grid-cols-4 gap-4 max-w-sm mx-auto">
+                                        <div className="bg-black/60 rounded-lg p-4 border border-white/10">
+                                          <p className="text-3xl font-black text-white mb-1">{days}</p>
+                                          <p className="text-white/40 text-xs uppercase">Days</p>
+                                        </div>
+                                        <div className="bg-black/60 rounded-lg p-4 border border-white/10">
+                                          <p className="text-3xl font-black text-white mb-1">{hours}</p>
+                                          <p className="text-white/40 text-xs uppercase">Hours</p>
+                                        </div>
+                                        <div className="bg-black/60 rounded-lg p-4 border border-white/10">
+                                          <p className="text-3xl font-black text-white mb-1">{minutes}</p>
+                                          <p className="text-white/40 text-xs uppercase">Min</p>
+                                        </div>
+                                        <div className="bg-black/60 rounded-lg p-4 border border-white/10">
+                                          <p className="text-3xl font-black text-white mb-1">{seconds}</p>
+                                          <p className="text-white/40 text-xs uppercase">Sec</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                              }
+                              return null;
+                            })()}
+
                             {/* Show different content based on mint status */}
-                            {!isLive && isUpcoming ? (
+                            {!isLive && isUpcoming && (!claimPhases || claimPhases.length === 0) ? (
                               <div className="text-center py-12">
                                 <div className="bg-white/5 rounded-full p-6 w-fit mx-auto mb-6">
                                   <Timer className="w-16 h-16 text-white/60" />
@@ -1061,19 +1654,25 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                   <div className="flex items-center justify-between mb-2">
                                     <p className="text-white/60">Mint Price</p>
                                     <p className="text-white text-2xl font-black">
-                                      {collection.floorPrice.toFixed(3)} ETH
+                                      {mintPrice > 0 ? `${mintPrice.toFixed(4)} ETH` : 'FREE'}
                                     </p>
                                   </div>
-                                  <p className="text-white/40 text-sm text-right">
-                                    ≈ ${(collection.floorPrice * 1800).toFixed(2)} USD
-                                  </p>
+                                  {mintPrice > 0 && (
+                                    <p className="text-white/40 text-sm text-right">
+                                      ≈ ${(mintPrice * 1800).toFixed(2)} USD
+                                    </p>
+                                  )}
                                 </div>
 
                                 {/* Quantity Selector */}
                                 <div>
                                   <div className="flex items-center justify-between mb-4">
                                     <label className="text-white font-bold">Quantity</label>
-                                    <p className="text-white/60 text-sm">Max 5 per wallet</p>
+                                    <p className="text-white/60 text-sm">
+                                      {activePhase?.quantityLimitPerWallet && activePhase.quantityLimitPerWallet > 0
+                                        ? `Max ${activePhase.quantityLimitPerWallet} per wallet`
+                                        : 'Unlimited per wallet'}
+                                    </p>
                                   </div>
                                   <div className="flex items-center gap-4">
                                     <Button
@@ -1094,8 +1693,17 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                       size="lg"
                                       variant="outline"
                                       className="flex-1 border-white/20 text-white hover:bg-white/10 hover:border-white/30 h-16 text-2xl font-bold"
-                                      onClick={() => setMintQuantity(Math.min(5, mintQuantity + 1))}
-                                      disabled={mintQuantity >= 5}
+                                      onClick={() => {
+                                        const maxLimit = activePhase?.quantityLimitPerWallet && activePhase.quantityLimitPerWallet > 0
+                                          ? activePhase.quantityLimitPerWallet
+                                          : 100; // Set a reasonable max for unlimited
+                                        setMintQuantity(Math.min(maxLimit, mintQuantity + 1));
+                                      }}
+                                      disabled={
+                                        activePhase?.quantityLimitPerWallet && activePhase.quantityLimitPerWallet > 0
+                                          ? mintQuantity >= activePhase.quantityLimitPerWallet
+                                          : mintQuantity >= 100 // Reasonable limit for unlimited
+                                      }
                                     >
                                       <Plus className="w-6 h-6" />
                                     </Button>
@@ -1107,20 +1715,22 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                   <p className="text-white/60 mb-2 text-sm font-medium">Total Cost</p>
                                   <div className="flex items-baseline gap-3">
                                     <p className="text-5xl font-black text-white">
-                                      {(collection.floorPrice * mintQuantity).toFixed(3)}
+                                      {mintPrice > 0 ? (mintPrice * mintQuantity).toFixed(4) : 'FREE'}
                                     </p>
-                                    <p className="text-2xl text-white/60">ETH</p>
+                                    {mintPrice > 0 && <p className="text-2xl text-white/60">ETH</p>}
                                   </div>
-                                  <p className="text-white/40 mt-2">
-                                    ≈ ${((collection.floorPrice * mintQuantity) * 1800).toFixed(2)} USD
-                                  </p>
+                                  {mintPrice > 0 && (
+                                    <p className="text-white/40 mt-2">
+                                      ≈ ${((mintPrice * mintQuantity) * 1800).toFixed(2)} USD
+                                    </p>
+                                  )}
                                 </div>
 
                                 {/* Mint Button */}
                                 <Button
                                   size="lg"
                                   className="w-full bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-black text-xl h-16"
-                                  disabled={isMinting || !user}
+                                  disabled={isMinting || !account}
                                   onClick={handleMint}
                                 >
                                   {isMinting ? (
@@ -1128,7 +1738,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                       <RefreshCw className="w-6 h-6 mr-3 animate-spin" />
                                       Minting {mintQuantity} NFT{mintQuantity > 1 ? 's' : ''}...
                                     </>
-                                  ) : !user ? (
+                                  ) : !account ? (
                                     <>
                                       <Wallet className="w-6 h-6 mr-3" />
                                       Connect Wallet to Mint

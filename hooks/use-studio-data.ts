@@ -43,6 +43,19 @@ interface Collection {
   floorPrice: number;
   createdAt: string;
   deployedAt?: string;
+  sharedMetadata?: {
+    name: string;
+    description?: string;
+    image: string;
+    external_url?: string;
+    animation_url?: string;
+    attributes?: Array<{
+      trait_type: string;
+      value: string;
+    }>;
+  };
+  sharedMetadataSetAt?: string;
+  claimPhases?: string;
 }
 
 interface NFT {

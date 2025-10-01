@@ -102,11 +102,14 @@ model Collection {
   transactionHash   String?
   totalSupply       Int               @default(0)
   maxSupply         Int?
+  mintedSupply      Int               @default(0)
   isVerified        Boolean           @default(false)
   isFeatured        Boolean           @default(false)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   contractType      String            @default("DropERC721")
+  sharedMetadata    Json?
+  sharedMetadataSetAt DateTime?
   project           Project?          @relation(fields: [projectId], references: [id])
   collectionTraits  CollectionTrait[]
   nfts              Nft[]

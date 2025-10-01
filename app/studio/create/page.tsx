@@ -23,6 +23,7 @@ import {
   getStepValidationMessage
 } from "@/lib/studio/create-validation";
 import { deployCollection } from "@/lib/studio/deploy-collection";
+import type { ClaimCondition } from "@/lib/nft-minting";
 
 function CreateContent() {
   const { projects, error, refreshData } = useStudioData();
@@ -57,6 +58,8 @@ function CreateContent() {
     category: "",
     tags: [] as string[]
   });
+
+  const [claimPhases, setClaimPhases] = useState<ClaimCondition[]>([]);
 
   const router = useRouter();
   const heroRef = useRef<HTMLDivElement>(null);
@@ -145,7 +148,8 @@ function CreateContent() {
         selectedProject,
         projectData,
         collectionData,
-        account
+        account,
+        claimPhases
       );
 
       if (result.success) {
@@ -215,6 +219,8 @@ function CreateContent() {
             chains={chains}
             contractTypes={contractTypes}
             isMobile={isMobile}
+            claimPhases={claimPhases}
+            setClaimPhases={setClaimPhases}
           />
         );
       case 4:
