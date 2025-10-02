@@ -17,7 +17,7 @@ export function P2PView({ setViewMode }: P2PViewProps) {
   return (
     <div className="h-screen flex flex-col p-8 pt-24 pb-20" style={{ perspective: '1000px' }}>
       {/* Trading Board */}
-      <div className="w-full max-w-7xl flex-1 flex flex-col" style={{ transformStyle: 'preserve-3d' }}>
+      <div className="w-full flex-1 flex flex-col" style={{ transformStyle: 'preserve-3d' }}>
         <div className="grid grid-cols-2 gap-8 items-stretch h-full">
           
           {/* User's Side (Left) */}
@@ -41,24 +41,21 @@ export function P2PView({ setViewMode }: P2PViewProps) {
                         scale: 0.3,
                         x: -450,
                         y: -100,
-                        rotateY: -180,
-                        rotateZ: -25
+                        rotateY: -180
                       }}
                       animate={{
                         opacity: 1,
                         scale: 1,
                         x: 0,
                         y: 0,
-                        rotateY: 0,
-                        rotateZ: 0
+                        rotateY: 0
                       }}
                       exit={{
                         opacity: 0,
                         scale: 0.3,
                         x: -450,
                         y: -100,
-                        rotateY: 180,
-                        rotateZ: 25
+                        rotateY: 180
                       }}
                       transition={{
                         type: "spring",
@@ -66,12 +63,8 @@ export function P2PView({ setViewMode }: P2PViewProps) {
                         damping: 22,
                         mass: 1.2,
                         rotateY: {
-                          duration: 0.8,
+                          duration: 0.5,
                           ease: [0.43, 0.13, 0.23, 0.96]
-                        },
-                        rotateZ: {
-                          duration: 0.7,
-                          ease: "easeOut"
                         }
                       }}
                       whileHover={{
@@ -205,24 +198,21 @@ export function P2PView({ setViewMode }: P2PViewProps) {
                         scale: 0.3,
                         x: 450,
                         y: -100,
-                        rotateY: 180,
-                        rotateZ: 25
+                        rotateY: 180
                       }}
                       animate={{
                         opacity: 1,
                         scale: 1,
                         x: 0,
                         y: 0,
-                        rotateY: 0,
-                        rotateZ: 0
+                        rotateY: 0
                       }}
                       exit={{
                         opacity: 0,
                         scale: 0.3,
                         x: 450,
                         y: -100,
-                        rotateY: -180,
-                        rotateZ: -25
+                        rotateY: -180
                       }}
                       transition={{
                         type: "spring",
@@ -230,12 +220,8 @@ export function P2PView({ setViewMode }: P2PViewProps) {
                         damping: 22,
                         mass: 1.2,
                         rotateY: {
-                          duration: 0.8,
+                          duration: 0.5,
                           ease: [0.43, 0.13, 0.23, 0.96]
-                        },
-                        rotateZ: {
-                          duration: 0.7,
-                          ease: "easeOut"
                         }
                       }}
                       whileHover={{

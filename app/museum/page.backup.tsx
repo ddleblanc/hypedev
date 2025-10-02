@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { MuseumView } from "@/components/authenticated-homescreen/museum-view";
-import { MuseumProvider } from "@/contexts/museum-context";
 
 export default function MuseumPage() {
   const router = useRouter();
@@ -15,9 +14,5 @@ export default function MuseumPage() {
     }
   };
 
-  return (
-    <MuseumProvider>
-      <MuseumView setViewMode={handleNavigate} />
-    </MuseumProvider>
-  );
+  return <MuseumView setViewMode={handleNavigate} />;
 }

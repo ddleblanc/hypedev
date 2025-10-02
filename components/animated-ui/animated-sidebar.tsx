@@ -113,18 +113,33 @@ interface AnimatedSidebarProps {
     listed: string;
     isOwner: boolean;
   };
+  museumData?: {
+    items: Array<{
+      id: string;
+      title: string;
+      subtitle: string;
+      thumbnail: string;
+      introVideo: string;
+    }>;
+    onItemClick: (item: any) => void;
+  };
   onNavigate?: (route: string) => void;
 }
 
-export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, listsData, collectionData, onNavigate }: AnimatedSidebarProps) {
+export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, listsData, collectionData, museumData, onNavigate }: AnimatedSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { 
-    userNFTs, 
-    selectedTrader, 
-    toggleUserNFTSelection, 
-    confirmUserNFTs 
-  } = currentRoute === 'p2p' ? useP2PTrading() : {
+
+  // Always call the hook unconditionally
+  const p2pContext = useP2PTrading();
+
+  // Only use P2P data when on P2P route
+  const {
+    userNFTs,
+    selectedTrader,
+    toggleUserNFTSelection,
+    confirmUserNFTs
+  } = currentRoute === 'p2p' ? p2pContext : {
     userNFTs: [],
     selectedTrader: null,
     toggleUserNFTSelection: () => {},
@@ -134,6 +149,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
   const [priceRange, setPriceRange] = useState([0, 100]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
+  const [hoveredMuseumItem, setHoveredMuseumItem] = useState<string | null>(null);
 
   // Generate stable random values on client side only
   const [randomStats, setRandomStats] = useState<{
@@ -235,16 +251,20 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ x: -320, opacity: 0 }}
+          initial={{ x: currentRoute === 'museum' ? '-100%' : -320, opacity: currentRoute === 'museum' ? 1 : 0 }}
           animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -320, opacity: 0 }}
-          transition={{ 
-            type: "spring",
-            stiffness: 260,
-            damping: 30,
-            duration: 0.4
-          }}
-          className="fixed left-0 top-16 bottom-0 md:bottom-[44.6px] w-80 bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 overflow-hidden flex flex-col"
+          exit={{ x: currentRoute === 'museum' ? '-100%' : -320, opacity: currentRoute === 'museum' ? 1 : 0 }}
+          transition={
+            currentRoute === 'museum'
+              ? { duration: 3.6, ease: [0.6, 0.05, 0.01, 0.9] } // Slow cinematic animation for museum
+              : {
+                  type: "spring",
+                  stiffness: 260,
+                  damping: 30,
+                  duration: 0.4
+                }
+          }
+          className={`fixed left-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : 'top-16 md:bottom-[44.6px] w-80'} bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 overflow-hidden flex flex-col`}
         >
           {/* Header */}
           <div className="p-6 border-b border-white/10">
@@ -421,6 +441,15 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                   </h2>
                   <p className="text-sm text-white/60">Search & Filter</p>
                 </>
+              ) : currentRoute === 'museum' ? (
+                <>
+                  <h2 className="text-4xl md:text-6xl font-bold text-white mb-2 tracking-tight">
+                    TECH
+                  </h2>
+                  <p className="text-[#00ff88] text-sm md:text-base font-light">
+                    Explore the Future
+                  </p>
+                </>
               ) : currentRoute === 'lists' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
@@ -489,13 +518,14 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
             </motion.div>
 
             {/* View Controls */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="flex items-center justify-between mt-4"
-            >
-              {currentRoute === 'studio' && studioData ? (
+            {currentRoute !== 'museum' && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="flex items-center justify-between mt-4"
+              >
+                {currentRoute === 'studio' && studioData ? (
                 <div className="w-full space-y-3">
                   <Input
                     placeholder="Search everything..."
@@ -692,7 +722,8 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                   </Button>
                 </>
               )}
-            </motion.div>
+              </motion.div>
+            )}
           </div>
 
           {/* Scrollable Content */}
@@ -1608,6 +1639,43 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                   </div>
                 </div>
               </>
+            ) : currentRoute === 'museum' && museumData ? (
+              <>
+                {/* Museum TECH Items - Netflix Style Banners */}
+                <div className="p-8 md:p-12">
+                  <div className="grid grid-cols-2 gap-4">
+                    {museumData.items.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        className="relative group cursor-pointer"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.6, delay: index * 0.1 }}
+                        onMouseEnter={() => setHoveredMuseumItem(item.id)}
+                        onMouseLeave={() => setHoveredMuseumItem(null)}
+                        onClick={() => museumData.onItemClick(item)}
+                      >
+                        <div className="relative aspect-video overflow-hidden rounded-lg">
+                          <img
+                            src={item.thumbnail}
+                            alt={item.title}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+
+                          {/* Title Overlay */}
+                          <div className="absolute bottom-0 left-0 right-0 p-4">
+                            <h3 className="text-lg font-bold text-white mb-1 transition-colors">
+                              {item.title}
+                            </h3>
+                            <p className="text-xs text-white/70">{item.subtitle}</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </>
             ) : (
               <>
                 {/* Play-specific content */}
@@ -1912,7 +1980,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                 </p>
               </motion.div>
             </div>
-          ) : (
+          ) : currentRoute === 'museum' ? null : (
             <div className="p-4 border-t border-white/10 bg-black/50">
               <motion.div
                 initial={{ opacity: 0 }}

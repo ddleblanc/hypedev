@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   ChevronLeft,
@@ -48,6 +48,16 @@ interface RightAnimatedSidebarProps {
     rankPoints: number;
     winRate: number;
     currentRank: string;
+  };
+  museumData?: {
+    items: Array<{
+      id: string;
+      title: string;
+      subtitle: string;
+      thumbnail: string;
+      introVideo: string;
+    }>;
+    onItemClick: (item: any) => void;
   };
 }
 
@@ -197,7 +207,7 @@ const mockTraderNFTs = [
   { id: 't8', name: 'Ocean Shark #345', image: 'https://picsum.photos/80/80?random=808', value: 3.5, rarity: 'LEGENDARY', selected: false }
 ];
 
-export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneVsOneData }: RightAnimatedSidebarProps) {
+export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneVsOneData, museumData }: RightAnimatedSidebarProps) {
   const isP2P = currentRoute === 'p2p';
   const { 
     selectedTrader, 
@@ -209,11 +219,14 @@ export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneV
   
   const [searchMode, setSearchMode] = useState<'trader' | 'item'>('trader');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // 1v1 specific state
   const [oneVsOneMode, setOneVsOneMode] = useState<'players' | 'leaderboard'>('players');
   const [selectedPlayer, setSelectedPlayer] = useState<OneVsOnePlayer | null>(null);
-  
+
+  // Museum specific state
+  const [hoveredMuseumItem, setHoveredMuseumItem] = useState<string | null>(null);
+
   const isOneVsOne = currentRoute === 'play-1v1';
 
   const handleTraderSelect = (trader: Trader) => {
@@ -240,16 +253,20 @@ export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneV
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ x: 320, opacity: 0 }}
+          initial={{ x: currentRoute === 'museum' ? '100%' : 320, opacity: currentRoute === 'museum' ? 1 : 0 }}
           animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 320, opacity: 0 }}
-          transition={{ 
-            type: "spring",
-            stiffness: 260,
-            damping: 30,
-            duration: 0.4
-          }}
-          className="fixed right-0 top-16 bottom-[44.6px] w-80 bg-black/95 backdrop-blur-xl border-l border-white/10 z-40 overflow-hidden flex flex-col"
+          exit={{ x: currentRoute === 'museum' ? '100%' : 320, opacity: currentRoute === 'museum' ? 1 : 0 }}
+          transition={
+            currentRoute === 'museum'
+              ? { duration: 3.6, ease: [0.6, 0.05, 0.01, 0.9] } // Slow cinematic animation for museum
+              : {
+                  type: "spring",
+                  stiffness: 260,
+                  damping: 30,
+                  duration: 0.4
+                }
+          }
+          className={`fixed right-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : 'top-16 bottom-[44.6px] w-80'} bg-black/95 backdrop-blur-xl border-l border-white/10 z-40 overflow-hidden flex flex-col`}
         >
           {/* Header */}
           <div className="p-6 border-b border-white/10">
@@ -316,7 +333,16 @@ export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneV
                 </div>
               ) : (
                 <>
-                  {isOneVsOne ? (
+                  {currentRoute === 'museum' ? (
+                    <>
+                      <h2 className="text-4xl md:text-6xl font-bold text-white mb-2 tracking-tight">
+                        GAMING
+                      </h2>
+                      <p className="text-[#00ff88] text-sm md:text-base font-light">
+                        Enter the Arena
+                      </p>
+                    </>
+                  ) : isOneVsOne ? (
                     <>
                       <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                         <Sword className="h-5 w-5 text-[rgb(163,255,18)]" />
@@ -340,7 +366,44 @@ export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneV
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
-            {selectedTrader || selectedPlayer ? (
+            {currentRoute === 'museum' && museumData ? (
+              <>
+                {/* Museum GAMING Items - Netflix Style Banners */}
+                <div className="p-8 md:p-12">
+                  <div className="grid grid-cols-2 gap-4">
+                    {museumData.items.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        className="relative group cursor-pointer"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.6, delay: index * 0.1 }}
+                        onMouseEnter={() => setHoveredMuseumItem(item.id)}
+                        onMouseLeave={() => setHoveredMuseumItem(null)}
+                        onClick={() => museumData.onItemClick(item)}
+                      >
+                        <div className="relative aspect-video overflow-hidden rounded-lg">
+                          <img
+                            src={item.thumbnail}
+                            alt={item.title}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+
+                          {/* Title Overlay */}
+                          <div className="absolute bottom-0 left-0 right-0 p-4">
+                            <h3 className="text-lg font-bold text-white mb-1 transition-colors">
+                              {item.title}
+                            </h3>
+                            <p className="text-xs text-white/70">{item.subtitle}</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : selectedTrader || selectedPlayer ? (
               <>
                 {/* Stats Section */}
                 <div className="p-6 border-b border-white/10">

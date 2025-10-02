@@ -134,12 +134,9 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
       case 'casual':
       case 'launchpad':
       case 'studio':
+      case 'museum':
         scale = 'scale-125';
         blur = 'blur-md';
-        break;
-      case 'museum':
-        scale = 'scale-100';
-        blur = 'blur-none';
         break;
       default:
         scale = 'scale-100';

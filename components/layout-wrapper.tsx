@@ -230,10 +230,10 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       };
     } else if (currentRoute === 'museum') {
       return {
-        showHeader: true,
+        showHeader: false,
         showFooter: false,
-        showSidebar: false,
-        showRightSidebar: false,
+        showSidebar: true,
+        showRightSidebar: true,
         navigationDepth: 1,
         previousRoute: 'home'
       };
@@ -332,6 +332,71 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     ]
   });
 
+  // Museum data for sidebars
+  const techItems = [
+    {
+      id: "tech-1",
+      title: "Neural Networks",
+      subtitle: "Deep Learning",
+      thumbnail: "/assets/img/tech1.png",
+      introVideo: "/videos/tech-intro-1.mp4",
+    },
+    {
+      id: "tech-2",
+      title: "Quantum Computing",
+      subtitle: "Next Generation",
+      thumbnail: "/assets/img/tech2.jpg",
+      introVideo: "/videos/tech-intro-2.mp4",
+    },
+    {
+      id: "tech-3",
+      title: "Blockchain",
+      subtitle: "Decentralized Future",
+      thumbnail: "/assets/img/tech3.jpg",
+      introVideo: "/videos/tech-intro-3.mp4",
+    },
+  ];
+
+  const gamingItems = [
+    {
+      id: "gaming-1",
+      title: "Cyber Legends",
+      subtitle: "Epic Adventure",
+      thumbnail: "/assets/img/gaming1.webp",
+      introVideo: "/videos/gaming-intro-1.mp4",
+    },
+    {
+      id: "gaming-2",
+      title: "Neon Racers",
+      subtitle: "High Speed Action",
+      thumbnail: "/assets/img/gaming2.webp",
+      introVideo: "/videos/gaming-intro-2.mp4",
+    },
+    {
+      id: "gaming-3",
+      title: "Galaxy Wars",
+      subtitle: "Space Combat",
+      thumbnail: "/assets/img/gaming3.jpg",
+      introVideo: "/videos/gaming-intro-3.mp4",
+    },
+  ];
+
+  // Museum item click handler - dispatches custom event
+  const handleMuseumItemClick = useCallback((item: any) => {
+    const event = new CustomEvent('museum-item-click', { detail: item });
+    window.dispatchEvent(event);
+  }, []);
+
+  const museumTechData = useMemo(() => ({
+    items: techItems,
+    onItemClick: handleMuseumItemClick
+  }), [handleMuseumItemClick]);
+
+  const museumGamingData = useMemo(() => ({
+    items: gamingItems,
+    onItemClick: handleMuseumItemClick
+  }), [handleMuseumItemClick]);
+
   // Check if mobile on mount and resize
   useEffect(() => {
     const checkMobile = () => {
@@ -384,10 +449,41 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     console.log('[LayoutWrapper] UI State:', uiState);
   }, [pathname, currentRoute, uiState]);
 
+  // Listen for museum intro events
+  useEffect(() => {
+    const handleIntroStart = () => {
+      if (currentRoute === 'museum') {
+        setUiState(prev => ({
+          ...prev,
+          showSidebar: false,
+          showRightSidebar: false,
+        }));
+      }
+    };
+
+    const handleIntroEnd = () => {
+      if (currentRoute === 'museum') {
+        setUiState(prev => ({
+          ...prev,
+          showHeader: true,
+          showFooter: true,
+        }));
+      }
+    };
+
+    window.addEventListener('museum-intro-start', handleIntroStart);
+    window.addEventListener('museum-intro-end', handleIntroEnd);
+
+    return () => {
+      window.removeEventListener('museum-intro-start', handleIntroStart);
+      window.removeEventListener('museum-intro-end', handleIntroEnd);
+    };
+  }, [currentRoute]);
+
   // Update UI state based on current route and mobile status
   useEffect(() => {
     let newState: Partial<ProgressiveUIState> = {};
-    
+
     if (currentRoute === 'home') {
       newState = {
         showHeader: false,
@@ -526,10 +622,10 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       };
     } else if (currentRoute === 'museum') {
       newState = {
-        showHeader: true,
+        showHeader: false,
         showFooter: false,
-        showSidebar: false,
-        showRightSidebar: false,
+        showSidebar: true,
+        showRightSidebar: true,
         navigationDepth: 1,
         previousRoute: 'home'
       };
@@ -605,6 +701,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
           p2pData={p2pData}
           lootboxData={lootboxData}
           p2pRightSidebarData={p2pRightSidebarData}
+          museumTechData={museumTechData}
+          museumGamingData={museumGamingData}
           isMobile={isMobile}
           isStudioRoute={isStudioRoute}
           isMobileSidebarOpen={isMobileSidebarOpen}
@@ -627,6 +725,8 @@ function ProgressiveUIWrapperInner({
   p2pData,
   lootboxData,
   p2pRightSidebarData,
+  museumTechData,
+  museumGamingData,
   isMobile,
   isStudioRoute,
   isMobileSidebarOpen,
@@ -693,12 +793,14 @@ function ProgressiveUIWrapperInner({
         p2pData={p2pData}
         lootboxData={lootboxData}
         listsData={listsData}
+        museumData={currentRoute === 'museum' ? museumTechData : undefined}
         onNavigate={handleNavigate}
       />
-      <RightAnimatedSidebar 
+      <RightAnimatedSidebar
         show={uiState.showRightSidebar}
         currentRoute={currentRoute}
         p2pData={p2pRightSidebarData}
+        museumData={currentRoute === 'museum' ? museumGamingData : undefined}
       />
       
       {/* Studio Mobile Navigation */}
