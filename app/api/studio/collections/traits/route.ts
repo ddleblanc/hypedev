@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
           data: {
             traitId: collectionTrait.id,
             value: trait.value,
-            count: 1
+            frequency: 1
           }
         });
 
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         await prisma.collectionTraitValue.update({
           where: { id: existingValue.id },
           data: {
-            count: { increment: 1 }
+            frequency: { increment: 1 }
           }
         });
 
@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       where: { collectionId },
       include: {
         values: {
-          orderBy: { count: 'desc' },
+          orderBy: { frequency: 'desc' },
           take: 10 // Top 10 most used values
         }
       }
