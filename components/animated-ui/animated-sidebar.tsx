@@ -59,6 +59,7 @@ import { GameCommandCard } from "@/components/ui/game-command-card";
 
 interface AnimatedSidebarProps {
   show: boolean;
+  showFooter?: boolean;
   currentRoute?: string;
   studioData?: {
     searchQuery: string;
@@ -126,7 +127,7 @@ interface AnimatedSidebarProps {
   onNavigate?: (route: string) => void;
 }
 
-export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData, p2pData, lootboxData, listsData, collectionData, museumData, onNavigate }: AnimatedSidebarProps) {
+export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marketplace', studioData, p2pData, lootboxData, listsData, collectionData, museumData, onNavigate }: AnimatedSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -264,7 +265,7 @@ export function AnimatedSidebar({ show, currentRoute = 'marketplace', studioData
                   duration: 0.4
                 }
           }
-          className={`fixed left-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : 'top-16 md:bottom-[44.6px] w-80'} bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 overflow-hidden flex flex-col`}
+          className={`fixed left-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : `top-16 ${showFooter ? 'md:bottom-[44.6px]' : 'md:bottom-0'} w-80`} bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 overflow-hidden flex flex-col`}
         >
           {/* Header */}
           <div className="p-6 border-b border-white/10">

@@ -780,6 +780,7 @@ function ProgressiveUIWrapperInner({
 
       <AnimatedSidebar
         show={uiState.showSidebar || (isMobile && isStudioRoute && isMobileSidebarOpen)}
+        showFooter={uiState.showFooter}
         currentRoute={currentRoute}
         studioData={studioData ? {
           searchQuery: studioData.searchQuery || '',
@@ -798,6 +799,7 @@ function ProgressiveUIWrapperInner({
       />
       <RightAnimatedSidebar
         show={uiState.showRightSidebar}
+        showFooter={uiState.showFooter}
         currentRoute={currentRoute}
         p2pData={p2pRightSidebarData}
         museumData={currentRoute === 'museum' ? museumGamingData : undefined}

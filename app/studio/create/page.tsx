@@ -402,7 +402,7 @@ function CreateContent() {
           </div>
 
           {/* Desktop Fixed Footer Actions */}
-          <div className="fixed bottom-16 left-0 right-0 md:left-80 md:right-0 bg-black/95 backdrop-blur-lg border-t border-white/10 z-30">
+          <div className="fixed bottom-0 left-0 right-0 md:left-80 md:right-0 bg-black/95 backdrop-blur-lg border-t border-white/10 z-30">
             <div className="px-8 py-6 max-w-6xl mx-auto">
               <div className="flex justify-between items-center">
                 <Button

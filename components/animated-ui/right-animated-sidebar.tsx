@@ -34,6 +34,7 @@ import { useConditionalP2P } from "@/hooks/use-conditional-p2p";
 
 interface RightAnimatedSidebarProps {
   show: boolean;
+  showFooter?: boolean;
   currentRoute?: string;
   p2pData?: {
     activeOffers: number;
@@ -207,7 +208,7 @@ const mockTraderNFTs = [
   { id: 't8', name: 'Ocean Shark #345', image: 'https://picsum.photos/80/80?random=808', value: 3.5, rarity: 'LEGENDARY', selected: false }
 ];
 
-export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneVsOneData, museumData }: RightAnimatedSidebarProps) {
+export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = 'p2p', p2pData, oneVsOneData, museumData }: RightAnimatedSidebarProps) {
   const isP2P = currentRoute === 'p2p';
   const { 
     selectedTrader, 
@@ -266,7 +267,7 @@ export function RightAnimatedSidebar({ show, currentRoute = 'p2p', p2pData, oneV
                   duration: 0.4
                 }
           }
-          className={`fixed right-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : 'top-16 bottom-[44.6px] w-80'} bg-black/95 backdrop-blur-xl border-l border-white/10 z-40 overflow-hidden flex flex-col`}
+          className={`fixed right-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : `top-16 ${showFooter ? 'bottom-[44.6px]' : 'bottom-0'} w-80`} bg-black/95 backdrop-blur-xl border-l border-white/10 z-40 overflow-hidden flex flex-col`}
         >
           {/* Header */}
           <div className="p-6 border-b border-white/10">
