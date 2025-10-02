@@ -79,13 +79,8 @@ function useCommandCenterKeyframes() {
 
 export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELECT" }: GameCommandCenterProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [mounted, setMounted] = useState(false);
 
   useCommandCenterKeyframes();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handlePrevious = () => {
     setSelectedIndex((prev) => (prev - 1 + options.length) % options.length);
@@ -102,21 +97,19 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
   const MobileLayout = () => (
     <div className="relative h-[100dvh] bg-black overflow-hidden flex flex-col">
       {/* Background Layer - Static video background */}
-      {mounted && (
-        <div className="absolute inset-0">
-          <video
-            key={selected.id} // Force remount on selection change
-            src={selected.image}
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="w-full h-full object-cover"
-          />
-          {/* Gradient for readability */}
-          {/* <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/95" /> */}
-        </div>
-      )}
+      <div className="absolute inset-0">
+        <video
+          key={selected.id} // Force remount on selection change
+          src={selected.image}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+        />
+        {/* Gradient for readability */}
+        {/* <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/95" /> */}
+      </div>
 
       {/* Content Layer */}
       <div className="relative z-10 h-full flex flex-col pb-[72px]">
@@ -348,7 +341,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
         <MobileLayout />
       </div>
       <div className="hidden md:block">
-        {mounted && <DesktopLayout />}
+        <DesktopLayout />
       </div>
     </>
   );
