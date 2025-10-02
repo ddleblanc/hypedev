@@ -1,8 +1,9 @@
 import { client } from "@/lib/thirdweb";
 import { defineChain, sepolia, polygon, ethereum, arbitrum } from "thirdweb/chains";
-import { deployERC721Contract } from "thirdweb/deploys";
+import { deployERC721Contract, deployERC1155Contract } from "thirdweb/deploys";
 import type { ClaimCondition } from '@/lib/nft-minting';
 import { setupClaimConditions } from '@/lib/nft-minting';
+import { THIRDWEB_CONTRACTS } from '@/lib/thirdweb-contracts';
 
 interface ProjectData {
   name: string;
@@ -41,6 +42,7 @@ interface DeploymentData {
     transactionHash?: string;
     deployedAt?: string;
     isDeployed: boolean;
+    claimPhases?: string | null;
   };
 }
 
@@ -50,7 +52,8 @@ export async function deployCollection(
   projectData: ProjectData,
   collectionData: CollectionData,
   account: any,
-  claimPhases?: ClaimCondition[]
+  claimPhases?: ClaimCondition[],
+  progressCallback?: (step: string, progress: number) => void
 ): Promise<DeploymentResult> {
   try {
     // Step 1: Validate all required data
@@ -72,28 +75,85 @@ export async function deployCollection(
     };
     const selectedChain = chainMap[collectionData.chainId] || sepolia;
 
-    // Step 4: Deploy Thirdweb's prebuilt NFT Drop contract
-    console.log("Deploying Thirdweb NFT Drop contract...");
+    // Step 4: Get the contract configuration
+    const contractConfig = THIRDWEB_CONTRACTS.find(c => c.id === collectionData.contractType);
+    if (!contractConfig) {
+      return { success: false, error: "Invalid contract type selected" };
+    }
 
-    const contractAddress = await deployERC721Contract({
-      client,
-      chain: selectedChain,
-      account,
-      type: collectionData.contractType as "DropERC721" | "TokenERC721" | "OpenEditionERC721" | "LoyaltyCard",
-      params: {
-        name: collectionData.name,
-        symbol: collectionData.symbol,
-        description: collectionData.description || "",
-        image: collectionData.image,
-        defaultAdmin: account.address,
-        saleRecipient: account.address,
-        royaltyRecipient: account.address,
-        royaltyBps: BigInt(Math.round(parseFloat(collectionData.royaltyPercentage) * 100)),
-        platformFeeBps: BigInt(0),
-        platformFeeRecipient: account.address,
-        trustedForwarders: []
-      }
-    });
+    console.log(`Deploying ${contractConfig.name} contract...`);
+
+    // Report confirming step
+    if (progressCallback) {
+      progressCallback("confirming", 60);
+    }
+
+    // Determine if this is an ERC721 or ERC1155 contract
+    const isERC1155 = ["EditionDrop", "Edition"].includes(collectionData.contractType);
+
+    let contractAddress: string;
+
+    if (isERC1155) {
+      // Map our contract IDs to Thirdweb's ERC1155 contract names
+      const erc1155TypeMap: { [key: string]: string } = {
+        "EditionDrop": "DropERC1155",
+        "Edition": "TokenERC1155"
+      };
+
+      const thirdwebContractType = erc1155TypeMap[collectionData.contractType];
+
+      // Deploy ERC1155 contract
+      contractAddress = await deployERC1155Contract({
+        client,
+        chain: selectedChain,
+        account,
+        type: thirdwebContractType as "DropERC1155" | "TokenERC1155",
+        params: {
+          name: collectionData.name,
+          symbol: collectionData.symbol,
+          description: collectionData.description || "",
+          image: collectionData.image,
+          defaultAdmin: account.address,
+          saleRecipient: account.address,
+          royaltyRecipient: account.address,
+          royaltyBps: BigInt(Math.round(parseFloat(collectionData.royaltyPercentage) * 100)),
+          platformFeeBps: BigInt(0),
+          platformFeeRecipient: account.address,
+          trustedForwarders: []
+        }
+      });
+    } else {
+      // Map our contract IDs to Thirdweb's ERC721 contract names
+      const erc721TypeMap: { [key: string]: string } = {
+        "NFTDrop": "DropERC721",
+        "NFTCollection": "TokenERC721",
+        "OpenEdition": "OpenEditionERC721",
+        "CommunityStream": "ERC721CommunityStream"
+      };
+
+      const thirdwebContractType = erc721TypeMap[collectionData.contractType] || collectionData.contractType;
+
+      // Deploy ERC721 contract
+      contractAddress = await deployERC721Contract({
+        client,
+        chain: selectedChain,
+        account,
+        type: thirdwebContractType as "DropERC721" | "TokenERC721" | "OpenEditionERC721",
+        params: {
+          name: collectionData.name,
+          symbol: collectionData.symbol,
+          description: collectionData.description || "",
+          image: collectionData.image,
+          defaultAdmin: account.address,
+          saleRecipient: account.address,
+          royaltyRecipient: account.address,
+          royaltyBps: BigInt(Math.round(parseFloat(collectionData.royaltyPercentage) * 100)),
+          platformFeeBps: BigInt(0),
+          platformFeeRecipient: account.address,
+          trustedForwarders: []
+        }
+      });
+    }
 
     const deployedContract = {
       contractAddress,
@@ -102,8 +162,13 @@ export async function deployCollection(
 
     console.log("Contract deployed:", deployedContract);
 
-    // Step 4.5: Set up claim conditions if provided
-    if (claimPhases && claimPhases.length > 0 && ['DropERC721', 'OpenEditionERC721', 'EditionDrop'].includes(collectionData.contractType)) {
+    // Report pending step (blockchain confirmation)
+    if (progressCallback) {
+      progressCallback("pending", 80);
+    }
+
+    // Step 4.5: Set up claim conditions if provided and supported
+    if (claimPhases && claimPhases.length > 0 && contractConfig.supportsClaimConditions) {
       try {
         console.log("Setting up claim conditions...");
         await setupClaimConditions(

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { triggerFileUpload, FILE_TYPES } from "@/lib/thirdweb";
 import { useActiveAccount } from "thirdweb/react";
+import { useTransaction } from "@/contexts/transaction-context";
 
 // Import our new components
 import { ProjectStep } from "@/components/studio/create/project-step";
@@ -28,6 +29,7 @@ import type { ClaimCondition } from "@/lib/nft-minting";
 function CreateContent() {
   const { projects, error, refreshData } = useStudioData();
   const account = useActiveAccount();
+  const { startTransaction, updateStep, completeTransaction, setError, setTxHash, resetTransaction } = useTransaction();
   const [currentStep, setCurrentStep] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [createMode, setCreateMode] = useState<'new-project' | 'existing-project' | null>(null);
@@ -53,7 +55,7 @@ function CreateContent() {
     bannerImage: "",
     maxSupply: "",
     royaltyPercentage: "5",
-    contractType: "DropERC721",
+    contractType: "NFTDrop",
     chainId: "11155111",
     category: "",
     tags: [] as string[]
@@ -83,12 +85,6 @@ function CreateContent() {
     { id: "42161", name: "Arbitrum One", icon: "🔵" }
   ];
 
-  const contractTypes = [
-    { id: "DropERC721", name: "Drop (Lazy Mint)", description: "Most gas efficient for large collections" },
-    { id: "TokenERC721", name: "Standard NFT", description: "Traditional NFT contract" },
-    { id: "OpenEditionERC721", name: "Open Edition", description: "Multiple editions of the same NFT" },
-    { id: "LoyaltyCard", name: "Loyalty Card", description: "NFT-based loyalty and rewards program" }
-  ];
 
   const categories = [
     "Art", "Gaming", "Music", "Photography", "Sports",
@@ -143,26 +139,72 @@ function CreateContent() {
     try {
       setIsDeploying(true);
 
+      // Start the transaction tracking
+      startTransaction(
+        {
+          id: `collection_${Date.now()}`,
+          name: collectionData.name,
+          image: collectionData.image || collectionData.bannerImage || '',
+          collection: projectData.name || 'New Collection',
+          contractAddress: '', // Will be set after deployment
+        },
+        "deploy", // Using "deploy" mode for contract deployment
+        0 // No ETH amount for deployment (gas is separate)
+      );
+
+      // Update to checkout step
+      updateStep("checkout", 20);
+
+      // Simulate preparation time
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Update to approve step
+      updateStep("approve", 40);
+
       const result = await deployCollection(
         createMode!,
         selectedProject,
         projectData,
         collectionData,
         account,
-        claimPhases
+        claimPhases,
+        // Pass callback to update progress
+        (step: string) => {
+          if (step === "confirming") {
+            updateStep("confirm", 60);
+          } else if (step === "pending") {
+            updateStep("pending", 80);
+          }
+        }
       );
 
       if (result.success) {
-        alert('Collection deployed successfully!');
+        // Set transaction hash if available
+        if (result.transactionHash) {
+          setTxHash(result.transactionHash);
+        }
+
+        // Mark as complete
+        completeTransaction();
+
+        // Wait a bit to show success state
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Navigate to collections page
         router.push('/studio/collections');
       } else {
-        alert('Deployment failed: ' + result.error);
+        // Set error
+        setError(result.error || 'Deployment failed');
       }
     } catch (error) {
       console.error('Deployment error:', error);
-      alert('Deployment failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      setError(error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setIsDeploying(false);
+      // Reset transaction after delay
+      setTimeout(() => {
+        resetTransaction();
+      }, 10000);
     }
   };
 
@@ -217,7 +259,6 @@ function CreateContent() {
             showAdvanced={showAdvanced}
             setShowAdvanced={setShowAdvanced}
             chains={chains}
-            contractTypes={contractTypes}
             isMobile={isMobile}
             claimPhases={claimPhases}
             setClaimPhases={setClaimPhases}
@@ -232,7 +273,6 @@ function CreateContent() {
             projects={projects}
             collectionData={collectionData}
             chains={chains}
-            contractTypes={contractTypes}
             isDeploying={isDeploying}
             handleDeploy={handleDeploy}
             isMobile={isMobile}

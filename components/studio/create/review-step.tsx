@@ -5,6 +5,7 @@ import { AlertCircle, Check, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { THIRDWEB_CONTRACTS } from "@/lib/thirdweb-contracts";
 
 interface ReviewStepProps {
   createMode: 'new-project' | 'existing-project' | null;
@@ -25,7 +26,6 @@ interface ReviewStepProps {
     royaltyPercentage: string;
   };
   chains: Array<{ id: string; name: string; icon: string }>;
-  contractTypes: Array<{ id: string; name: string; description: string }>;
   isDeploying: boolean;
   handleDeploy: () => void;
   isMobile: boolean;
@@ -38,7 +38,6 @@ export function ReviewStep({
   projects,
   collectionData,
   chains,
-  contractTypes,
   isDeploying,
   handleDeploy,
   isMobile
@@ -280,7 +279,7 @@ export function ReviewStep({
                     <div>
                       <p className="text-xs text-white/60">Contract Type</p>
                       <p className="text-white font-semibold">
-                        {contractTypes.find(t => t.id === collectionData.contractType)?.name}
+                        {THIRDWEB_CONTRACTS.find(t => t.id === collectionData.contractType)?.name}
                       </p>
                     </div>
                     <div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Home, TrendingUp, Gamepad2, Crown, User } from "lucide-react";
@@ -14,6 +14,7 @@ import { AnalyticsTab } from "@/components/collection/analytics-tab";
 import { ActivityTab } from "@/components/collection/activity-tab";
 import { HoldersTab } from "@/components/collection/holders-tab";
 import { mockCollection } from "@/components/collection/mock-data";
+import type { Collection } from "@/components/collection/types";
 
 interface CollectionDetailPageProps {
   slug: string;
@@ -23,12 +24,39 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('items');
   const [isWatchlisted, setIsWatchlisted] = useState(false);
+  const [collection, setCollection] = useState<Collection | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch collection data
+  useEffect(() => {
+    const fetchCollection = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/marketplace/collection/${slug}`);
+        const data = await response.json();
+
+        if (data.success && data.collection) {
+          setCollection(data.collection);
+        } else {
+          setError(data.error || 'Failed to load collection');
+        }
+      } catch (err) {
+        console.error('Error fetching collection:', err);
+        setError('Failed to load collection');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCollection();
+  }, [slug]);
 
   const handleShare = () => {
-    if (navigator.share) {
+    if (navigator.share && collection) {
       navigator.share({
-        title: mockCollection.title,
-        text: mockCollection.description,
+        title: collection.title,
+        text: collection.description,
         url: window.location.href
       });
     }
@@ -40,6 +68,27 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
     { label: "MUSEUM", href: "/museum", icon: Crown },
     { label: "COLLECTION", href: "/profile", icon: User }
   ];
+
+  // Use actual collection data or fallback to mock data
+  const displayCollection = collection || mockCollection;
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white text-xl">Loading collection...</div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error && !collection) {
+    return (
+      <div className="w-full min-h-screen bg-black flex items-center justify-center">
+        <div className="text-white text-xl">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -56,7 +105,7 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
           transition={{ delay: 0.2, duration: 0.6 }}
         >
           <CollectionHero
-            collection={mockCollection}
+            collection={displayCollection}
             isWatchlisted={isWatchlisted}
             onWatchlistToggle={() => setIsWatchlisted(!isWatchlisted)}
             onShare={handleShare}
@@ -81,11 +130,11 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
               transition={{ delay: 0.6, duration: 0.6 }}
               className="px-4 md:px-6 py-8"
             >
-              <OverviewTab collection={mockCollection} />
-              <ItemsTab collection={mockCollection} />
+              <OverviewTab collection={displayCollection} />
+              <ItemsTab collection={displayCollection} />
               <AnalyticsTab />
-              <ActivityTab collection={mockCollection} />
-              <HoldersTab collection={mockCollection} />
+              <ActivityTab collection={displayCollection} />
+              <HoldersTab collection={displayCollection} />
             </motion.div>
           </Tabs>
         </div>

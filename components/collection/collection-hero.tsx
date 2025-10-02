@@ -14,6 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { MediaRenderer } from "@/components/MediaRenderer";
 
 interface CollectionHeroProps {
   collection: any;
@@ -58,16 +59,24 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
       style={{ scale: heroScale }}
     >
       <div className="absolute inset-0">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          autoPlay
-          muted={isMuted}
-          loop
-          playsInline
-        >
-          <source src={collection.videoUrl} type="video/webm" />
-        </video>
+        {collection.videoUrl ? (
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover"
+            autoPlay
+            muted={isMuted}
+            loop
+            playsInline
+          >
+            <source src={collection.videoUrl} type="video/webm" />
+          </video>
+        ) : (
+          <MediaRenderer
+            src={collection.bannerImage}
+            alt={collection.title}
+            className="w-full h-full object-cover"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
       </div>

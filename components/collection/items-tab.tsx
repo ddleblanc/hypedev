@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search, Heart } from "lucide-react";
 import { TabsContent } from "@/components/ui/tabs";
@@ -24,9 +24,37 @@ export function ItemsTab({ collection }: ItemsTabProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState([0, 100]);
+  const [nfts, setNfts] = useState<CollectionItem[]>([]);
+  const [loadingNfts, setLoadingNfts] = useState(false);
+
+  // Fetch NFTs when collection changes
+  useEffect(() => {
+    const fetchNfts = async () => {
+      if (!collection.id) return;
+
+      try {
+        setLoadingNfts(true);
+        const response = await fetch(`/api/marketplace/collection/${collection.id}/nfts`);
+        const data = await response.json();
+
+        if (data.success && data.nfts) {
+          setNfts(data.nfts);
+        }
+      } catch (err) {
+        console.error('Error fetching NFTs:', err);
+      } finally {
+        setLoadingNfts(false);
+      }
+    };
+
+    fetchNfts();
+  }, [collection.id]);
+
+  // Use fetched NFTs if available, otherwise fall back to collection.items
+  const items = nfts.length > 0 ? nfts : collection.items;
 
   // Filter items
-  const filteredItems = collection.items.filter(item => {
+  const filteredItems = items.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRarity = filterRarity === 'all' || item.rarity.toLowerCase() === filterRarity;
     const matchesPrice = parseFloat(item.price) >= priceRange[0] && parseFloat(item.price) <= priceRange[1];

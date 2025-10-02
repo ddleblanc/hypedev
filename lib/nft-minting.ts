@@ -5,6 +5,8 @@ import { lazyMint } from "thirdweb/extensions/erc721"
 import { claimTo } from "thirdweb/extensions/erc721"
 import { setClaimConditions } from "thirdweb/extensions/erc721"
 import { getActiveClaimCondition } from "thirdweb/extensions/erc721"
+import { lazyMint as lazyMintERC1155 } from "thirdweb/extensions/erc1155"
+import { mintTo as mintToERC1155 } from "thirdweb/extensions/erc1155"
 import type { Account } from "thirdweb/wallets"
 import { defineChain } from "thirdweb/chains"
 import { NATIVE_TOKEN_ADDRESS } from "thirdweb"
@@ -922,7 +924,7 @@ export async function estimateMintGas(
 ) {
   try {
     const chain = defineChain(chainId)
-    
+
     const contract = getContract({
       client,
       chain,
@@ -935,10 +937,250 @@ export async function estimateMintGas(
     //   method: "function mintTo(address to, string uri) external",
     //   params: [recipient, metadataUri],
     // })
-    
+
     return BigInt(0) // Placeholder
   } catch (error) {
     console.error('Gas estimation error:', error)
     return BigInt(0)
+  }
+}
+
+// ============================================================================
+// ERC1155 Edition Minting Functions
+// ============================================================================
+
+export interface EditionMetadata extends NFTMetadata {
+  supply?: number; // Number of copies for this edition
+}
+
+// Lazy mint ERC1155 tokens (for EditionDrop contracts)
+export async function lazyMintEdition({
+  contractAddress,
+  chainId,
+  metadata,
+}: Omit<MintOptions, 'recipient'> & { metadata: EditionMetadata }, account: Account): Promise<{ transactionHash: string; metadataUri: string; tokenId: string }> {
+  try {
+    const chain = defineChain(chainId)
+
+    const contract = getContract({
+      client,
+      chain,
+      address: contractAddress,
+    })
+
+    // Upload metadata
+    const metadataUri = await uploadMetadata(metadata)
+
+    console.log('Lazy minting ERC1155 edition with metadata:', metadata)
+
+    // Use Thirdweb's ERC1155 lazyMint extension
+    const transaction = lazyMintERC1155({
+      contract,
+      nfts: [{
+        name: metadata.name,
+        description: metadata.description,
+        image: metadata.image,
+        external_url: metadata.external_url,
+        animation_url: metadata.animation_url,
+        attributes: metadata.attributes
+      }],
+    })
+
+    const result = await sendTransaction({
+      transaction,
+      account,
+    })
+
+    console.log('ERC1155 lazy mint result:', result)
+
+    // Try to get the next token ID from the contract
+    let tokenId = '0';
+    try {
+      const nextTokenId = await readContract({
+        contract,
+        method: "function nextTokenIdToMint() view returns (uint256)",
+      });
+      // The token ID that was just minted is nextTokenId - 1
+      tokenId = (nextTokenId - BigInt(1)).toString();
+    } catch (e) {
+      console.log('Could not read nextTokenIdToMint, using default:', e);
+    }
+
+    return {
+      transactionHash: result.transactionHash,
+      metadataUri,
+      tokenId
+    }
+  } catch (error) {
+    console.error('ERC1155 lazy minting error:', error)
+    throw error
+  }
+}
+
+// Mint ERC1155 tokens directly (for Edition contracts)
+export async function mintEdition({
+  contractAddress,
+  chainId,
+  recipient,
+  metadata,
+  tokenId = 0,
+  quantity = 1
+}: MintOptions & { metadata: EditionMetadata; tokenId?: number; quantity?: number }, account: Account): Promise<{ transactionHash: string; tokenId: string }> {
+  try {
+    const chain = defineChain(chainId)
+
+    const contract = getContract({
+      client,
+      chain,
+      address: contractAddress,
+    })
+
+    console.log('Minting ERC1155 edition:', { tokenId, quantity, recipient })
+
+    // For new token IDs, we need to upload metadata first
+    let actualTokenId = BigInt(tokenId);
+
+    if (tokenId === 0 || tokenId === undefined) {
+      // Get the next available token ID
+      try {
+        const nextTokenId = await readContract({
+          contract,
+          method: "function nextTokenIdToMint() view returns (uint256)",
+        });
+        actualTokenId = nextTokenId;
+      } catch (e) {
+        console.log('Could not read nextTokenIdToMint, using 0');
+      }
+
+      // Upload metadata for the new token
+      const metadataUri = await uploadMetadata(metadata);
+
+      // Set the URI for this token ID
+      try {
+        const setUriTx = prepareContractCall({
+          contract,
+          method: "function setTokenURI(uint256 tokenId, string uri)",
+          params: [actualTokenId, metadataUri]
+        });
+        await sendTransaction({ transaction: setUriTx, account });
+      } catch (e) {
+        console.log('setTokenURI not available, metadata may need to be set differently:', e);
+      }
+    }
+
+    // Use Thirdweb's ERC1155 mintTo extension
+    const transaction = mintToERC1155({
+      contract,
+      to: recipient,
+      supply: BigInt(quantity),
+      nft: {
+        tokenId: actualTokenId,
+      }
+    })
+
+    const result = await sendTransaction({
+      transaction,
+      account,
+    })
+
+    console.log('ERC1155 mint result:', result)
+    return {
+      transactionHash: result.transactionHash,
+      tokenId: actualTokenId.toString()
+    }
+  } catch (error) {
+    console.error('ERC1155 minting error:', error)
+    throw error
+  }
+}
+
+// Mint additional copies of an existing ERC1155 token
+export async function mintAdditionalEditionCopies({
+  contractAddress,
+  chainId,
+  recipient,
+  tokenId,
+  quantity = 1
+}: Omit<MintOptions, 'metadata'> & { tokenId: number; quantity?: number }, account: Account): Promise<string> {
+  try {
+    const chain = defineChain(chainId)
+
+    const contract = getContract({
+      client,
+      chain,
+      address: contractAddress,
+    })
+
+    console.log('Minting additional copies of token ID:', tokenId, 'quantity:', quantity)
+
+    // Use Thirdweb's ERC1155 mintTo extension
+    const transaction = mintToERC1155({
+      contract,
+      to: recipient,
+      supply: BigInt(quantity),
+      nft: {
+        tokenId: BigInt(tokenId),
+      }
+    })
+
+    const result = await sendTransaction({
+      transaction,
+      account,
+    })
+
+    console.log('Additional copies minted:', result)
+    return result.transactionHash
+  } catch (error) {
+    console.error('Error minting additional copies:', error)
+    throw error
+  }
+}
+
+// Get token supply for ERC1155
+export async function getEditionSupply(
+  contractAddress: string,
+  chainId: number,
+  tokenId: number
+): Promise<{ totalSupply: number; maxSupply: number }> {
+  try {
+    const chain = defineChain(chainId)
+    const contract = getContract({
+      client,
+      chain,
+      address: contractAddress,
+    })
+
+    let totalSupply = 0;
+    let maxSupply = 0;
+
+    // Try to get total supply for this token
+    try {
+      const supply = await readContract({
+        contract,
+        method: "function totalSupply(uint256 tokenId) view returns (uint256)",
+        params: [BigInt(tokenId)]
+      });
+      totalSupply = Number(supply);
+    } catch (e) {
+      console.log('Could not read totalSupply:', e);
+    }
+
+    // Try to get max supply if available
+    try {
+      const max = await readContract({
+        contract,
+        method: "function maxSupply(uint256 tokenId) view returns (uint256)",
+        params: [BigInt(tokenId)]
+      });
+      maxSupply = Number(max);
+    } catch (e) {
+      console.log('maxSupply not available (unlimited)');
+      maxSupply = -1; // Unlimited
+    }
+
+    return { totalSupply, maxSupply };
+  } catch (error) {
+    console.error('Error getting edition supply:', error);
+    return { totalSupply: 0, maxSupply: -1 };
   }
 }

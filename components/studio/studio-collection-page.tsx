@@ -185,11 +185,20 @@ export function StudioCollectionPage({ collection }: { collection: any }) {
     }
   };
 
+  // Check if contract is OpenEdition
+  const isOpenEditionContract = () => {
+    const contractType = collection.contractType || '';
+    return ['OpenEdition', 'OpenEditionERC721'].includes(contractType);
+  };
+
   // Studio management actions
   const handleEdit = () => alert('Open collection editor (studio)');
   const handleMint = () => {
-    setShowUploadInterface(true);
-    setActiveTab('upload');
+    if (isOpenEditionContract()) {
+      alert('OpenEdition contracts use shared metadata. Individual NFT minting is not supported.\n\nUsers can claim copies of the NFT using the claim flow.');
+      return;
+    }
+    setShowMintModal(true);
   };
   const handleSettings = () => alert('Open collection settings');
   const handleAirdrop = () => alert('Trigger airdrop tool');

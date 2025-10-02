@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { 
+import {
   Play,
   Info,
   Plus,
@@ -14,7 +14,6 @@ import {
   Star,
   Volume2,
   VolumeX,
-  MoreHorizontal,
   ArrowUpRight,
   Menu,
   X,
@@ -29,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { MediaRenderer } from "@/components/MediaRenderer";
 
 interface MarketplaceViewProps {
   setViewMode?: (mode: string) => void;
@@ -64,6 +64,12 @@ interface TrendingCollection {
   image: string;
   floor: string;
   change: string;
+  mintedSupply?: number;
+  maxSupply?: number;
+  description?: string;
+  creatorAddress?: string;
+  isVerified?: boolean;
+  isFeatured?: boolean;
 }
 
 interface Category {
@@ -173,12 +179,40 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
   const [isMuted, setIsMuted] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const [trendingCollections, setTrendingCollections] = useState<TrendingCollection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef });
   const router = useRouter();
-  
+
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+
+  // Fetch trending collections from API
+  useEffect(() => {
+    const fetchTrendingCollections = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/marketplace/trending');
+        const data = await response.json();
+
+        if (data.success && data.collections.length > 0) {
+          setTrendingCollections(data.collections);
+        } else {
+          // Fallback to mock data if no collections found
+          setTrendingCollections(mockCollections.trending);
+        }
+      } catch (error) {
+        console.error('Error fetching trending collections:', error);
+        // Fallback to mock data on error
+        setTrendingCollections(mockCollections.trending);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTrendingCollections();
+  }, []);
 
   // Combine hero with featured for mobile carousel
   const mobileHeroItems = [
@@ -408,18 +442,17 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 <motion.div
                   key={category.id}
                   whileTap={{ scale: 0.98 }}
-                  className="relative flex-shrink-0 w-32 aspect-square rounded-xl overflow-hidden"
+                  className="flex-shrink-0 w-40"
                 >
-                  <img 
-                    src={category.image} 
-                    alt={category.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
-                  <div className="absolute bottom-2 left-2 right-2">
-                    <p className="text-white font-bold text-xs">{category.name}</p>
-                    <p className="text-white/60 text-[10px]">{category.collections} items</p>
+                  <div className="relative h-48 rounded-xl overflow-hidden mb-2">
+                    <img
+                      src={category.image}
+                      alt={category.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
+                  <p className="text-white font-bold text-sm truncate">{category.name}</p>
+                  <p className="text-white/60 text-xs">{category.collections} items</p>
                 </motion.div>
               ))}
             </div>
@@ -437,43 +470,49 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 <ArrowUpRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
-            
-            <div className="space-y-1">
-              {mockCollections.trending.slice(0, 4).map((collection, index) => (
-                <motion.div
-                  key={collection.id}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleCollectionClick(collection.id)}
-                  className="relative h-48 overflow-hidden"
-                >
-                  {/* Full-width background image */}
-                  <div className="absolute inset-0">
-                    <div className="w-full h-full bg-gradient-to-br from-purple-900/20 to-blue-900/20" />
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent" />
+
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide px-6">
+              {isLoading ? (
+                // Loading skeleton
+                [...Array(4)].map((_, index) => (
+                  <div key={`skeleton-${index}`} className="flex-shrink-0 w-40">
+                    <div className="h-48 rounded-xl bg-gradient-to-br from-gray-800/50 to-gray-900/50 animate-pulse mb-2" />
                   </div>
-                  
-                  {/* Content */}
-                  <div className="relative h-full flex items-center justify-between p-6">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
+                ))
+              ) : (
+                trendingCollections.slice(0, 4).map((collection, index) => (
+                  <motion.div
+                    key={collection.id}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleCollectionClick(collection.id)}
+                    className="flex-shrink-0 w-40"
+                  >
+                    <div className="relative h-48 rounded-xl overflow-hidden mb-2">
+                      {collection.image && collection.image !== '/api/placeholder/300/450' ? (
+                        <MediaRenderer
+                          src={collection.image}
+                          alt={collection.title}
+                          className="w-full h-full"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-purple-900/20 to-blue-900/20" />
+                      )}
+                      <div className="absolute top-2 left-2">
                         <div className="w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center">
                           <span className="text-white text-sm font-bold">#{index + 1}</span>
                         </div>
+                      </div>
+                      <div className="absolute top-2 right-2">
                         <Badge className="bg-green-500 text-white text-xs">
                           {collection.change}
                         </Badge>
                       </div>
-                      <h4 className="text-2xl font-bold text-white mb-1">{collection.title}</h4>
-                      <p className="text-lg text-white/80">Floor: {collection.floor}</p>
                     </div>
-                    
-                    {/* Play icon on hover/tap */}
-                    <div className="w-16 h-16 bg-white/10 backdrop-blur rounded-full flex items-center justify-center">
-                      <Play className="w-8 h-8 text-white" fill="currentColor" />
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                    <h4 className="text-white font-bold text-sm truncate mb-1">{collection.title}</h4>
+                    <p className="text-white/70 text-xs">Floor: {collection.floor}</p>
+                  </motion.div>
+                ))
+              )}
             </div>
           </section>
 
@@ -486,29 +525,26 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                   key={collection.id}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleCollectionClick(collection.id)}
-                  className="relative flex-shrink-0 w-28 h-48 rounded-2xl overflow-hidden"
+                  className="flex-shrink-0 w-40"
                 >
-                  <video
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                  >
-                    <source src={collection.image} type="video/webm" />
-                  </video>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                  
-                  <div className="absolute top-3 left-3 right-3">
-                    <Badge className="bg-[rgb(163,255,18)] text-black text-[10px] font-bold">
-                      NEW
-                    </Badge>
+                  <div className="relative h-48 rounded-xl overflow-hidden mb-2">
+                    <video
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                    >
+                      <source src={collection.image} type="video/webm" />
+                    </video>
+                    <div className="absolute top-2 left-2">
+                      <Badge className="bg-[rgb(163,255,18)] text-black text-xs font-bold">
+                        NEW
+                      </Badge>
+                    </div>
                   </div>
-                  
-                  <div className="absolute bottom-3 left-3 right-3">
-                    <p className="text-white font-bold text-xs truncate">{collection.title}</p>
-                    <p className="text-white/70 text-[10px]">{collection.floor}</p>
-                  </div>
+                  <p className="text-white font-bold text-sm truncate mb-1">{collection.title}</p>
+                  <p className="text-white/70 text-xs">{collection.floor}</p>
                 </motion.div>
               ))}
             </div>
@@ -736,7 +772,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
             </Button>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
             {mockCollections.categories.map((category, index) => (
               <motion.div
                 key={category.id}
@@ -746,20 +782,15 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 whileHover={{ scale: 1.03 }}
                 className="group cursor-pointer"
               >
-                <div className="relative overflow-hidden rounded-xl">
-                  <div className="aspect-[3/4] bg-gradient-to-br from-gray-800 to-gray-900">
-                    <img 
-                      src={category.image} 
-                      alt={category.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                  </div>
-                  <div className="absolute bottom-3 left-3 md:bottom-4 md:left-4">
-                    <h3 className="text-white font-bold text-sm md:text-lg mb-1">{category.name}</h3>
-                    <p className="text-white/70 text-xs md:text-sm">{category.collections} collections</p>
-                  </div>
+                <div className="relative overflow-hidden rounded-lg aspect-[2/3] bg-gradient-to-br from-gray-800 to-gray-900 mb-2">
+                  <img
+                    src={category.image}
+                    alt={category.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
                 </div>
+                <h3 className="text-white font-bold text-xs md:text-sm mb-1 truncate">{category.name}</h3>
+                <p className="text-white/70 text-xs">{category.collections} collections</p>
               </motion.div>
             ))}
           </div>
@@ -797,10 +828,9 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
             </div>
           </div>
 
-          <div 
-            id="featured-carousel" 
-            className="flex gap-4 md:gap-6 overflow-x-auto scrollbar-hide pb-4" 
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          <div
+            id="featured-carousel"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4"
           >
             {mockCollections.featured.map((collection, index) => (
               <motion.div
@@ -808,70 +838,35 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 * index, duration: 0.6 }}
-                whileHover={{ scale: 1.02, y: -8 }}
-                className="group cursor-pointer min-w-[240px] md:min-w-[280px] flex-shrink-0"
+                whileHover={{ scale: 1.05, y: -5 }}
+                className="group cursor-pointer"
                 onClick={() => handleCollectionClick(collection.id)}
               >
-                <div className="relative overflow-hidden rounded-xl">
-                  <div className="aspect-[2/3] relative">
-                    <video
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                    >
-                      <source src={collection.image} type="video/webm" />
-                    </video>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    
-                    {/* Overlay Content */}
-                    <div className="absolute inset-0 flex flex-col justify-between p-4 md:p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex flex-col gap-1 md:gap-2">
-                          {collection.isNew && (
-                            <Badge className="bg-[rgb(163,255,18)] text-black font-bold px-2 md:px-3 py-1 w-fit text-xs">
-                              New
-                            </Badge>
-                          )}
-                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30 w-fit text-xs px-2 py-1">
-                            {collection.trending}
-                          </Badge>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-white hover:bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-all h-8 w-8 md:h-10 md:w-10"
-                        >
-                          <MoreHorizontal className="h-4 w-4 md:h-5 md:w-5" />
-                        </Button>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-white font-bold text-lg md:text-xl mb-1">{collection.title}</h3>
-                        <p className="text-white/80 text-xs md:text-sm mb-2 md:mb-3">{collection.subtitle}</p>
-                        <p className="text-white/60 text-xs mb-3 md:mb-4">by {collection.creator}</p>
-                        
-                        <div className="flex items-center justify-between text-xs md:text-sm">
-                          <div>
-                            <span className="text-white/60">Floor: </span>
-                            <span className="text-white font-bold">{collection.floor}</span>
-                          </div>
-                          <div>
-                            <span className="text-white/60">{collection.items.toLocaleString()} items</span>
-                          </div>
-                        </div>
-                      </div>
+                <div className="relative overflow-hidden rounded-lg aspect-[2/3] mb-2">
+                  <video
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  >
+                    <source src={collection.image} type="video/webm" />
+                  </video>
+                  {collection.isNew && (
+                    <div className="absolute top-1 md:top-2 left-1 md:left-2">
+                      <Badge className="bg-[rgb(163,255,18)] text-black font-bold text-xs px-2 py-1">
+                        NEW
+                      </Badge>
                     </div>
-                    
-                    {/* Hover Play Button */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                      <div className="bg-black/60 backdrop-blur-sm rounded-full p-4">
-                        <Play className="h-8 w-8 text-white fill-white" />
-                      </div>
-                    </div>
+                  )}
+                  <div className="absolute top-1 md:top-2 right-1 md:right-2">
+                    <Badge className="bg-green-500/90 text-white font-bold text-xs px-1 md:px-2 py-1">
+                      {collection.trending}
+                    </Badge>
                   </div>
                 </div>
+                <h3 className="text-white font-bold text-xs md:text-sm mb-1 truncate">{collection.title}</h3>
+                <p className="text-white/70 text-xs">{collection.floor}</p>
               </motion.div>
             ))}
           </div>
@@ -899,46 +894,50 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
           </div>
 
           <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
-            {mockCollections.trending.map((collection, index) => (
-              <motion.div
-                key={collection.id}
-                initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ delay: 0.1 * index, duration: 0.5 }}
-                whileHover={{ scale: 1.05, y: -5 }}
-                className="group cursor-pointer"
-                onClick={() => handleCollectionClick(collection.id)}
-              >
-                <div className="relative overflow-hidden rounded-lg">
-                  <div className="aspect-[2/3]">
-                    <img 
-                      src={collection.image} 
-                      alt={collection.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                    
-                    <div className="absolute top-1 md:top-2 right-1 md:right-2">
-                      <Badge className="bg-green-500/90 text-white font-bold text-xs px-1 md:px-2 py-1">
-                        {collection.change}
-                      </Badge>
-                    </div>
-                    
-                    <div className="absolute bottom-2 md:bottom-3 left-2 md:left-3 right-2 md:right-3">
-                      <h3 className="text-white font-bold text-xs md:text-sm mb-1 truncate">{collection.title}</h3>
-                      <p className="text-white/70 text-xs">{collection.floor}</p>
-                    </div>
-                    
-                    {/* Ranking Badge */}
+            {isLoading ? (
+              // Loading skeleton
+              [...Array(6)].map((_, index) => (
+                <div key={`skeleton-desktop-${index}`}>
+                  <div className="relative overflow-hidden rounded-lg aspect-[2/3] bg-gradient-to-br from-gray-800/50 to-gray-900/50 animate-pulse mb-2" />
+                </div>
+              ))
+            ) : (
+              trendingCollections.map((collection, index) => (
+                <motion.div
+                  key={collection.id}
+                  initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ delay: 0.1 * index, duration: 0.5 }}
+                  whileHover={{ scale: 1.05, y: -5 }}
+                  className="group cursor-pointer"
+                  onClick={() => handleCollectionClick(collection.id)}
+                >
+                  <div className="relative overflow-hidden rounded-lg aspect-[2/3] mb-2">
+                    {collection.image && collection.image !== '/api/placeholder/300/450' ? (
+                      <MediaRenderer
+                        src={collection.image}
+                        alt={collection.title}
+                        className="w-full h-full group-hover:scale-110 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-purple-900/50 to-blue-900/50" />
+                    )}
                     <div className="absolute top-1 md:top-2 left-1 md:left-2">
                       <div className="bg-black/60 backdrop-blur-sm rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
                         <span className="text-white text-xs font-bold">#{index + 1}</span>
                       </div>
                     </div>
+                    <div className="absolute top-1 md:top-2 right-1 md:right-2">
+                      <Badge className="bg-green-500/90 text-white font-bold text-xs px-1 md:px-2 py-1">
+                        {collection.change}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                  <h3 className="text-white font-bold text-xs md:text-sm mb-1 truncate">{collection.title}</h3>
+                  <p className="text-white/70 text-xs">{collection.floor}</p>
+                </motion.div>
+              ))
+            )}
           </div>
         </motion.section>
 
@@ -970,56 +969,45 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
             {[...mockCollections.featured, ...mockCollections.trending.slice(0, 2)].map((collection, index) => (
               <motion.div
                 key={`${collection.id}-grid`}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 * index, duration: 0.6 }}
-                whileHover={{ scale: 1.02 }}
+                whileHover={{ scale: 1.05, y: -5 }}
                 className="group cursor-pointer"
                 onClick={() => handleCollectionClick(collection.id)}
               >
-                <div className="relative overflow-hidden rounded-xl">
-                  <div className="aspect-[3/4]">
-                    {'image' in collection && collection.image.endsWith('.webm') ? (
-                      <video
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                      >
-                        <source src={collection.image} type="video/webm" />
-                      </video>
-                    ) : (
-                      <img 
-                        src={'image' in collection ? collection.image : '/api/placeholder/300/400'} 
-                        alt={collection.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                    
-                    <div className="absolute bottom-3 md:bottom-4 left-3 md:left-4 right-3 md:right-4">
-                      <h3 className="text-white font-bold text-sm md:text-lg mb-1">{collection.title}</h3>
-                      <p className="text-white/80 text-xs md:text-sm mb-1 md:mb-2">
-                        {'creator' in collection ? `by ${(collection as any).creator}` : `Floor ${collection.floor}`}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <div className="text-white/70 text-xs">
-                          {'items' in collection ? `${(collection as any).items?.toLocaleString()} items` : 'Collection'}
-                        </div>
-                        {'trending' in collection && (
-                          <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs px-1 md:px-2 py-1">
-                            {(collection as any).trending}
-                          </Badge>
-                        )}
-                      </div>
+                <div className="relative overflow-hidden rounded-lg aspect-[2/3] mb-2">
+                  {'image' in collection && collection.image.endsWith('.webm') ? (
+                    <video
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                    >
+                      <source src={collection.image} type="video/webm" />
+                    </video>
+                  ) : (
+                    <img
+                      src={'image' in collection ? collection.image : '/api/placeholder/300/400'}
+                      alt={collection.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                  )}
+                  {'trending' in collection && (
+                    <div className="absolute top-1 md:top-2 right-1 md:right-2">
+                      <Badge className="bg-green-500/90 text-white font-bold text-xs px-1 md:px-2 py-1">
+                        {(collection as any).trending}
+                      </Badge>
                     </div>
-                  </div>
+                  )}
                 </div>
+                <h3 className="text-white font-bold text-xs md:text-sm mb-1 truncate">{collection.title}</h3>
+                <p className="text-white/70 text-xs">{collection.floor}</p>
               </motion.div>
             ))}
           </div>

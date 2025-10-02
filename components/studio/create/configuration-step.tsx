@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { NATIVE_TOKEN_ADDRESS } from 'thirdweb';
 import type { ClaimCondition } from '@/lib/nft-minting';
+import { ContractSelector } from "./contract-selector";
+import { THIRDWEB_CONTRACTS } from "@/lib/thirdweb-contracts";
 
 interface ConfigurationStepProps {
   collectionData: {
@@ -24,7 +26,6 @@ interface ConfigurationStepProps {
   showAdvanced: boolean;
   setShowAdvanced: (show: boolean) => void;
   chains: Array<{ id: string; name: string; icon: string }>;
-  contractTypes: Array<{ id: string; name: string; description: string }>;
   isMobile: boolean;
   claimPhases?: ClaimCondition[];
   setClaimPhases?: (phases: ClaimCondition[]) => void;
@@ -36,7 +37,6 @@ export function ConfigurationStep({
   showAdvanced,
   setShowAdvanced,
   chains,
-  contractTypes,
   isMobile,
   claimPhases = [],
   setClaimPhases
@@ -49,12 +49,12 @@ export function ConfigurationStep({
 
   // Check if current contract type supports claim conditions
   const supportsClaimConditions = () => {
-    return ['DropERC721', 'OpenEditionERC721', 'EditionDrop'].includes(collectionData.contractType);
+    const contract = THIRDWEB_CONTRACTS.find(c => c.id === collectionData.contractType);
+    return contract?.supportsClaimConditions || false;
   };
 
   // Get chain symbol
   const getChainSymbol = () => {
-    const chain = chains.find(c => c.id === collectionData.chainId);
     switch (collectionData.chainId) {
       case '1': return 'ETH';
       case '137': return 'MATIC';
@@ -223,65 +223,48 @@ export function ConfigurationStep({
         <p className="text-white/60">Configure your smart contract settings</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2 space-y-6">
-          <Card className="bg-black/40 border-white/20">
-            <CardHeader>
-              <CardTitle className="text-white">Blockchain Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label className="text-white mb-3 block">Select Blockchain</Label>
-                <RadioGroup value={collectionData.chainId} onValueChange={(value) => setCollectionData({...collectionData, chainId: value})}>
-                  <div className="grid grid-cols-2 gap-4">
-                    {chains.map((chain) => (
-                      <Label
-                        key={chain.id}
-                        htmlFor={`chain-${chain.id}`}
-                        className={`flex items-center gap-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${
-                          collectionData.chainId === chain.id
-                            ? 'border-[rgb(163,255,18)] bg-[rgb(163,255,18)]/10'
-                            : 'border-white/20 hover:border-white/40'
-                        }`}
-                      >
-                        <RadioGroupItem value={chain.id} id={`chain-${chain.id}`} className="border-white/40 text-[rgb(163,255,18)]" />
-                        <span className="text-2xl">{chain.icon}</span>
-                        <div>
-                          <p className="text-white font-semibold">{chain.name}</p>
-                          <p className="text-xs text-white/60">Chain ID: {chain.id}</p>
-                        </div>
-                      </Label>
-                    ))}
-                  </div>
-                </RadioGroup>
-              </div>
+      <div className="space-y-6">
+        {/* Contract Selector */}
+        <ContractSelector
+          selectedContract={collectionData.contractType}
+          onSelectContract={(contractId) => setCollectionData({...collectionData, contractType: contractId})}
+          isMobile={isMobile}
+        />
 
-              <div>
-                <Label className="text-white mb-3 block">Contract Type</Label>
-                <RadioGroup value={collectionData.contractType} onValueChange={(value) => setCollectionData({...collectionData, contractType: value})}>
-                  <div className="space-y-3">
-                    {contractTypes.map((type) => (
-                      <Label
-                        key={type.id}
-                        htmlFor={`contract-${type.id}`}
-                        className={`flex items-start gap-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${
-                          collectionData.contractType === type.id
-                            ? 'border-[rgb(163,255,18)] bg-[rgb(163,255,18)]/10'
-                            : 'border-white/20 hover:border-white/40'
-                        }`}
-                      >
-                        <RadioGroupItem value={type.id} id={`contract-${type.id}`} className="border-white/40 text-[rgb(163,255,18)] mt-1" />
-                        <div>
-                          <p className="text-white font-semibold">{type.name}</p>
-                          <p className="text-xs text-white/60">{type.description}</p>
-                        </div>
-                      </Label>
-                    ))}
-                  </div>
-                </RadioGroup>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-3 gap-6">
+          <div className="col-span-2 space-y-6">
+            <Card className="bg-black/40 border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">Blockchain Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label className="text-white mb-3 block">Select Blockchain</Label>
+                  <RadioGroup value={collectionData.chainId} onValueChange={(value) => setCollectionData({...collectionData, chainId: value})}>
+                    <div className="grid grid-cols-2 gap-4">
+                      {chains.map((chain) => (
+                        <Label
+                          key={chain.id}
+                          htmlFor={`chain-${chain.id}`}
+                          className={`flex items-center gap-3 rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                            collectionData.chainId === chain.id
+                              ? 'border-[rgb(163,255,18)] bg-[rgb(163,255,18)]/10'
+                              : 'border-white/20 hover:border-white/40'
+                          }`}
+                        >
+                          <RadioGroupItem value={chain.id} id={`chain-${chain.id}`} className="border-white/40 text-[rgb(163,255,18)]" />
+                          <span className="text-2xl">{chain.icon}</span>
+                          <div>
+                            <p className="text-white font-semibold">{chain.name}</p>
+                            <p className="text-xs text-white/60">Chain ID: {chain.id}</p>
+                          </div>
+                        </Label>
+                      ))}
+                    </div>
+                  </RadioGroup>
+                </div>
+              </CardContent>
+            </Card>
 
           <Card className="bg-black/40 border-white/20">
             <CardHeader>
@@ -533,9 +516,10 @@ export function ConfigurationStep({
           )}
         </div>
 
-        <div className="space-y-6">
-          <GasEstimationCard />
-          <ContractFeaturesCard />
+          <div className="space-y-6">
+            <GasEstimationCard />
+            <ContractFeaturesCard />
+          </div>
         </div>
       </div>
     </motion.div>

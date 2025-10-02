@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CollectionItem } from "./types";
+import { MediaRenderer } from "@/components/MediaRenderer";
 
 interface ItemCardProps {
   item: CollectionItem;
@@ -22,7 +23,7 @@ export function ItemCard({ item, onClick }: ItemCardProps) {
     >
       <Card className="bg-black/40 border-white/10 hover:border-[rgb(163,255,18)]/50 transition-all duration-300 overflow-hidden">
         <div className="relative aspect-square">
-          <img
+          <MediaRenderer
             src={item.image}
             alt={item.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

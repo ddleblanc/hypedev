@@ -17,7 +17,7 @@ export interface TransactionNFT {
 export interface TransactionState {
   id: string | null;
   nft: TransactionNFT | null;
-  mode: "buy" | "offer" | null;
+  mode: "buy" | "offer" | "deploy" | "mint" | null;
   step: TransactionStep;
   amount: number;
   isActive: boolean;
@@ -30,7 +30,7 @@ export interface TransactionState {
 }
 
 type TransactionAction =
-  | { type: 'START_TRANSACTION'; payload: { nft: TransactionNFT; mode: "buy" | "offer"; amount: number } }
+  | { type: 'START_TRANSACTION'; payload: { nft: TransactionNFT; mode: "buy" | "offer" | "deploy" | "mint"; amount: number } }
   | { type: 'UPDATE_STEP'; payload: { step: TransactionStep; progress?: number; estimatedTime?: number } }
   | { type: 'MINIMIZE_TRANSACTION' }
   | { type: 'EXPAND_TRANSACTION' }
@@ -137,7 +137,7 @@ function transactionReducer(state: TransactionState, action: TransactionAction):
 
 interface TransactionContextType {
   state: TransactionState;
-  startTransaction: (nft: TransactionNFT, mode: "buy" | "offer", amount: number) => void;
+  startTransaction: (nft: TransactionNFT, mode: "buy" | "offer" | "deploy" | "mint", amount: number) => void;
   updateStep: (step: TransactionStep, progress?: number, estimatedTime?: number) => void;
   minimizeTransaction: () => void;
   expandTransaction: () => void;
@@ -153,7 +153,7 @@ const TransactionContext = createContext<TransactionContextType | undefined>(und
 export function TransactionProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(transactionReducer, initialState);
 
-  const startTransaction = useCallback((nft: TransactionNFT, mode: "buy" | "offer", amount: number) => {
+  const startTransaction = useCallback((nft: TransactionNFT, mode: "buy" | "offer" | "deploy" | "mint", amount: number) => {
     dispatch({ type: 'START_TRANSACTION', payload: { nft, mode, amount } });
   }, []);
 

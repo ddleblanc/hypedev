@@ -22,13 +22,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useDropzone } from "react-dropzone";
 import { cn } from "@/lib/utils";
-import { uploadToThirdWeb, lazyMintNFT, generateOptimizedMetadata } from "@/lib/nft-minting";
+import { uploadToThirdWeb, lazyMintNFT, generateOptimizedMetadata, lazyMintEdition, mintEdition, type EditionMetadata } from "@/lib/nft-minting";
 import { setSharedMetadata, batchMintWithSharedMetadata } from "@/lib/nft-minting/shared-metadata";
 import { useActiveAccount } from "thirdweb/react";
 import { prepareContractCall, sendTransaction, getContract } from "thirdweb";
 import { client } from "@/lib/thirdweb";
 import { defineChain } from "thirdweb/chains";
 import { MediaRenderer } from "@/components/MediaRenderer";
+import { useTransaction } from "@/contexts/transaction-context";
 
 interface MintNFTsModalProps {
   isOpen: boolean;
@@ -58,6 +59,7 @@ interface NFTData {
   youtubeUrl?: string;
   backgroundColor?: string;
   attributes: Array<{ trait_type: string; value: string; display_type?: string }>;
+  supply?: number; // For Edition contracts - number of copies
 }
 
 interface BatchTemplate {
@@ -166,6 +168,7 @@ const batchTemplates: BatchTemplate[] = [
 
 export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNFTsModalProps) {
   const account = useActiveAccount();
+  const { startTransaction, updateStep, setTxHash, setError: setTransactionError, completeTransaction } = useTransaction();
   const [mintMode, setMintMode] = useState<'single' | 'batch' | 'ai'>('single');
   const [currentStep, setCurrentStep] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -225,20 +228,39 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
 
   // Contract type specific minting
   const getMintMethod = () => {
-    const contractType = collection.contractType || 'ERC721';
+    const contractType = collection.contractType || 'NFTCollection';
 
+    // Map Thirdweb v5 contract IDs to minting strategies
     switch (contractType) {
-      case 'ERC721A':
-      case 'ERC721Drop':
+      case 'NFTDrop':
       case 'DropERC721':
         return 'lazy'; // Lazy minting for gas efficiency
-      case 'ERC1155':
-        return 'edition'; // Edition minting
+      case 'EditionDrop':
+      case 'DropERC1155':
+        return 'lazy-edition'; // Lazy mint ERC1155
+      case 'Edition':
+      case 'TokenERC1155':
+        return 'edition'; // Direct mint ERC1155
+      case 'OpenEdition':
       case 'OpenEditionERC721':
-        return 'open'; // Open edition
+        return 'open'; // Open edition - shared metadata
+      case 'NFTCollection':
+      case 'TokenERC721':
       default:
-        return 'direct'; // Direct mint
+        return 'direct'; // Direct mint ERC721
     }
+  };
+
+  // Check if contract is ERC1155 (Edition-based)
+  const isEditionContract = () => {
+    const contractType = collection.contractType || 'NFTCollection';
+    return ['Edition', 'TokenERC1155', 'EditionDrop', 'DropERC1155'].includes(contractType);
+  };
+
+  // Check if contract is OpenEdition
+  const isOpenEditionContract = () => {
+    const contractType = collection.contractType || 'NFTCollection';
+    return ['OpenEdition', 'OpenEditionERC721'].includes(contractType);
   };
 
   // Add trait to NFT
@@ -319,14 +341,38 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
     setIsUploading(true);
     setUploadProgress(0);
 
+    // Start transaction pill
+    const nftsToMint = mintMode === 'batch' ? batchNFTs : [nftData];
+    const firstNFT = nftsToMint[0];
+
+    // Create preview URL from File object if available
+    let previewImage = firstNFT.imageUrl || collection.image || '/api/placeholder/200/200';
+    if (firstNFT.image && firstNFT.image instanceof File) {
+      previewImage = URL.createObjectURL(firstNFT.image);
+    }
+
+    startTransaction(
+      {
+        id: collection.id,
+        name: mintMode === 'batch' ? `${nftsToMint.length} NFTs` : firstNFT.name,
+        image: previewImage,
+        collection: collection.name,
+        contractAddress: collection.address,
+      },
+      "mint",
+      nftsToMint.length
+    );
+
     try {
-      const nftsToMint = mintMode === 'batch' ? batchNFTs : [nftData];
       const chain = defineChain(collection.chainId);
       const contract = getContract({
         client,
         chain,
         address: collection.address
       });
+
+      // Update to checkout step
+      updateStep("checkout", 10);
 
       // Check if this is a Drop contract
       const isDropContract = ['DropERC721', 'ERC721Drop', 'OpenEditionERC721'].includes(collection.contractType || '');
@@ -352,10 +398,12 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
         };
 
         setUploadProgress(30);
+        updateStep("approve", 30);
 
         try {
           // Use the shared metadata approach for Drop contracts
           // This sets the metadata ONCE for the entire collection
+          updateStep("confirm", 50);
           await setSharedMetadata({
             contractAddress: collection.address,
             chainId: collection.chainId,
@@ -363,6 +411,7 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
           }, account);
 
           setUploadProgress(80);
+          updateStep("pending", 80);
 
           // Save the shared metadata to our database for reference
           // We don't create individual NFT records yet - they're created when users claim
@@ -376,6 +425,7 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
           });
 
           setUploadProgress(100);
+          completeTransaction();
 
           // Show success message
           setError(null);
@@ -386,15 +436,20 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
         } catch (dropError: any) {
           console.error('Drop contract minting failed:', dropError);
           setError(`Failed to set shared metadata: ${dropError.message}`);
+          setTransactionError(dropError.message || 'Failed to set shared metadata');
           throw dropError;
         }
       }
 
       // Original logic for non-Drop contracts
+      updateStep("approve", 20);
       const processedNfts = [];
+
       for (let i = 0; i < nftsToMint.length; i++) {
         const nft = nftsToMint[i];
-        setUploadProgress((i / nftsToMint.length) * 50);
+        const progress = 20 + (i / nftsToMint.length) * 30;
+        setUploadProgress(progress);
+        updateStep("approve", progress);
 
         // Upload image if exists
         let imageUrl = nft.imageUrl;
@@ -402,8 +457,8 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
           imageUrl = await uploadToThirdWeb(nft.image);
         }
 
-        // Create metadata
-        const metadata = {
+        // Create metadata (with supply for editions)
+        const metadata: EditionMetadata = {
           name: nft.name,
           description: nft.description,
           image: imageUrl || '',
@@ -411,41 +466,71 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
           animation_url: nft.animationUrl,
           youtube_url: nft.youtubeUrl,
           background_color: nft.backgroundColor,
-          attributes: nft.attributes.filter(a => a.trait_type && a.value)
+          attributes: nft.attributes.filter(a => a.trait_type && a.value),
+          supply: nft.supply || 1 // Default to 1 copy
         };
 
-        setUploadProgress(50 + (i / nftsToMint.length) * 30);
+        const mintProgress = 50 + (i / nftsToMint.length) * 30;
+        setUploadProgress(mintProgress);
+        updateStep("confirm", mintProgress);
 
         // Mint based on contract type
         const mintMethod = getMintMethod();
 
         try {
+          updateStep("pending", mintProgress);
+
           if (mintMethod === 'lazy') {
-            // Lazy mint for gas efficiency (for DropERC721 contracts)
-            // These contracts use claim conditions instead of direct minting
-            console.log('Using lazy mint for contract type:', collection.contractType);
+            // Lazy mint ERC721 (NFTDrop)
+            console.log('Using lazy mint ERC721 for contract type:', collection.contractType);
+            const result = await lazyMintNFT({
+              contractAddress: collection.address,
+              chainId: collection.chainId,
+              metadata
+            }, account);
 
-            // For Drop contracts, we should use the claim function instead
-            if (['DropERC721', 'ERC721Drop', 'OpenEditionERC721'].includes(collection.contractType || '')) {
-              // Skip - these should use the claim flow, not mint
-              console.log('Drop contract detected - NFTs should be claimed, not minted directly');
-              // Just save metadata for now
-            } else {
-              await lazyMintNFT({
-                contractAddress: collection.address,
-                chainId: collection.chainId,
-                metadata
-              }, account);
+            if (result.transactionHash) {
+              setTxHash(result.transactionHash);
             }
-          } else {
-            // Try different mint methods based on contract type
-            console.log('Attempting direct mint for contract type:', collection.contractType);
+          } else if (mintMethod === 'lazy-edition') {
+            // Lazy mint ERC1155 (EditionDrop)
+            console.log('Using lazy mint ERC1155 for contract type:', collection.contractType);
+            const result = await lazyMintEdition({
+              contractAddress: collection.address,
+              chainId: collection.chainId,
+              metadata
+            }, account);
+            console.log('ERC1155 lazy minted with token ID:', result.tokenId);
 
-            // First, let's check if this is a Thirdweb prebuilt contract
-            // These contracts often have specific mint functions
+            if (result.transactionHash) {
+              setTxHash(result.transactionHash);
+            }
+          } else if (mintMethod === 'edition') {
+            // Direct mint ERC1155 (Edition)
+            console.log('Using direct mint ERC1155 for contract type:', collection.contractType);
+            const quantity = metadata.supply || 1;
+            const result = await mintEdition({
+              contractAddress: collection.address,
+              chainId: collection.chainId,
+              recipient: account.address,
+              metadata,
+              quantity
+            }, account);
+            console.log('ERC1155 minted with token ID:', result.tokenId, 'quantity:', quantity);
+
+            if (result.transactionHash) {
+              setTxHash(result.transactionHash);
+            }
+          } else if (mintMethod === 'open') {
+            // OpenEdition - should not mint individual NFTs
+            console.warn('OpenEdition contracts cannot mint individual NFTs - skipping');
+            console.warn('Use claim flow or set shared metadata instead');
+          } else {
+            // Direct mint ERC721 (NFTCollection)
+            console.log('Attempting direct mint ERC721 for contract type:', collection.contractType);
 
             try {
-              // Try mintTo (common for many NFT contracts)
+              // Try mintTo (common for TokenERC721)
               const transaction = prepareContractCall({
                 contract,
                 method: "function mintTo(address to, uint256 quantity)",
@@ -467,7 +552,7 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
                 console.log('mint failed, trying safeMint...');
 
                 try {
-                  // Try safeMint (ERC721A style)
+                  // Try safeMint
                   const transaction = prepareContractCall({
                     contract,
                     method: "function safeMint(address to)",
@@ -475,7 +560,6 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
                   });
                   await sendTransaction({ transaction, account });
                 } catch (safeMintError) {
-                  // If all standard methods fail, log the error
                   console.error('All mint methods failed. Contract might require special setup or different method.');
                   console.error('Contract address:', collection.address);
                   console.error('Contract type:', collection.contractType);
@@ -510,11 +594,14 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
       await saveTraitsToDatabase();
 
       setUploadProgress(100);
+      completeTransaction();
+
       onSuccess();
       onClose();
 
     } catch (error) {
       console.error('Minting failed:', error);
+      setTransactionError(error instanceof Error ? error.message : 'Minting failed');
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -609,16 +696,52 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
         <Separator className="bg-white/10" />
 
         <ScrollArea className="flex-1 px-6 py-4" style={{ maxHeight: 'calc(90vh - 250px)' }}>
+          {/* Show warning for OpenEdition contracts */}
+          {isOpenEditionContract() && (
+            <div className="mb-4 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-orange-400 font-medium mb-2">OpenEdition - Shared Metadata Only</p>
+                  <div className="text-sm text-white/70 space-y-1">
+                    <p>• OpenEdition contracts use ONE shared metadata for ALL NFTs</p>
+                    <p>• You cannot add individual NFTs with unique metadata</p>
+                    <p>• All minted tokens will share the same image, name, and attributes</p>
+                    <p>• Use this for: Music releases, event tickets, commemorative NFTs</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Show info for Edition contracts */}
+          {isEditionContract() && (
+            <div className="mb-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-purple-400 font-medium mb-2">Edition Contract - Multiple Copies</p>
+                  <div className="text-sm text-white/70 space-y-1">
+                    <p>• Create multiple NFTs, each with a specified number of copies</p>
+                    <p>• Perfect for: Game items, tiered memberships, trading cards</p>
+                    <p>• Each NFT can have different metadata and supply amounts</p>
+                    <p>• Example: "Sword (100 copies)", "Shield (50 copies)", "Potion (500 copies)"</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Show info for Drop contracts */}
-          {['DropERC721', 'ERC721Drop', 'OpenEditionERC721'].includes(collection.contractType || '') && (
+          {['NFTDrop', 'DropERC721'].includes(collection.contractType || '') && (
             <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
               <div className="flex items-start gap-3">
                 <Info className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-blue-400 font-medium mb-2">Drop Contract - One-Time Shared Metadata</p>
+                  <p className="text-blue-400 font-medium mb-2">NFT Drop - Lazy Minting</p>
                   <div className="text-sm text-white/70 space-y-1">
-                    <p>• You set the shared metadata once for the entire collection</p>
-                    <p>• All NFTs will use this metadata with unique token IDs (e.g., "Cool NFT #1", "#2", "#3"...)</p>
+                    <p>• Upload NFT metadata without paying gas upfront</p>
+                    <p>• Users claim/mint NFTs themselves and pay the gas</p>
                     <p>• Specify how many NFTs should be available for claiming</p>
                     <p>• Users claim individual NFTs through the launchpad</p>
                   </div>
@@ -859,6 +982,29 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
                     className="bg-black/40 border-white/10 text-white"
                   />
                 </div>
+
+                {/* Supply field for Edition contracts */}
+                {isEditionContract() && (
+                  <div>
+                    <Label className="text-white/80 flex items-center gap-2">
+                      Number of Copies
+                      <Badge variant="outline" className="border-purple-500/30 text-purple-400 text-xs">
+                        Edition
+                      </Badge>
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={nftData.supply || 1}
+                      onChange={(e) => setNftData(prev => ({ ...prev, supply: parseInt(e.target.value) || 1 }))}
+                      placeholder="Number of copies (e.g., 100)"
+                      className="bg-black/40 border-white/10 text-white"
+                    />
+                    <p className="text-xs text-white/60 mt-1">
+                      How many copies of this NFT should be minted? Each copy will have the same metadata but different token IDs.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Traits */}

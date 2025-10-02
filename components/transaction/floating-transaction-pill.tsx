@@ -186,12 +186,18 @@ export function FloatingTransactionPill() {
                         </span>
                       </div>
                       {state.mode && (
-                        <Badge 
-                          variant="secondary" 
+                        <Badge
+                          variant="secondary"
                           className="bg-white/10 text-white border-white/20 text-xs"
                         >
-                          {state.mode === "buy" ? <Zap className="h-3 w-3 mr-1" /> : <Tag className="h-3 w-3 mr-1" />}
-                          {state.mode === "buy" ? "Buy" : "Offer"}
+                          {state.mode === "buy" ? <Zap className="h-3 w-3 mr-1" /> :
+                           state.mode === "deploy" ? <Shield className="h-3 w-3 mr-1" /> :
+                           state.mode === "mint" ? <Sparkles className="h-3 w-3 mr-1" /> :
+                           <Tag className="h-3 w-3 mr-1" />}
+                          {state.mode === "buy" ? "Buy" :
+                           state.mode === "deploy" ? "Deploy" :
+                           state.mode === "mint" ? "Mint" :
+                           "Offer"}
                         </Badge>
                       )}
                     </div>
@@ -321,25 +327,28 @@ export function FloatingTransactionPill() {
                         <Sparkles className="h-4 w-4 text-green-400" />
                         <div>
                           <div className="text-sm font-medium text-green-400">
-                            {state.mode === "buy" ? "Purchase Successful!" : "Offer Submitted!"}
+                            {state.mode === "buy" ? "Purchase Successful!" :
+                             state.mode === "deploy" ? "Contract Deployed!" :
+                             state.mode === "mint" ? "NFTs Minted!" :
+                             "Offer Submitted!"}
                           </div>
                           <div className="text-xs text-green-400/80">
-                            {state.mode === "buy" 
-                              ? "NFT is now in your wallet" 
-                              : "Your offer is now active"
-                            }
+                            {state.mode === "buy" ? "NFT is now in your wallet" :
+                             state.mode === "deploy" ? "Your collection is live on-chain" :
+                             state.mode === "mint" ? "NFTs added to your collection" :
+                             "Your offer is now active"}
                           </div>
                         </div>
                       </div>
                       
                       <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
                         >
                           <Wallet className="h-3 w-3 mr-1" />
-                          View Wallet
+                          {state.mode === "deploy" ? "View Collection" : "View Wallet"}
                         </Button>
                         {state.txHash && (
                           <Button 
