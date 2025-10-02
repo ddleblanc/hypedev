@@ -196,7 +196,7 @@ export async function fetchCollectionStats(
       }
     `;
 
-    const data = await client.request(query);
+    const data = await client.request(query) as any;
     // console.log('Graph response:', data);
 
     // Calculate stats from TokensClaimed events

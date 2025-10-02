@@ -44,7 +44,8 @@ import {
   getRecommendedContract,
   filterContracts,
   getContractsByUseCase,
-  type ContractType
+  type ContractType,
+  type QuestionOption
 } from "@/lib/thirdweb-contracts";
 
 interface ContractSelectorProps {

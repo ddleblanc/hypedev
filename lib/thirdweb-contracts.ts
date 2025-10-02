@@ -443,8 +443,23 @@ export const THIRDWEB_CONTRACTS: ContractType[] = [
   }
 ];
 
+// Question types for guided selection
+export interface QuestionOption {
+  value: string;
+  label: string;
+  description?: string;
+  icon: string;
+}
+
+export interface SelectionQuestion {
+  id: string;
+  question: string;
+  description?: string;
+  options: QuestionOption[];
+}
+
 // Question flow for guided selection
-export const CONTRACT_SELECTION_QUESTIONS = [
+export const CONTRACT_SELECTION_QUESTIONS: SelectionQuestion[] = [
   {
     id: "metadata_type",
     question: "What kind of NFT collection are you creating?",

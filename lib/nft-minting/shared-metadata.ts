@@ -55,14 +55,14 @@ export async function setSharedMetadata({
       String(metadata.description || ""),
       String(metadata.image),
       String(metadata.animation_url || "")
-    ];
+    ] as const;
 
     console.log('Prepared metadata tuple:', metadataTuple);
 
     const transaction = prepareContractCall({
       contract,
       method: "function setSharedMetadata((string name, string description, string imageURI, string animationURI) _metadata)",
-      params: [metadataTuple]
+      params: [metadataTuple] as any
     });
 
     const result = await sendTransaction({

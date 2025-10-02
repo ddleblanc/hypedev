@@ -41,6 +41,7 @@ interface MintNFTsModalProps {
     address?: string;
     chainId: number;
     contractType?: string;
+    image?: string;
     collectionTraits?: Array<{
       traitType: string;
       values: Array<{ value: string; count: number }>;
