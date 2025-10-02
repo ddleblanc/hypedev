@@ -13,6 +13,7 @@ import { BackgroundCarousel } from "@/components/background-carousel";
 import { useStudio } from "@/contexts/studio-context";
 import { P2PTradingProvider } from "@/contexts/p2p-trading-context";
 import { ListsProvider, useLists } from "@/contexts/lists-context";
+import { CollectionProvider, useCollectionOptional } from "@/contexts/collection-context";
 import { StudioMobileNav } from "@/components/studio/studio-mobile-nav";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -688,29 +689,31 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   };
 
   return (
-    <P2PTradingProvider>
-      <ListsProvider>
-        <ProgressiveUIWrapperInner
-          children={children}
-          uiState={uiState}
-          currentRoute={currentRoute}
-          handleNavigate={handleNavigate}
-          handleStudioViewChange={handleStudioViewChange}
-          currentStudioView={currentStudioView}
-          studioData={studioData}
-          p2pData={p2pData}
-          lootboxData={lootboxData}
-          p2pRightSidebarData={p2pRightSidebarData}
-          museumTechData={museumTechData}
-          museumGamingData={museumGamingData}
-          isMobile={isMobile}
-          isStudioRoute={isStudioRoute}
-          isMobileSidebarOpen={isMobileSidebarOpen}
-          setIsMobileSidebarOpen={setIsMobileSidebarOpen}
-          studioHeaderContextValue={studioHeaderContextValue}
-        />
-      </ListsProvider>
-    </P2PTradingProvider>
+    <CollectionProvider>
+      <P2PTradingProvider>
+        <ListsProvider>
+          <ProgressiveUIWrapperInner
+            children={children}
+            uiState={uiState}
+            currentRoute={currentRoute}
+            handleNavigate={handleNavigate}
+            handleStudioViewChange={handleStudioViewChange}
+            currentStudioView={currentStudioView}
+            studioData={studioData}
+            p2pData={p2pData}
+            lootboxData={lootboxData}
+            p2pRightSidebarData={p2pRightSidebarData}
+            museumTechData={museumTechData}
+            museumGamingData={museumGamingData}
+            isMobile={isMobile}
+            isStudioRoute={isStudioRoute}
+            isMobileSidebarOpen={isMobileSidebarOpen}
+            setIsMobileSidebarOpen={setIsMobileSidebarOpen}
+            studioHeaderContextValue={studioHeaderContextValue}
+          />
+        </ListsProvider>
+      </P2PTradingProvider>
+    </CollectionProvider>
   );
 }
 
@@ -734,6 +737,7 @@ function ProgressiveUIWrapperInner({
   studioHeaderContextValue,
 }: any) {
   const listsContext = useLists();
+  const collectionContext = useCollectionOptional();
 
   // Prepare lists data for sidebar
   const listsData = currentRoute === 'lists' ? {
@@ -794,6 +798,7 @@ function ProgressiveUIWrapperInner({
         p2pData={p2pData}
         lootboxData={lootboxData}
         listsData={listsData}
+        collectionData={collectionContext?.collectionData || undefined}
         museumData={currentRoute === 'museum' ? museumTechData : undefined}
         onNavigate={handleNavigate}
       />

@@ -15,6 +15,8 @@ import { ActivityTab } from "@/components/collection/activity-tab";
 import { HoldersTab } from "@/components/collection/holders-tab";
 import { mockCollection } from "@/components/collection/mock-data";
 import type { Collection } from "@/components/collection/types";
+import { useCollectionOptional } from "@/contexts/collection-context";
+import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 
 interface CollectionDetailPageProps {
   slug: string;
@@ -27,6 +29,8 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
   const [collection, setCollection] = useState<Collection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const collectionContext = useCollectionOptional();
+  const { user } = useWalletAuthOptimized();
 
   // Fetch collection data
   useEffect(() => {
@@ -51,6 +55,31 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
 
     fetchCollection();
   }, [slug]);
+
+  // Update collection context when collection data changes
+  useEffect(() => {
+    if (collection && collectionContext) {
+      const isOwner = user?.walletAddress?.toLowerCase() === collection.creator.address.toLowerCase();
+
+      collectionContext.setCollectionData({
+        id: collection.id,
+        name: collection.title,
+        totalSupply: collection.stats.totalSupply,
+        owners: collection.stats.uniqueOwners,
+        floorPrice: collection.stats.floorPrice,
+        volume: collection.stats.volumeAll,
+        listed: `${collection.stats.listedCount} (${collection.stats.listedPercentage}%)`,
+        isOwner
+      });
+    }
+
+    // Cleanup when component unmounts
+    return () => {
+      if (collectionContext) {
+        collectionContext.setCollectionData(null);
+      }
+    };
+  }, [collection, collectionContext, user]);
 
   const handleShare = () => {
     if (navigator.share && collection) {
