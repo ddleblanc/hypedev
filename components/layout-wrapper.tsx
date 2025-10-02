@@ -336,8 +336,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   const techItems = [
     {
       id: "tech-1",
-      title: "Neural Networks",
-      subtitle: "Deep Learning",
+      title: "Jugi Tandon",
+      subtitle: "The Innovator",
       thumbnail: "/assets/img/tech1.png",
       introVideo: "/videos/tech-intro-1.mp4",
     },

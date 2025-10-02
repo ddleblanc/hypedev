@@ -62,7 +62,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
               LEGENDS HALL
             </motion.h1>
             <motion.p
-              className="text-xl md:text-2xl text-[#00ff88] font-light tracking-wide"
+              className="text-xl md:text-2xl text-white/60 font-light tracking-wide"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8, duration: 0.8 }}
@@ -94,7 +94,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                   muted
                   playsInline
                   className="w-full h-full object-cover"
-                  src="https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/9b999c34-2113-4873-89b9-d23dba35f954/transcode=true,original=true,quality=90/dnd_clips_04.webm"
+                  src="/assets/img/jugi.mp4"
                 />
 
                 {/* Gradients - Netflix Style */}
@@ -107,7 +107,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
               <div className="absolute inset-0 flex items-center z-10">
                 <div className="px-8 md:px-16 max-w-4xl">
                   <div className="opacity-0 animate-[fadeInUp_0.6s_ease-out_0.2s_forwards]">
-                    <span className="text-sm md:text-base text-[#00ff88] font-medium tracking-wider uppercase mb-4 block">
+                    <span className="text-sm md:text-base text-white/50 font-medium tracking-wider uppercase mb-4 block">
                       {selectedItem?.subtitle || 'Genesis Collection'}
                     </span>
 
@@ -129,7 +129,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                     <div className="flex flex-wrap gap-4 mb-12">
                       <Button
                         size="lg"
-                        className="bg-[#00ff88] text-black hover:bg-[#00ff88]/90 font-bold text-lg px-8 py-6 h-auto"
+                        className="bg-white text-black hover:bg-white/90 font-bold text-lg px-8 py-6 h-auto"
                       >
                         <Play className="w-5 h-5 mr-2 fill-current" />
                         View Collection
@@ -185,9 +185,9 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
               <div className="max-w-7xl mx-auto">
                 <div className="grid md:grid-cols-2 gap-16 items-center">
                   <div>
-                    <span className="text-[#00ff88] font-medium tracking-wider uppercase text-sm">The Vision</span>
+                    <span className="text-white/50 font-medium tracking-wider uppercase text-sm">The Vision</span>
                     <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 mt-4">
-                      A Museum Without Walls
+                      A Computer In Every Home
                     </h2>
                     <p className="text-lg text-white/70 leading-relaxed mb-6">
                       Legends Hall reimagines the museum experience for the digital age.
@@ -201,10 +201,10 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                     </p>
                   </div>
                   <div className="relative">
-                    <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-[#00ff88]/20 to-transparent p-8">
+                    <div className="aspect-square rounded-2xl overflow-hidden bg-gradient-to-br from-white/10 to-transparent p-8">
                       <div className="h-full rounded-xl bg-white/5 backdrop-blur-sm flex items-center justify-center">
                         <div className="text-center">
-                          <p className="text-6xl font-bold text-[#00ff88] mb-4">∞</p>
+                          <p className="text-6xl font-bold text-white mb-4">∞</p>
                           <p className="text-white text-xl">Infinite Possibilities</p>
                         </div>
                       </div>
@@ -218,7 +218,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
             <section className="relative bg-gradient-to-b from-[#0a0a0a] to-[#0f0f0f] px-8 md:px-16 py-24">
               <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-16">
-                  <span className="text-[#00ff88] font-medium tracking-wider uppercase text-sm">Featured Works</span>
+                  <span className="text-white/50 font-medium tracking-wider uppercase text-sm">Featured Works</span>
                   <h2 className="text-4xl md:text-5xl font-bold text-white mt-4 mb-6">
                     The Genesis Collection
                   </h2>
@@ -232,7 +232,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                     <div key={i} className="group relative">
-                      <div className="aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-[#00ff88]/10 to-transparent">
+                      <div className="aspect-square rounded-xl overflow-hidden bg-gradient-to-br from-white/5 to-transparent">
                         <img
                           src={selectedItem?.thumbnail || '/api/placeholder/400/400'}
                           alt={`NFT #${1000 + i}`}
@@ -241,14 +241,14 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl flex flex-col justify-end p-4">
                         <p className="text-white font-bold">Legend #{1000 + i}</p>
-                        <p className="text-[#00ff88] text-sm">0.08 ETH</p>
+                        <p className="text-white/60 text-sm">0.08 ETH</p>
                       </div>
                     </div>
                   ))}
                 </div>
 
                 <div className="text-center">
-                  <Button size="lg" className="bg-[#00ff88] text-black hover:bg-[#00ff88]/90 font-bold">
+                  <Button size="lg" className="bg-white text-black hover:bg-white/90 font-bold">
                     Explore Full Collection
                   </Button>
                 </div>
@@ -259,7 +259,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
             <section className="relative bg-[#0f0f0f] px-8 md:px-16 py-24">
               <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-16">
-                  <span className="text-[#00ff88] font-medium tracking-wider uppercase text-sm">Rarity System</span>
+                  <span className="text-white/50 font-medium tracking-wider uppercase text-sm">Rarity System</span>
                   <h2 className="text-4xl md:text-5xl font-bold text-white mt-4 mb-6">
                     Every Detail Matters
                   </h2>
@@ -282,7 +282,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                     <p className="text-white/50 text-sm">15% of collection</p>
                   </div>
                   <div className="text-center p-6 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#00ff88] to-[#00cc70] mx-auto mb-4"></div>
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-white to-gray-300 mx-auto mb-4"></div>
                     <h3 className="text-white font-bold mb-2">Legendary</h3>
                     <p className="text-white/50 text-sm">5% of collection</p>
                   </div>
@@ -310,7 +310,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
               <div className="max-w-7xl mx-auto">
                 <div className="grid md:grid-cols-2 gap-16 items-center">
                   <div>
-                    <span className="text-[#00ff88] font-medium tracking-wider uppercase text-sm">The Creators</span>
+                    <span className="text-white/50 font-medium tracking-wider uppercase text-sm">The Creators</span>
                     <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 mt-4">
                       Curated by Visionaries
                     </h2>
@@ -321,7 +321,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                     </p>
                     <div className="space-y-4">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#00ff88] to-[#00cc70]"></div>
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-white to-gray-300"></div>
                         <div>
                           <p className="text-white font-bold">Alex Chen</p>
                           <p className="text-white/50 text-sm">Lead Artist & Creative Director</p>
@@ -362,7 +362,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
             {/* Mint Section */}
             <section className="relative bg-[#0a0a0a] px-8 md:px-16 py-24 border-t border-white/10">
               <div className="max-w-4xl mx-auto text-center">
-                <span className="text-[#00ff88] font-medium tracking-wider uppercase text-sm">Join the Movement</span>
+                <span className="text-white/50 font-medium tracking-wider uppercase text-sm">Join the Movement</span>
                 <h2 className="text-4xl md:text-5xl font-bold text-white mt-4 mb-6">
                   Become a Legend
                 </h2>
@@ -384,11 +384,11 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                   </div>
 
                   <div className="w-full bg-white/10 rounded-full h-4 mb-8">
-                    <div className="bg-gradient-to-r from-[#00ff88] to-[#00cc70] h-4 rounded-full" style={{width: '65.73%'}}></div>
+                    <div className="bg-gradient-to-r from-white to-gray-300 h-4 rounded-full" style={{width: '65.73%'}}></div>
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    <Button size="lg" className="bg-[#00ff88] text-black hover:bg-[#00ff88]/90 font-bold text-lg px-12">
+                    <Button size="lg" className="bg-white text-black hover:bg-white/90 font-bold text-lg px-12">
                       Mint Now
                     </Button>
                     <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10">
@@ -403,15 +403,15 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
             <section className="relative bg-gradient-to-b from-[#0a0a0a] to-[#0f0f0f] px-8 md:px-16 py-24">
               <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-16">
-                  <span className="text-[#00ff88] font-medium tracking-wider uppercase text-sm">The Journey</span>
+                  <span className="text-white/50 font-medium tracking-wider uppercase text-sm">The Journey</span>
                   <h2 className="text-4xl md:text-5xl font-bold text-white mt-4 mb-6">
                     What's Next
                   </h2>
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-8">
-                  <div className="p-8 rounded-xl bg-white/5 backdrop-blur-sm border border-[#00ff88]/30">
-                    <div className="text-[#00ff88] font-bold text-lg mb-4">Phase 1: Genesis</div>
+                  <div className="p-8 rounded-xl bg-white/5 backdrop-blur-sm border border-white/30">
+                    <div className="text-white font-bold text-lg mb-4">Phase 1: Genesis</div>
                     <h3 className="text-white font-bold text-xl mb-4">Collection Launch</h3>
                     <p className="text-white/60">10,000 unique pieces minted and distributed to collectors worldwide.</p>
                   </div>
@@ -438,7 +438,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                 <p className="text-lg text-white/70 mb-8">
                   Join thousands of collectors in the digital art revolution.
                 </p>
-                <Button size="lg" className="bg-[#00ff88] text-black hover:bg-[#00ff88]/90 font-bold text-lg px-12">
+                <Button size="lg" className="bg-white text-black hover:bg-white/90 font-bold text-lg px-12">
                   Start Your Collection
                 </Button>
               </div>
