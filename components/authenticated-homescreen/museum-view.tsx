@@ -249,7 +249,7 @@ export function MuseumView({ }: MuseumViewProps) {
   const currentEp = episodes[currentEpisode];
 
   return (
-    <div className="fixed inset-0 z-10 overflow-hidden bg-black">
+    <div className={`fixed inset-0 z-10 overflow-hidden ${selectedItem ? 'bg-black' : ''}`}>
       {/* Title Animation */}
       <AnimatePresence>
         {showTitleAnimation && (
