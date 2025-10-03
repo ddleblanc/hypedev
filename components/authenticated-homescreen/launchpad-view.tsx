@@ -375,7 +375,7 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
                 : "space-y-4"
             )}
           >
-            {filteredCollections.map((collection: Collection, index: number) => (
+            {filteredCollections.map((collection: LaunchpadCollection, index: number) => (
               <motion.div
                 key={collection.id}
                 initial={{ opacity: 0, y: 20 }}
