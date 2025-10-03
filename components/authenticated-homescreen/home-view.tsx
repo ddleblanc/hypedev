@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -118,6 +119,7 @@ type HomeViewProps = {
 };
 
 export function HomeView({ setViewMode }: HomeViewProps) {
+  const router = useRouter();
   const { user: walletUser } = useWalletAuthOptimized();
   const { user } = useAuth();
   const { showCarousel, isCarouselVisible, hideCarousel, setCurrentBackground, currentBackground } = useBackgroundCarousel();
@@ -553,6 +555,13 @@ export function HomeView({ setViewMode }: HomeViewProps) {
                     setViewMode('play');
                   } else if (item.label === 'MUSEUM') {
                     setViewMode('museum');
+                  } else if (item.label === 'COLLECTION') {
+                    const addr = walletUser?.walletAddress;
+                    if (addr) {
+                      router.push(`/${addr}/collection`);
+                    } else {
+                      router.push(`/profile`);
+                    }
                   } else {
                     null;
                   }
@@ -631,6 +640,13 @@ export function HomeView({ setViewMode }: HomeViewProps) {
               const handleClick = () => {
                 if (!item.external && item.href === "/studio") {
                   setViewMode('studio');
+                } else if (!item.external && item.label === 'COLLECTION') {
+                  const addr = walletUser?.walletAddress;
+                  if (addr) {
+                    router.push(`/${addr}/collection`);
+                  } else {
+                    router.push(`/profile`);
+                  }
                 }
               };
 
@@ -744,6 +760,13 @@ export function HomeView({ setViewMode }: HomeViewProps) {
                         setViewMode('play');
                       } else if (item.label === 'MUSEUM') {
                         setViewMode('museum');
+                      } else if (item.label === 'COLLECTION') {
+                        const addr = walletUser?.walletAddress;
+                        if (addr) {
+                          router.push(`/${addr}/collection`);
+                        } else {
+                          router.push(`/profile`);
+                        }
                       }
                     }}
                     className="flex flex-col items-center py-3 text-white/60 active:text-[rgb(163,255,18)] transition-colors group"

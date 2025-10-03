@@ -2,27 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 type OwnedNFT = {
   id: string;
   name: string;
   description?: string;
   image?: string;
-  attributes?: Array<{ trait_type?: string; value?: string }>;
-  collection: {
-    name: string;
-    symbol?: string;
-    address?: string;
-  };
+  collectionName?: string;
+  collection?: { name?: string; symbol?: string };
 };
 
-export default function MyCollectionsPage() {
-  const { user, isConnected } = useWalletAuthOptimized();
+export default function UserCollectionPage({ params }: { params: { address: string } }) {
+  const { address } = params;
   const [nfts, setNfts] = useState<OwnedNFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,55 +24,43 @@ export default function MyCollectionsPage() {
 
   useEffect(() => {
     const fetchOwned = async () => {
-      if (!user?.walletAddress) {
+      if (!address) {
         setIsLoading(false);
         return;
       }
       try {
         setIsLoading(true);
         setError(null);
-        const res = await fetch(`/api/user/${user.walletAddress}/nfts?filter=owned&limit=200`);
+        const res = await fetch(`/api/user/${address}/nfts?filter=owned&limit=200`);
         const data = await res.json();
         if (data.success) {
-          setNfts(data.nfts || []);
+          const items = data.data?.nfts || data.nfts || [];
+          setNfts(items);
         } else {
-          setError(data.error || "Failed to load your NFTs");
+          setError(data.error || "Failed to load NFTs");
         }
       } catch (e) {
-        setError("Failed to load your NFTs");
+        setError("Failed to load NFTs");
       } finally {
         setIsLoading(false);
       }
     };
     fetchOwned();
-  }, [user?.walletAddress]);
+  }, [address]);
 
   const filtered = useMemo(() => {
     if (!searchQuery) return nfts;
     const q = searchQuery.toLowerCase();
     return nfts.filter((n) =>
       n.name?.toLowerCase().includes(q) ||
+      n.collectionName?.toLowerCase().includes(q) ||
       n.collection?.name?.toLowerCase().includes(q) ||
       n.collection?.symbol?.toLowerCase().includes(q)
     );
   }, [nfts, searchQuery]);
 
-  if (!isConnected) {
-    return (
-      <div className="min-h-screen bg-black pt-16 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-white/80 mb-2">Connect your wallet to view your collection</p>
-          <div className="inline-flex">
-            <Button className="bg-white text-black hover:bg-white/90">Connect Wallet</Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-black pt-16">
-      {/* Hero/Header */}
       <div className="px-4 md:px-8 lg:px-12 py-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -87,22 +69,21 @@ export default function MyCollectionsPage() {
           className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4"
         >
           <div>
-            <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">My Collection</h1>
-            <p className="text-white/60">All NFTs owned by your connected wallet</p>
+            <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">Collection</h1>
+            <p className="text-white/60 break-all">Owner: {address}</p>
           </div>
           <div className="flex items-center gap-3">
             <Badge className="bg-white/10 text-white border-white/20">{nfts.length} items</Badge>
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search my NFTs..."
+              placeholder="Search NFTs..."
               className="w-64 h-9 bg-white/5 border-white/10 text-white placeholder:text-white/40"
             />
           </div>
         </motion.div>
       </div>
 
-      {/* Items Grid */}
       <div className="px-4 md:px-8 lg:px-12 pb-16">
         {isLoading ? (
           <div className="flex items-center justify-center py-24">
@@ -138,7 +119,7 @@ export default function MyCollectionsPage() {
                   </div>
                   <div className="p-3">
                     <p className="text-xs text-white/50 mb-1 truncate">
-                      {nft.collection?.name}
+                      {nft.collection?.name || nft.collectionName}
                       {nft.collection?.symbol ? (
                         <span className="text-white/30"> • {nft.collection.symbol}</span>
                       ) : null}
