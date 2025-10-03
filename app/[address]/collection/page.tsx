@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useParams } from "next/navigation";
 
 type OwnedNFT = {
   id: string;
@@ -15,8 +16,9 @@ type OwnedNFT = {
   collection?: { name?: string; symbol?: string };
 };
 
-export default function UserCollectionPage({ params }: { params: { address: string } }) {
-  const { address } = params;
+export default function UserCollectionPage() {
+  const routeParams = useParams();
+  const address = typeof routeParams?.address === 'string' ? routeParams.address : Array.isArray(routeParams?.address) ? routeParams.address[0] : '';
   const [nfts, setNfts] = useState<OwnedNFT[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
