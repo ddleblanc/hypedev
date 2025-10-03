@@ -1431,7 +1431,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
                                 <div>
                                   <h4 className="text-sm font-semibold text-white mb-3">Attributes</h4>
                                   <div className="grid grid-cols-2 gap-3">
-                                    {collection.sharedMetadata.attributes.map((attr, idx) => (
+                                    {collection.sharedMetadata.attributes.map((attr: any, idx: number) => (
                                       <div key={idx} className="bg-white/5 rounded-lg p-3 border border-white/10">
                                         <p className="text-xs text-white/60 mb-1">{attr.trait_type}</p>
                                         <p className="text-sm text-white font-medium">{attr.value}</p>
