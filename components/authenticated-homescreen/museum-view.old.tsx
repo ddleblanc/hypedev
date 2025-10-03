@@ -246,6 +246,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                 </div>
               )}
             </div>
+            </div>
 
             {/* Museum Gallery Sections */}
 
