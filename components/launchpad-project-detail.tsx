@@ -241,33 +241,34 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
   const switchChain = useSwitchActiveWalletChain();
   const { startTransaction, updateStep, completeTransaction, setError: setTransactionError, setTxHash } = useTransaction();
 
-  // Fetch collection data
-  useEffect(() => {
-    const fetchCollection = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+  // Fetch/refresh collection data
+  const refreshCollection = React.useCallback(async () => {
+    if (!projectId) return;
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        const response = await fetch(`/api/public/collections/${projectId}`);
-        const data = await response.json();
+      const response = await fetch(`/api/public/collections/${projectId}`);
+      const data = await response.json();
 
-        if (data.success && data.collection) {
-          setCollection(data.collection);
-        } else {
-          setError(data.error || 'Failed to load collection');
-        }
-      } catch (err) {
-        console.error('Error fetching collection:', err);
-        setError('Failed to load collection');
-      } finally {
-        setIsLoading(false);
+      if (data.success && data.collection) {
+        setCollection(data.collection);
+      } else {
+        setError(data.error || 'Failed to load collection');
       }
-    };
-
-    if (projectId) {
-      fetchCollection();
+    } catch (err) {
+      console.error('Error fetching collection:', err);
+      setError('Failed to load collection');
+    } finally {
+      setIsLoading(false);
     }
   }, [projectId]);
+
+  useEffect(() => {
+    if (projectId) {
+      refreshCollection();
+    }
+  }, [projectId, refreshCollection]);
 
   // Parse claim phases from collection
   const claimPhases = collection?.claimPhases ? JSON.parse(collection.claimPhases) : [];
@@ -564,7 +565,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
 
       // Refresh collection data to update minted count and stats
       console.log("Refreshing collection data...");
-      await fetchCollections();
+      await refreshCollection();
 
       // Refresh user's claim status
       if (collection.address) {
