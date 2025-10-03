@@ -280,7 +280,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Layers className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Layers className="h-5 w-5 text-white" />
                           Collections
                         </h2>
                         <p className="text-sm text-white/60">Manage NFT collections</p>
@@ -290,7 +290,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <FolderOpen className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <FolderOpen className="h-5 w-5 text-white" />
                           Projects
                         </h2>
                         <p className="text-sm text-white/60">Organize your work</p>
@@ -300,7 +300,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Image className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Image className="h-5 w-5 text-white" />
                           NFTs
                         </h2>
                         <p className="text-sm text-white/60">Your digital assets</p>
@@ -310,7 +310,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <BarChart3 className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <BarChart3 className="h-5 w-5 text-white" />
                           Analytics
                         </h2>
                         <p className="text-sm text-white/60">Track performance</p>
@@ -320,7 +320,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Activity className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Activity className="h-5 w-5 text-white" />
                           Activity
                         </h2>
                         <p className="text-sm text-white/60">Recent events</p>
@@ -330,7 +330,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Settings className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Settings className="h-5 w-5 text-white" />
                           Settings
                         </h2>
                         <p className="text-sm text-white/60">Studio preferences</p>
@@ -340,7 +340,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Plus className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Plus className="h-5 w-5 text-white" />
                           Create
                         </h2>
                         <p className="text-sm text-white/60">New collection</p>
@@ -350,7 +350,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <PieChart className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <PieChart className="h-5 w-5 text-white" />
                           Dashboard
                         </h2>
                         <p className="text-sm text-white/60">Overview & insights</p>
@@ -361,7 +361,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Database className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Database className="h-5 w-5 text-white" />
                           Studio
                         </h2>
                         <p className="text-sm text-white/60">Create & Manage</p>
@@ -376,7 +376,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Package className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Package className="h-5 w-5 text-white" />
                           Collection
                         </h2>
                         <p className="text-sm text-white/60">Your NFT assets</p>
@@ -386,7 +386,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Trophy className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Trophy className="h-5 w-5 text-white" />
                           Achievements
                         </h2>
                         <p className="text-sm text-white/60">Your progress</p>
@@ -396,7 +396,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Activity className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Activity className="h-5 w-5 text-white" />
                           Activity
                         </h2>
                         <p className="text-sm text-white/60">Performance metrics</p>
@@ -406,7 +406,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <Settings className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <Settings className="h-5 w-5 text-white" />
                           Settings
                         </h2>
                         <p className="text-sm text-white/60">Profile preferences</p>
@@ -417,7 +417,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     return (
                       <>
                         <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <User className="h-5 w-5 text-[rgb(163,255,18)]" />
+                          <User className="h-5 w-5 text-white" />
                           Profile
                         </h2>
                         <p className="text-sm text-white/60">Personal dashboard</p>
@@ -428,7 +428,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
               ) : currentRoute === 'launchpad' || currentRoute === 'launchpad-detail' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-[rgb(163,255,18)]" />
+                    <Sparkles className="h-5 w-5 text-white" />
                     Launchpad
                   </h2>
                   <p className="text-sm text-white/60">Discover new collections</p>
@@ -453,7 +453,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
               ) : currentRoute === 'lists' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <FolderOpen className="h-5 w-5 text-[rgb(163,255,18)]" />
+                    <FolderOpen className="h-5 w-5 text-white" />
                     Your Lists
                   </h2>
                   <p className="text-sm text-white/60">{listsData?.lists.length || 0} lists</p>
@@ -501,7 +501,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
               ) : currentRoute === 'collection-detail' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-[rgb(163,255,18)]" />
+                    <TrendingUp className="h-5 w-5 text-white" />
                     Marketplace
                   </h2>
                   <p className="text-sm text-white/60">Explore this collection</p>
@@ -608,7 +608,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                 <div className="w-full space-y-3">
                   <Button
                     onClick={listsData.onCreateList}
-                    className="w-full bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold"
+                    className="w-full bg-white text-black hover:bg-white/90 font-bold"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Create New List
@@ -641,7 +641,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1 gap-2 border-[rgb(163,255,18)]/30 text-[rgb(163,255,18)] hover:bg-[rgb(163,255,18)]/10"
+                      className="flex-1 gap-2 border-white/30 text-white hover:bg-white/10"
                     >
                       <Star className="w-3 h-3" />
                       Featured
@@ -715,27 +715,27 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
               <div className="p-6">
                 {/* Create List Form */}
                 {listsData.isCreatingList && (
-                  <div className="bg-black border border-white/10 p-3 mb-4 rounded-lg">
+                  <div className="mb-8">
                     <Input
                       placeholder="List name..."
                       value={listsData.newListName}
                       onChange={(e) => listsData.onNewListNameChange(e.target.value)}
-                      className="mb-2 bg-black/60 border-white/20 text-white"
+                      className="mb-3 bg-transparent border-0 border-b border-white/20 text-white rounded-none px-0"
                       autoFocus
                     />
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <Button
                         size="sm"
                         onClick={listsData.onConfirmCreate}
-                        className="flex-1 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90"
+                        className="flex-1 bg-white text-black hover:bg-white/90"
                       >
                         Create
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={listsData.onCancelCreate}
-                        className="flex-1 border-white/20 text-white hover:bg-white/10"
+                        className="flex-1 text-white/60 hover:text-white hover:bg-transparent"
                       >
                         Cancel
                       </Button>
@@ -744,7 +744,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                 )}
 
                 {/* Lists */}
-                <div className="space-y-2">
+                <div className="space-y-6">
                   {listsData.lists.map((list: any) => {
                     const isSelected = listsData.selectedList?.id === list.id;
                     const IconComponent = list.type === 'watchlist' ? Heart : list.type === 'favorites' ? Star : FolderOpen;
@@ -753,33 +753,25 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                       <button
                         key={list.id}
                         onClick={() => listsData.onSelectList(list)}
-                        className={`w-full text-left p-3 rounded-lg border transition-all ${
+                        className={`w-full text-left transition-all ${
                           isSelected
-                            ? 'bg-gradient-to-br from-[rgb(163,255,18)]/20 to-[rgb(163,255,18)]/5 border-[rgb(163,255,18)] text-white'
-                            : 'bg-gradient-to-br from-white/5 to-transparent border-white/10 text-white/60 hover:border-white/30 hover:text-white hover:bg-white/5'
+                            ? 'text-white'
+                            : 'text-white/60 hover:text-white'
                         }`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <div className={`p-2 rounded-lg flex-shrink-0 ${
-                              isSelected ? 'bg-[rgb(163,255,18)]/20' : 'bg-white/5'
-                            }`}>
-                              <IconComponent className={`w-4 h-4 ${isSelected ? 'text-[rgb(163,255,18)]' : 'text-white/40'}`} />
-                            </div>
+                            <IconComponent className={`w-5 h-5 flex-shrink-0 ${isSelected ? 'text-white' : 'text-white/40'}`} />
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-sm font-bold truncate">{list.name}</h3>
-                              <Badge className={`text-xs px-2 py-0.5 mt-1 ${
-                                isSelected
-                                  ? 'bg-[rgb(163,255,18)]/30 text-[rgb(163,255,18)] border-[rgb(163,255,18)]/50'
-                                  : 'bg-white/10 text-white/60 border-white/20'
-                              }`}>
+                              <h3 className="text-base font-bold truncate mb-1">{list.name}</h3>
+                              <p className="text-xs text-white/60">
                                 {list._count.items} items
-                              </Badge>
+                              </p>
                             </div>
                           </div>
                           {list.type === 'custom' && (
                             <button
-                              className="p-1 hover:bg-white/10 rounded"
+                              className="text-white/40 hover:text-white"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 listsData.onDeleteList(list.id);
@@ -821,12 +813,12 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                           className="flex items-center justify-between"
                         >
                           <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <Icon className="h-4 w-4 text-white" />
                             <span className="text-white/80 text-sm">{label}</span>
                           </div>
-                          <Badge className="bg-white/10 text-white border-white/20">
+                          <span className="text-sm font-bold text-white">
                             {value}
-                          </Badge>
+                          </span>
                         </motion.div>
                       ))}
                     </div>
@@ -857,7 +849,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         const collectionId = m ? m[1] : null;
                         return (
                           <>
-                            <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold" onClick={() => collectionId && router.push(`/studio/collections/${collectionId}/edit`)}>
+                            <Button className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold" onClick={() => collectionId && router.push(`/studio/collections/${collectionId}/edit`)}>
                               <Edit3 className="w-4 h-4 mr-2" /> Edit Metadata
                             </Button>
                             <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10" onClick={() => collectionId && router.push(`/studio/collections/${collectionId}/airdrop`)}>
@@ -872,7 +864,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     ) : pathname === '/studio/collections' ? (
                       // Collections page actions
                       <>
-                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold" onClick={() => router.push('/studio/create')}>
+                        <Button className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold" onClick={() => router.push('/studio/create')}>
                           <Plus className="w-4 h-4 mr-2" /> New Collection
                         </Button>
                         <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
@@ -885,7 +877,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     ) : pathname === '/studio/projects' ? (
                       // Projects page actions
                       <>
-                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                        <Button className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold">
                           <FolderOpen className="w-4 h-4 mr-2" /> New Project
                         </Button>
                         <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
@@ -898,7 +890,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     ) : pathname === '/studio/nfts' ? (
                       // NFTs page actions
                       <>
-                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                        <Button className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold">
                           <Image className="w-4 h-4 mr-2" /> Create NFT
                         </Button>
                         <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
@@ -911,7 +903,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     ) : pathname === '/studio/analytics' ? (
                       // Analytics page actions
                       <>
-                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                        <Button className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold">
                           <BarChart3 className="w-4 h-4 mr-2" /> Export Report
                         </Button>
                         <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
@@ -924,7 +916,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     ) : pathname === '/studio/settings' ? (
                       // Settings page actions
                       <>
-                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                        <Button className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold">
                           <Settings className="w-4 h-4 mr-2" /> Preferences
                         </Button>
                         <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
@@ -937,7 +929,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     ) : (
                       // Default studio actions
                       <>
-                        <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                        <Button className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold">
                           <Database className="w-4 h-4 mr-2" /> Quick Start
                         </Button>
                         <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
@@ -967,19 +959,19 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     transition={{ delay: 0.55 }}
                     className="space-y-3"
                   >
-                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                    <a href="#" className="block text-white/60 hover:text-white transition-colors text-sm">
                       📚 Documentation
                     </a>
-                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                    <a href="#" className="block text-white/60 hover:text-white transition-colors text-sm">
                       🎥 Video Tutorials
                     </a>
-                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                    <a href="#" className="block text-white/60 hover:text-white transition-colors text-sm">
                       💡 Best Practices
                     </a>
-                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                    <a href="#" className="block text-white/60 hover:text-white transition-colors text-sm">
                       🚀 API Reference
                     </a>
-                    <a href="#" className="block text-white/60 hover:text-[rgb(163,255,18)] transition-colors text-sm">
+                    <a href="#" className="block text-white/60 hover:text-white transition-colors text-sm">
                       💬 Community Forum
                     </a>
                   </motion.div>
@@ -1066,7 +1058,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         className="flex items-center justify-between"
                       >
                         <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                          <Icon className="h-4 w-4 text-white" />
                           <span className="text-white/80 text-sm">{label}</span>
                         </div>
                         <Badge className="bg-white/10 text-white border-white/20">
@@ -1093,7 +1085,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     transition={{ delay: 0.55 }}
                     className="space-y-2"
                   >
-                    <Button className="w-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold">
+                    <Button className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold">
                       <Edit3 className="w-4 h-4 mr-2" /> Edit Profile
                     </Button>
                     <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
@@ -1170,7 +1162,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         className="flex items-center justify-between"
                       >
                         <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                          <Icon className="h-4 w-4 text-white" />
                           <span className="text-white/80 text-sm">{label}</span>
                         </div>
                         <Badge className="bg-white/10 text-white border-white/20">
@@ -1218,24 +1210,24 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                   >
                     ANALYTICS
                   </motion.h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white/5 rounded-lg p-2">
-                      <div className="text-xs text-white/60">Listed</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="py-2">
+                      <div className="text-xs text-white/60 mb-1">Listed</div>
                       <div className="text-lg font-bold text-white">{collectionData.listed}</div>
                     </div>
-                    <div className="bg-white/5 rounded-lg p-2">
-                      <div className="text-xs text-white/60">Avg Price</div>
-                      <div className="text-lg font-bold text-[rgb(163,255,18)]">
+                    <div className="py-2">
+                      <div className="text-xs text-white/60 mb-1">Avg Price</div>
+                      <div className="text-lg font-bold text-white">
                         {(parseFloat(collectionData.floorPrice) * 1.3).toFixed(1)} ETH
                       </div>
                     </div>
-                    <div className="bg-white/5 rounded-lg p-2">
-                      <div className="text-xs text-white/60">24h Volume</div>
+                    <div className="py-2">
+                      <div className="text-xs text-white/60 mb-1">24h Volume</div>
                       <div className="text-lg font-bold text-white">{randomStats?.volume24h || '0.0'} ETH</div>
                     </div>
-                    <div className="bg-white/5 rounded-lg p-2">
-                      <div className="text-xs text-white/60">7d Change</div>
-                      <div className="text-lg font-bold text-green-400">+{randomStats?.change7d || '0.0'}%</div>
+                    <div className="py-2">
+                      <div className="text-xs text-white/60 mb-1">7d Change</div>
+                      <div className="text-lg font-bold text-white">+{randomStats?.change7d || '0.0'}%</div>
                     </div>
                   </div>
                 </div>
@@ -1257,17 +1249,17 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     className="space-y-3"
                   >
                     {randomStats?.activity.map((item, i) => (
-                      <div key={`activity-${i}`} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
-                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg" />
+                      <div key={`activity-${i}`} className="flex items-center gap-3 py-3">
+                        <div className="w-8 h-8 bg-white rounded-lg" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">#{1000 + i}</p>
                           <p className="text-xs text-white/60">{item.time}</p>
                         </div>
                         <div className="text-right">
                           <Badge className={`text-[10px] ${
-                            i % 3 === 0 ? 'bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)]' :
-                            i % 3 === 1 ? 'bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)]' :
-                            'bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)]'
+                            i % 3 === 0 ? 'bg-white/20 text-white' :
+                            i % 3 === 1 ? 'bg-white/20 text-white' :
+                            'bg-white/20 text-white'
                           }`}>
                             {i % 3 === 0 ? 'Sale' : i % 3 === 1 ? 'List' : 'Transfer'}
                           </Badge>
@@ -1277,8 +1269,8 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         </div>
                       </div>
                     )) || [...Array(3)].map((_, i) => (
-                      <div key={`activity-loading-${i}`} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
-                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg" />
+                      <div key={`activity-loading-${i}`} className="flex items-center gap-3 py-3">
+                        <div className="w-8 h-8 bg-white rounded-lg" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">#{1000 + i}</p>
                           <p className="text-xs text-white/60">Loading...</p>
@@ -1323,7 +1315,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         className="flex items-center justify-between"
                       >
                         <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                          <Icon className="h-4 w-4 text-white" />
                           <span className="text-white/80 text-sm">{label}</span>
                         </div>
                         <Badge className="bg-white/10 text-white border-white/20">
@@ -1351,8 +1343,8 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     className="space-y-3"
                   >
                     {randomStats?.collectionPrices.map((item, i) => (
-                      <div key={`collection-${i}`} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg flex items-center justify-center">
+                      <div key={`collection-${i}`} className="flex items-center gap-3 py-3 hover:text-white transition-colors cursor-pointer">
+                        <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
                           <span className="text-black text-xs font-bold">#{i + 1}</span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1363,14 +1355,14 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                           <p className="text-xs font-bold text-white">
                             {item.price} ETH
                           </p>
-                          <p className="text-[10px] text-[rgb(163,255,18)]">
+                          <p className="text-[10px] text-white">
                             +{item.change}%
                           </p>
                         </div>
                       </div>
                     )) || [...Array(4)].map((_, i) => (
-                      <div key={`collection-loading-${i}`} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg flex items-center justify-center">
+                      <div key={`collection-loading-${i}`} className="flex items-center gap-3 py-3 hover:text-white transition-colors cursor-pointer">
+                        <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
                           <span className="text-black text-xs font-bold">#{i + 1}</span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1381,7 +1373,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                           <p className="text-xs font-bold text-white">
                             --- ETH
                           </p>
-                          <p className="text-[10px] text-[rgb(163,255,18)]">
+                          <p className="text-[10px] text-white">
                             ---%
                           </p>
                         </div>
@@ -1412,13 +1404,13 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.55 + index * 0.05 }}
-                        className="flex items-center justify-between p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                        className="flex items-center justify-between py-3 hover:text-white transition-colors cursor-pointer"
                       >
                         <div className="flex-1">
                           <p className="text-sm font-medium text-white">{category.name}</p>
                           <p className="text-xs text-white/60">{category.projects} collections</p>
                         </div>
-                        <Badge className="bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)] border-[rgb(163,255,18)]/30 text-xs">
+                        <Badge className="bg-white/20 text-white border-white/30 text-xs">
                           {category.growth}
                         </Badge>
                       </motion.div>
@@ -1480,7 +1472,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                             transition: { duration: 0.4, ease: "easeIn" }
                           }}
                           transition={{ delay: 0.3 + index * 0.05 }}
-                          className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group"
+                          className="flex items-center gap-3 py-3 hover:text-white transition-colors cursor-pointer group"
                           onClick={() => toggleUserNFTSelection(nft.id)}
                         >
                         <div className="relative">
@@ -1490,15 +1482,15 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                             className="w-12 h-12 rounded-lg object-cover"
                           />
                           {nft.selected && (
-                            <div className="absolute inset-0 bg-[rgb(163,255,18)]/20 rounded-lg flex items-center justify-center">
-                              <CheckCircle2 className="w-6 h-6 text-[rgb(163,255,18)]" />
+                            <div className="absolute inset-0 bg-white/20 rounded-lg flex items-center justify-center">
+                              <CheckCircle2 className="w-6 h-6 text-white" />
                             </div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">{nft.name}</p>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-[rgb(163,255,18)] font-mono">{nft.value} ETH</span>
+                            <span className="text-xs text-white font-mono">{nft.value} ETH</span>
                             {nft.rarity && (
                               <Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-purple-500/30">
                                 {nft.rarity}
@@ -1518,7 +1510,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                           {nft.selected ? (
                             <Minus className="h-4 w-4 text-red-400" />
                           ) : (
-                            <Plus className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <Plus className="h-4 w-4 text-white" />
                           )}
                         </Button>
                         </motion.div>
@@ -1544,7 +1536,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white/60">Total Value</span>
-                      <span className="text-sm font-bold text-[rgb(163,255,18)]">
+                      <span className="text-sm font-bold text-white">
                         {userNFTs.filter(nft => nft.selected).reduce((sum, nft) => sum + nft.value, 0).toFixed(1)} ETH
                       </span>
                     </div>
@@ -1554,7 +1546,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     </div>
                   </div>
                   <Button 
-                    className="w-full mt-4 bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 hover:from-green-400 hover:to-[rgb(163,255,18)] text-black font-bold"
+                    className="w-full mt-4 bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold"
                     disabled={userNFTs.filter(nft => nft.selected).length === 0}
                     onClick={confirmUserNFTs}
                   >
@@ -1582,7 +1574,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     </div>
                     <div className="bg-white/5 rounded-lg p-2">
                       <div className="text-xs text-white/60">Portfolio</div>
-                      <div className="text-lg font-bold text-[rgb(163,255,18)]">42.8 ETH</div>
+                      <div className="text-lg font-bold text-white">42.8 ETH</div>
                     </div>
                     <div className="bg-white/5 rounded-lg p-2">
                       <div className="text-xs text-white/60">Trades</div>
@@ -1590,7 +1582,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     </div>
                     <div className="bg-white/5 rounded-lg p-2">
                       <div className="text-xs text-white/60">Success</div>
-                      <div className="text-lg font-bold text-[rgb(163,255,18)]">94%</div>
+                      <div className="text-lg font-bold text-white">94%</div>
                     </div>
                   </div>
                 </div>
@@ -1656,8 +1648,8 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                       { name: 'Art Masters', price: '2.1', change: '12' },
                       { name: 'Music NFTs', price: '1.5', change: '89' }
                     ].map((item, i) => (
-                      <div key={item.name} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg flex items-center justify-center">
+                      <div key={item.name} className="flex items-center gap-3 py-3 hover:text-white transition-colors cursor-pointer">
+                        <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
                           <span className="text-black text-xs font-bold">#{i + 1}</span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1666,7 +1658,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         </div>
                         <div className="text-right">
                           <p className="text-xs font-bold text-white">{item.price} ETH</p>
-                          <p className="text-[10px] text-[rgb(163,255,18)]">+{item.change}%</p>
+                          <p className="text-[10px] text-white">+{item.change}%</p>
                         </div>
                       </div>
                     ))}
@@ -1695,13 +1687,13 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.55 + index * 0.05 }}
-                        className="flex items-center justify-between p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                        className="flex items-center justify-between py-3 hover:text-white transition-colors cursor-pointer"
                       >
                         <div className="flex-1">
                           <p className="text-sm font-medium text-white">{category.name}</p>
                           <p className="text-xs text-white/60">{category.projects} collections</p>
                         </div>
-                        <Badge className="bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)] border-[rgb(163,255,18)]/30 text-xs">
+                        <Badge className="bg-white/20 text-white border-white/30 text-xs">
                           {category.growth}
                         </Badge>
                       </motion.div>
@@ -1739,12 +1731,12 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                           className="flex items-center justify-between"
                         >
                           <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <Icon className="h-4 w-4 text-white" />
                             <span className="text-white/80 text-sm">{label}</span>
                           </div>
-                          <Badge className="bg-white/10 text-white border-white/20">
+                          <span className="text-sm font-bold text-white">
                             {value}
-                          </Badge>
+                          </span>
                         </motion.div>
                       ))}
                       
@@ -1761,12 +1753,12 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                           className="flex items-center justify-between"
                         >
                           <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <Icon className="h-4 w-4 text-white" />
                             <span className="text-white/80 text-sm">{label}</span>
                           </div>
-                          <Badge className="bg-white/10 text-white border-white/20">
+                          <span className="text-sm font-bold text-white">
                             {value}
-                          </Badge>
+                          </span>
                         </motion.div>
                       ))}
                       
@@ -1783,12 +1775,12 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                           className="flex items-center justify-between"
                         >
                           <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <Icon className="h-4 w-4 text-white" />
                             <span className="text-white/80 text-sm">{label}</span>
                           </div>
-                          <Badge className="bg-white/10 text-white border-white/20">
+                          <span className="text-sm font-bold text-white">
                             {value}
-                          </Badge>
+                          </span>
                         </motion.div>
                       ))}
                       
@@ -1805,12 +1797,12 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                           className="flex items-center justify-between"
                         >
                           <div className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
+                            <Icon className="h-4 w-4 text-white" />
                             <span className="text-white/80 text-sm">{label}</span>
                           </div>
-                          <Badge className="bg-white/10 text-white border-white/20">
+                          <span className="text-sm font-bold text-white">
                             {value}
-                          </Badge>
+                          </span>
                         </motion.div>
                       ))}
                     </div>
@@ -1845,7 +1837,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                             className="w-full flex items-center justify-between p-2 hover:bg-white/5 rounded-lg transition-colors group"
                           >
                             <div className="flex items-center gap-3">
-                              <Icon className="w-4 h-4 text-white/70 group-hover:text-[rgb(163,255,18)]" />
+                              <Icon className="w-4 h-4 text-white/70 group-hover:text-white" />
                               <span className="text-sm text-white/90">{category.name}</span>
                               {category.badge && (
                                 <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30">
@@ -1909,7 +1901,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                       />
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-white/60">0 ETH</span>
-                        <span className="text-sm font-bold text-[rgb(163,255,18)]">
+                        <span className="text-sm font-bold text-white">
                           {priceRange[0]} - {priceRange[1]} ETH
                         </span>
                         <span className="text-xs text-white/60">100+ ETH</span>
@@ -1930,7 +1922,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     
                     <div className="flex items-center justify-between">
                       <Label htmlFor="verified" className="text-sm text-white/70 flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-[rgb(163,255,18)]" />
+                        <Shield className="w-4 h-4 text-white" />
                         Verified Only
                       </Label>
                       <Switch
