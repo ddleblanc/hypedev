@@ -236,7 +236,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                       </div>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               </div>
 
               {/* Scroll Indicator */}
@@ -245,7 +245,7 @@ export function MuseumView({ setViewMode }: MuseumViewProps) {
                   <ChevronDown className="w-8 h-8 text-white/60 animate-bounce" />
                 </div>
               )}
-            </section>
+            </div>
 
             {/* Museum Gallery Sections */}
 
