@@ -3,10 +3,10 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await context.params;
 
     // Get the collection with all related data
     const collection = await prisma.collection.findUnique({
@@ -85,7 +85,6 @@ export async function GET(
       socialLinks: collection.socialLinks,
       teamMembers: collection.teamMembers,
       tags: collection.tags,
-      gallery: collection.gallery
     };
 
     return NextResponse.json({
