@@ -487,7 +487,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
                   <div className="h-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 rounded-full" style={{ width: '85%' }} />
                 </div>
               </div>
-              <p className="text-[rgb(163,255,18)] text-xs font-bold mt-2">Next: 50 HYP</p>
+              <p className="text-[rgb(163,255,18)] text-xs font-bold mt-2">Next: 50 HPX</p>
             </div>
           </motion.div>
         </div>
@@ -978,7 +978,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
               >
                 <Trophy className="w-4 h-4 text-[rgb(163,255,18)]" />
                 <span className="text-white/80 text-xs">4 Active</span>
-                <span className="text-[rgb(163,255,18)] font-bold text-xs">+50 HYP</span>
+                <span className="text-[rgb(163,255,18)] font-bold text-xs">+50 HPX</span>
               </motion.div>
             </motion.div>
           </div>
