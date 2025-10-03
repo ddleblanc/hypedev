@@ -79,7 +79,8 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
         collectionContext.setCollectionData(null);
       }
     };
-  }, [collection, collectionContext, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collection, user?.walletAddress]);
 
   const handleShare = () => {
     if (navigator.share && collection) {

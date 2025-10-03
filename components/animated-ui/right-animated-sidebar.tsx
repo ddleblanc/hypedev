@@ -335,14 +335,14 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
               ) : (
                 <>
                   {currentRoute === 'museum' ? (
-                    <>
+                    <div className="text-right">
                       <h2 className="text-4xl md:text-6xl font-bold text-white mb-2 tracking-tight">
                         GAMING
                       </h2>
                       <p className="text-[#00ff88] text-sm md:text-base font-light">
                         Enter the Arena
                       </p>
-                    </>
+                    </div>
                   ) : isOneVsOne ? (
                     <>
                       <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">

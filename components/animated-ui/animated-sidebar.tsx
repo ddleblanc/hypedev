@@ -33,12 +33,10 @@ import {
   Upload,
   Settings,
   BarChart3,
-  DollarSign,
   Image,
   Calendar,
   Share,
   Archive,
-  ShoppingCart,
   Heart,
   FolderOpen,
   Activity,
@@ -247,6 +245,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
         : [...prev, categoryId]
     );
   };
+
 
   return (
     <AnimatePresence>
@@ -499,13 +498,13 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                   </h2>
                   <p className="text-sm text-white/60">Explore & Discover</p>
                 </>
-              ) : (pathname?.startsWith('/collection/') || currentRoute === 'collection') ? (
+              ) : currentRoute === 'collection-detail' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                    <Layers className="h-5 w-5 text-cyan-400" />
-                    Collection Manager
+                    <TrendingUp className="h-5 w-5 text-[rgb(163,255,18)]" />
+                    Marketplace
                   </h2>
-                  <p className="text-sm text-white/60">Manage your collection</p>
+                  <p className="text-sm text-white/60">Explore this collection</p>
                 </>
               ) : (
                 <>
@@ -675,26 +674,9 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     </Button>
                   </div>
                 </div>
-              ) : (pathname?.startsWith('/collection/') || currentRoute === 'collection') && collectionData ? (
+              ) : currentRoute === 'collection-detail' && collectionData ? (
                 <div className="w-full space-y-3">
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 gap-2 border-white/20 text-white hover:bg-white/10"
-                    >
-                      <BarChart3 className="w-3 h-3" />
-                      Analytics
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1 gap-2 border-white/20 text-white hover:bg-white/10"
-                    >
-                      <Settings className="w-3 h-3" />
-                      Settings
-                    </Button>
-                  </div>
+                  {/* No controls needed - collection info is displayed below */}
                 </div>
               ) : (
                 <>
@@ -1188,7 +1170,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         className="flex items-center justify-between"
                       >
                         <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-cyan-400" />
+                          <Icon className="h-4 w-4 text-[rgb(163,255,18)]" />
                           <span className="text-white/80 text-sm">{label}</span>
                         </div>
                         <Badge className="bg-white/10 text-white border-white/20">
@@ -1215,41 +1197,14 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     transition={{ delay: 0.45 }}
                     className="space-y-2"
                   >
-                    {collectionData.isOwner ? (
-                      <>
-                        <Button className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-blue-500 hover:to-cyan-400 text-black font-bold">
-                          <Upload className="w-4 h-4 mr-2" />
-                          Add New NFTs
-                        </Button>
-                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-                          <Edit3 className="w-4 h-4 mr-2" />
-                          Edit Collection
-                        </Button>
-                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-                          <Settings className="w-4 h-4 mr-2" />
-                          Collection Settings
-                        </Button>
-                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-                          <DollarSign className="w-4 h-4 mr-2" />
-                          Pricing & Royalties
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button className="w-full bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-blue-500 hover:to-cyan-400 text-black font-bold">
-                          <ShoppingCart className="w-4 h-4 mr-2" />
-                          Browse Items
-                        </Button>
-                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-                          <Heart className="w-4 h-4 mr-2" />
-                          Add to Watchlist
-                        </Button>
-                        <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-                          <Share className="w-4 h-4 mr-2" />
-                          Share Collection
-                        </Button>
-                      </>
-                    )}
+                    <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                      <Heart className="w-4 h-4 mr-2" />
+                      Add to Watchlist
+                    </Button>
+                    <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
+                      <Share className="w-4 h-4 mr-2" />
+                      Share Collection
+                    </Button>
                   </motion.div>
                 </div>
 
@@ -1270,7 +1225,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     </div>
                     <div className="bg-white/5 rounded-lg p-2">
                       <div className="text-xs text-white/60">Avg Price</div>
-                      <div className="text-lg font-bold text-cyan-400">
+                      <div className="text-lg font-bold text-[rgb(163,255,18)]">
                         {(parseFloat(collectionData.floorPrice) * 1.3).toFixed(1)} ETH
                       </div>
                     </div>
@@ -1302,17 +1257,17 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     className="space-y-3"
                   >
                     {randomStats?.activity.map((item, i) => (
-                      <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
-                        <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-lg" />
+                      <div key={`activity-${i}`} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
+                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">#{1000 + i}</p>
                           <p className="text-xs text-white/60">{item.time}</p>
                         </div>
                         <div className="text-right">
                           <Badge className={`text-[10px] ${
-                            i % 3 === 0 ? 'bg-green-500/20 text-green-400' :
-                            i % 3 === 1 ? 'bg-blue-500/20 text-blue-400' :
-                            'bg-orange-500/20 text-orange-400'
+                            i % 3 === 0 ? 'bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)]' :
+                            i % 3 === 1 ? 'bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)]' :
+                            'bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)]'
                           }`}>
                             {i % 3 === 0 ? 'Sale' : i % 3 === 1 ? 'List' : 'Transfer'}
                           </Badge>
@@ -1322,8 +1277,8 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         </div>
                       </div>
                     )) || [...Array(3)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
-                        <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-lg" />
+                      <div key={`activity-loading-${i}`} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg">
+                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg" />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-white truncate">#{1000 + i}</p>
                           <p className="text-xs text-white/60">Loading...</p>
@@ -1379,7 +1334,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                   </div>
                 </div>
 
-                {/* Trending Categories */}
+                {/* Trending Collections */}
                 <div className="p-6 border-b border-white/10">
                   <motion.h3
                     initial={{ opacity: 0, x: -10 }}
@@ -1387,53 +1342,17 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     transition={{ delay: 0.4 }}
                     className="text-sm font-semibold text-white/80 mb-4"
                   >
-                    TRENDING CATEGORIES
-                  </motion.h3>
-                  <div className="space-y-2">
-                    {[
-                      { name: 'Gaming', projects: 18, growth: '+45%' },
-                      { name: 'Art', projects: 12, growth: '+23%' },
-                      { name: 'Collectibles', projects: 8, growth: '+67%' },
-                      { name: 'Music', projects: 6, growth: '+89%' }
-                    ].map((category, index) => (
-                      <motion.div
-                        key={category.name}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.45 + index * 0.05 }}
-                        className="flex items-center justify-between p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-white">{category.name}</p>
-                          <p className="text-xs text-white/60">{category.projects} projects</p>
-                        </div>
-                        <Badge className="bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)] border-[rgb(163,255,18)]/30 text-xs">
-                          {category.growth}
-                        </Badge>
-                      </motion.div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Top Collections */}
-                <div className="p-6">
-                  <motion.h3
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="text-sm font-semibold text-white/80 mb-4"
-                  >
-                    TOP COLLECTIONS
+                    📈 TRENDING COLLECTIONS
                   </motion.h3>
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.55 }}
+                    transition={{ delay: 0.45 }}
                     className="space-y-3"
                   >
                     {randomStats?.collectionPrices.map((item, i) => (
-                      <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                        <div className="w-8 h-8 bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 rounded-lg flex items-center justify-center">
+                      <div key={`collection-${i}`} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg flex items-center justify-center">
                           <span className="text-black text-xs font-bold">#{i + 1}</span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1450,8 +1369,8 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         </div>
                       </div>
                     )) || [...Array(4)].map((_, i) => (
-                      <div key={i} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
-                        <div className="w-8 h-8 bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 rounded-lg flex items-center justify-center">
+                      <div key={`collection-loading-${i}`} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg flex items-center justify-center">
                           <span className="text-black text-xs font-bold">#{i + 1}</span>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1469,6 +1388,42 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                       </div>
                     ))}
                   </motion.div>
+                </div>
+
+                {/* Categories */}
+                <div className="p-6">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    📂 CATEGORIES
+                  </motion.h3>
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Gaming', projects: 18, growth: '+45%' },
+                      { name: 'Art', projects: 12, growth: '+23%' },
+                      { name: 'Collectibles', projects: 8, growth: '+67%' },
+                      { name: 'Music', projects: 6, growth: '+89%' }
+                    ].map((category, index) => (
+                      <motion.div
+                        key={category.name}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.55 + index * 0.05 }}
+                        className="flex items-center justify-between p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-white">{category.name}</p>
+                          <p className="text-xs text-white/60">{category.projects} collections</p>
+                        </div>
+                        <Badge className="bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)] border-[rgb(163,255,18)]/30 text-xs">
+                          {category.growth}
+                        </Badge>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
               </>
             ) : currentRoute === 'p2p' ? (
@@ -1672,6 +1627,83 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                             <p className="text-xs text-white/70">{item.subtitle}</p>
                           </div>
                         </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : currentRoute === 'marketplace' ? (
+              <>
+                {/* Trending Collections */}
+                <div className="p-6 border-b border-white/10">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    📈 TRENDING COLLECTIONS
+                  </motion.h3>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.45 }}
+                    className="space-y-3"
+                  >
+                    {[
+                      { name: 'Warriors', price: '4.2', change: '23' },
+                      { name: 'Cyber Legends', price: '3.8', change: '45' },
+                      { name: 'Art Masters', price: '2.1', change: '12' },
+                      { name: 'Music NFTs', price: '1.5', change: '89' }
+                    ].map((item, i) => (
+                      <div key={item.name} className="flex items-center gap-3 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+                        <div className="w-8 h-8 bg-[rgb(163,255,18)] rounded-lg flex items-center justify-center">
+                          <span className="text-black text-xs font-bold">#{i + 1}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{item.name}</p>
+                          <p className="text-xs text-white/60">{500 + i * 100} items</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-white">{item.price} ETH</p>
+                          <p className="text-[10px] text-[rgb(163,255,18)]">+{item.change}%</p>
+                        </div>
+                      </div>
+                    ))}
+                  </motion.div>
+                </div>
+
+                {/* Categories */}
+                <div className="p-6">
+                  <motion.h3
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-sm font-semibold text-white/80 mb-4"
+                  >
+                    📂 CATEGORIES
+                  </motion.h3>
+                  <div className="space-y-2">
+                    {[
+                      { name: 'Gaming', projects: 18, growth: '+45%' },
+                      { name: 'Art', projects: 12, growth: '+23%' },
+                      { name: 'Collectibles', projects: 8, growth: '+67%' },
+                      { name: 'Music', projects: 6, growth: '+89%' }
+                    ].map((category, index) => (
+                      <motion.div
+                        key={category.name}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.55 + index * 0.05 }}
+                        className="flex items-center justify-between p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-white">{category.name}</p>
+                          <p className="text-xs text-white/60">{category.projects} collections</p>
+                        </div>
+                        <Badge className="bg-[rgb(163,255,18)]/20 text-[rgb(163,255,18)] border-[rgb(163,255,18)]/30 text-xs">
+                          {category.growth}
+                        </Badge>
                       </motion.div>
                     ))}
                   </div>
@@ -1981,23 +2013,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                 </p>
               </motion.div>
             </div>
-          ) : currentRoute === 'museum' ? null : (
-            <div className="p-4 border-t border-white/10 bg-black/50">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="flex items-center gap-2"
-              >
-                <Button variant="ghost" size="sm" className="flex-1">
-                  Clear All
-                </Button>
-                <Button size="sm" className="flex-1 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90">
-                  Apply Filters
-                </Button>
-              </motion.div>
-            </div>
-          )}
+          ) : currentRoute === 'museum' ? null : null}
         </motion.div>
       )}
     </AnimatePresence>

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useMemo } from "react";
 
 interface CollectionData {
   id: string;
@@ -23,8 +23,10 @@ const CollectionContext = createContext<CollectionContextType | null>(null);
 export function CollectionProvider({ children }: { children: ReactNode }) {
   const [collectionData, setCollectionData] = useState<CollectionData | null>(null);
 
+  const value = useMemo(() => ({ collectionData, setCollectionData }), [collectionData]);
+
   return (
-    <CollectionContext.Provider value={{ collectionData, setCollectionData }}>
+    <CollectionContext.Provider value={value}>
       {children}
     </CollectionContext.Provider>
   );

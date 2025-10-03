@@ -134,9 +134,12 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
       case 'casual':
       case 'launchpad':
       case 'studio':
-      case 'museum':
         scale = 'scale-125';
         blur = 'blur-md';
+        break;
+      case 'museum':
+        scale = 'scale-95';
+        blur = 'blur-xl';
         break;
       default:
         scale = 'scale-100';
@@ -185,11 +188,11 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
           )}
           <div className={`absolute inset-0 transition-all duration-500 ${
             currentRoute === 'p2p' ? 'bg-black/80' :
+            currentRoute === 'museum' ? 'bg-black/85' :
             currentRoute === 'marketplace' ||
             currentRoute === 'casual' || currentRoute === 'launchpad' ||
             currentRoute === 'studio' || currentRoute === 'lists'
-              ? 'bg-black/70' :
-            currentRoute === 'museum' ? 'bg-black/70' : 'bg-black/40'
+              ? 'bg-black/70' : 'bg-black/40'
           }`} />
           {/* Special fade-to-black overlay for marketplace and casual views */}
           <div className={`absolute inset-0 bg-black transition-all duration-1000 ${

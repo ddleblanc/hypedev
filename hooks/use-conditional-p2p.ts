@@ -10,14 +10,16 @@ const defaultP2PState = {
 };
 
 export function useConditionalP2P(isP2P: boolean) {
+  let p2pState;
+
   try {
-    // Only use P2P context when in P2P mode and context is available
-    if (isP2P) {
-      return useP2PTrading();
-    }
+    // Always call the hook to maintain hook order
+    p2pState = useP2PTrading();
   } catch (error) {
     // Context not available, use default state
+    p2pState = defaultP2PState;
   }
-  
-  return defaultP2PState;
+
+  // Only return P2P state when in P2P mode
+  return isP2P ? p2pState : defaultP2PState;
 }

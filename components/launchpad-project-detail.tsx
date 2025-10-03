@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/tooltip";
 import { MediaRenderer } from "@/components/MediaRenderer";
 import { cn } from "@/lib/utils";
-import { useStudioData, Collection } from "@/hooks/use-studio-data";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { AddToListModal } from "@/components/add-to-list-modal";
 import { useActiveAccount, useActiveWalletChain, useSwitchActiveWalletChain } from "thirdweb/react";
@@ -213,6 +212,9 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
   const [watchlistId, setWatchlistId] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isAddToListModalOpen, setIsAddToListModalOpen] = useState(false);
+  const [collection, setCollection] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userClaimStatus, setUserClaimStatus] = useState<{
     claimed: number;
     limit: number;
@@ -237,24 +239,35 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
   const account = useActiveAccount();
   const activeChain = useActiveWalletChain();
   const switchChain = useSwitchActiveWalletChain();
-  const { startTransaction, updateStep, completeTransaction, setError, setTxHash } = useTransaction();
+  const { startTransaction, updateStep, completeTransaction, setError: setTransactionError, setTxHash } = useTransaction();
 
-  // Get real collection data
-  const { collections, isLoading, error, fetchCollections } = useStudioData();
-  const collection = collections.find(c => c.id === projectId);
+  // Fetch collection data
+  useEffect(() => {
+    const fetchCollection = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-  // Debug log - commented out to reduce noise
-  // if (collection) {
-  //   console.log('Collection data in UI:', {
-  //     id: collection.id,
-  //     name: collection.name,
-  //     address: collection.address,
-  //     volume: collection.volume,
-  //     floorPrice: collection.floorPrice,
-  //     holders: collection.holders,
-  //     mintedSupply: collection.mintedSupply
-  //   });
-  // }
+        const response = await fetch(`/api/public/collections/${projectId}`);
+        const data = await response.json();
+
+        if (data.success && data.collection) {
+          setCollection(data.collection);
+        } else {
+          setError(data.error || 'Failed to load collection');
+        }
+      } catch (err) {
+        console.error('Error fetching collection:', err);
+        setError('Failed to load collection');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (projectId) {
+      fetchCollection();
+    }
+  }, [projectId]);
 
   // Parse claim phases from collection
   const claimPhases = collection?.claimPhases ? JSON.parse(collection.claimPhases) : [];
@@ -586,7 +599,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
 
       // Mark transaction as error in the pill
       updateStep('error', 0);
-      setError(error.message || 'Transaction failed');
+      setTransactionError(error.message || 'Transaction failed');
 
       // Handle specific error cases
       // Check both error.message and error.toString() as Thirdweb might format it differently
@@ -810,9 +823,9 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
               <div>
                 <Badge className={cn(
                   "text-sm px-4 py-2 font-bold",
-                  isLive ? "bg-[rgb(163,255,18)] text-black" :
+                  isLive ? "bg-white/10 text-white border-white/20" :
                   isSoldOut ? "bg-red-500 text-white" :
-                  isUpcoming ? "bg-orange-500 text-white" :
+                  isUpcoming ? "bg-white/10 text-white border-white/20" :
                   "bg-gray-500 text-white"
                 )}>
                   {isLive ? (

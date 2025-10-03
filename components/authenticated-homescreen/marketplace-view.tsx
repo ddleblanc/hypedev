@@ -56,6 +56,7 @@ interface HeroCollection extends BaseCollection {
 
 interface FeaturedCollection extends BaseCollection {
   trending: string;
+  creator: string;
 }
 
 interface TrendingCollection {
@@ -68,6 +69,7 @@ interface TrendingCollection {
   maxSupply?: number;
   description?: string;
   creatorAddress?: string;
+  creatorName?: string;
   isVerified?: boolean;
   isFeatured?: boolean;
 }
@@ -184,6 +186,25 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
   const heroRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: heroRef });
   const router = useRouter();
+
+  // Helper function to format floor price with max 8 decimals
+  const formatFloorPrice = (floor: string) => {
+    const parts = floor.split(' ');
+    if (parts.length !== 2) return { value: floor, currency: '' };
+
+    const value = parseFloat(parts[0]);
+    const currency = parts[1];
+
+    // Format to max 8 decimals, removing trailing zeros
+    const formattedValue = value.toFixed(8).replace(/\.?0+$/, '');
+
+    return { value: formattedValue, currency };
+  };
+
+  // Helper function to format creator - only show username, no address
+  const formatCreator = (address?: string, name?: string) => {
+    return name || 'Unknown';
+  };
 
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
@@ -441,7 +462,6 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
               {mockCollections.categories.map((category) => (
                 <motion.div
                   key={category.id}
-                  whileTap={{ scale: 0.98 }}
                   className="flex-shrink-0 w-40"
                 >
                   <div className="relative h-48 rounded-xl overflow-hidden mb-2">
@@ -452,7 +472,10 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                     />
                   </div>
                   <p className="text-white font-bold text-sm truncate">{category.name}</p>
-                  <p className="text-white/60 text-xs">{category.collections} items</p>
+                  <p className="text-sm mt-1">
+                    <span className="text-white font-medium">{category.collections}</span>
+                    <span className="text-white/60 ml-1">collections</span>
+                  </p>
                 </motion.div>
               ))}
             </div>
@@ -483,7 +506,6 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 trendingCollections.slice(0, 4).map((collection, index) => (
                   <motion.div
                     key={collection.id}
-                    whileTap={{ scale: 0.98 }}
                     onClick={() => handleCollectionClick(collection.id)}
                     className="flex-shrink-0 w-40"
                   >
@@ -497,19 +519,18 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-purple-900/20 to-blue-900/20" />
                       )}
-                      <div className="absolute top-2 left-2">
-                        <div className="w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center">
-                          <span className="text-white text-sm font-bold">#{index + 1}</span>
-                        </div>
-                      </div>
-                      <div className="absolute top-2 right-2">
-                        <Badge className="bg-green-500 text-white text-xs">
-                          {collection.change}
-                        </Badge>
-                      </div>
                     </div>
-                    <h4 className="text-white font-bold text-sm truncate mb-1">{collection.title}</h4>
-                    <p className="text-white/70 text-xs">Floor: {collection.floor}</p>
+                    <div className="mb-2">
+                      <h4 className="text-white font-bold text-base truncate leading-tight">{collection.title}</h4>
+                      <p className="text-[rgb(163,255,18)] text-sm truncate leading-tight">{formatCreator(collection.creatorAddress, collection.creatorName)}</p>
+                    </div>
+                    <div>
+                      <p className="text-white/50 text-xs uppercase tracking-wider leading-tight">Floor Price</p>
+                      <p className="text-sm leading-tight">
+                        <span className="text-white font-medium">{formatFloorPrice(collection.floor).value}</span>
+                        <span className="text-white/60 ml-0.5">{formatFloorPrice(collection.floor).currency}</span>
+                      </p>
+                    </div>
                   </motion.div>
                 ))
               )}
@@ -523,7 +544,6 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
               {mockCollections.featured.filter(c => c.isNew).map((collection) => (
                 <motion.div
                   key={collection.id}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => handleCollectionClick(collection.id)}
                   className="flex-shrink-0 w-40"
                 >
@@ -537,14 +557,18 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                     >
                       <source src={collection.image} type="video/webm" />
                     </video>
-                    <div className="absolute top-2 left-2">
-                      <Badge className="bg-[rgb(163,255,18)] text-black text-xs font-bold">
-                        NEW
-                      </Badge>
-                    </div>
                   </div>
-                  <p className="text-white font-bold text-sm truncate mb-1">{collection.title}</p>
-                  <p className="text-white/70 text-xs">{collection.floor}</p>
+                  <div className="mb-2">
+                    <p className="text-white font-bold text-base truncate leading-tight">{collection.title}</p>
+                    <p className="text-[rgb(163,255,18)] text-sm truncate leading-tight">{collection.creator}</p>
+                  </div>
+                  <div>
+                    <p className="text-white/50 text-xs uppercase tracking-wider leading-tight">Floor Price</p>
+                    <p className="text-sm leading-tight">
+                      <span className="text-white font-medium">{formatFloorPrice(collection.floor).value}</span>
+                      <span className="text-white/60 ml-0.5">{formatFloorPrice(collection.floor).currency}</span>
+                    </p>
+                  </div>
                 </motion.div>
               ))}
             </div>
@@ -762,35 +786,39 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.8 }}
-          className="px-4 md:px-8 py-8 md:py-16 bg-black"
+          className="px-4 md:px-8 py-4 md:py-6 bg-black"
         >
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl font-bold text-white">Browse by Category</h2>
-            <Button variant="ghost" className="text-white/80 hover:text-white flex items-center gap-2">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="text-xl md:text-2xl font-bold text-white">Browse by Category</h2>
+            <Button variant="ghost" size="sm" className="text-white/80 hover:text-white flex items-center gap-2">
               View All
-              <ArrowUpRight className="h-4 w-4" />
+              <ArrowUpRight className="h-3 w-3" />
             </Button>
           </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
             {mockCollections.categories.map((category, index) => (
               <motion.div
                 key={category.id}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 * index, duration: 0.6 }}
-                whileHover={{ scale: 1.03 }}
                 className="group cursor-pointer"
               >
-                <div className="relative overflow-hidden rounded-lg aspect-[2/3] bg-gradient-to-br from-gray-800 to-gray-900 mb-2">
+                <div className="relative overflow-hidden rounded-lg aspect-square bg-gradient-to-br from-gray-800 to-gray-900 mb-1.5">
                   <img
                     src={category.image}
                     alt={category.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </div>
-                <h3 className="text-white font-bold text-xs md:text-sm mb-1 truncate">{category.name}</h3>
-                <p className="text-white/70 text-xs">{category.collections} collections</p>
+                <h3 className="text-white font-bold text-base md:text-lg truncate">{category.name}</h3>
+                <div className="mt-2">
+                  <p className="text-xs">
+                    <span className="text-white font-medium">{category.collections}</span>
+                    <span className="text-white/60 ml-1">collections</span>
+                  </p>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -801,36 +829,36 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.8 }}
-          className="px-4 md:px-8 py-8 md:py-16"
+          className="px-4 md:px-8 py-4 md:py-6"
         >
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">Featured Collections</h2>
-              <p className="text-white/70">Handpicked collections from top creators</p>
+              <h2 className="text-xl md:text-2xl font-bold text-white">Featured Collections</h2>
+              <p className="text-white/70 text-sm">Handpicked collections from top creators</p>
             </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => scrollCarousel('left', 'featured-carousel')}
-                className="text-white hover:bg-white/10 rounded-full"
+                className="text-white hover:bg-white/10 rounded-full h-8 w-8"
               >
-                <ChevronLeft className="h-6 w-6" />
+                <ChevronLeft className="h-5 w-5" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => scrollCarousel('right', 'featured-carousel')}
-                className="text-white hover:bg-white/10 rounded-full"
+                className="text-white hover:bg-white/10 rounded-full h-8 w-8"
               >
-                <ChevronRight className="h-6 w-6" />
+                <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
           </div>
 
           <div
             id="featured-carousel"
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3"
           >
             {mockCollections.featured.map((collection, index) => (
               <motion.div
@@ -838,11 +866,10 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 * index, duration: 0.6 }}
-                whileHover={{ scale: 1.05, y: -5 }}
                 className="group cursor-pointer"
                 onClick={() => handleCollectionClick(collection.id)}
               >
-                <div className="relative overflow-hidden rounded-lg aspect-[2/3] mb-2">
+                <div className="relative overflow-hidden rounded-lg aspect-square mb-1.5">
                   <video
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     autoPlay
@@ -852,21 +879,18 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                   >
                     <source src={collection.image} type="video/webm" />
                   </video>
-                  {collection.isNew && (
-                    <div className="absolute top-1 md:top-2 left-1 md:left-2">
-                      <Badge className="bg-[rgb(163,255,18)] text-black font-bold text-xs px-2 py-1">
-                        NEW
-                      </Badge>
-                    </div>
-                  )}
-                  <div className="absolute top-1 md:top-2 right-1 md:right-2">
-                    <Badge className="bg-green-500/90 text-white font-bold text-xs px-1 md:px-2 py-1">
-                      {collection.trending}
-                    </Badge>
-                  </div>
                 </div>
-                <h3 className="text-white font-bold text-xs md:text-sm mb-1 truncate">{collection.title}</h3>
-                <p className="text-white/70 text-xs">{collection.floor}</p>
+                <div className="mb-2">
+                  <h3 className="text-white font-bold text-base md:text-lg truncate leading-tight">{collection.title}</h3>
+                  <p className="text-[rgb(163,255,18)] text-sm md:text-base truncate leading-tight">{collection.creator}</p>
+                </div>
+                <div>
+                  <p className="text-white/50 text-xs uppercase tracking-wider leading-tight">Floor Price</p>
+                  <p className="text-sm leading-tight">
+                    <span className="text-white font-medium">{formatFloorPrice(collection.floor).value}</span>
+                    <span className="text-white/60 ml-0.5">{formatFloorPrice(collection.floor).currency}</span>
+                  </p>
+                </div>
               </motion.div>
             ))}
           </div>
@@ -877,28 +901,25 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.8 }}
-          className="px-4 md:px-8 py-8 md:py-16 bg-gradient-to-b from-black/50 to-black"
+          className="px-4 md:px-8 py-4 md:py-6 bg-gradient-to-b from-black/50 to-black"
         >
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-                <TrendingUp className="h-8 w-8 text-[rgb(163,255,18)]" />
-                Trending Now
-              </h2>
-              <p className="text-white/70">Collections gaining momentum</p>
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-[rgb(163,255,18)]" />
+              <h2 className="text-xl md:text-2xl font-bold text-white">Trending Now</h2>
             </div>
-            <Button variant="outline" className="border-white/20 text-white hover:bg-white/10 flex items-center gap-2">
-              View All Trending
-              <ArrowUpRight className="h-4 w-4" />
+            <Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-white/10 flex items-center gap-1">
+              View All
+              <ArrowUpRight className="h-3 w-3" />
             </Button>
           </div>
 
-          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4">
+          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-3">
             {isLoading ? (
               // Loading skeleton
               [...Array(6)].map((_, index) => (
                 <div key={`skeleton-desktop-${index}`}>
-                  <div className="relative overflow-hidden rounded-lg aspect-[2/3] bg-gradient-to-br from-gray-800/50 to-gray-900/50 animate-pulse mb-2" />
+                  <div className="relative overflow-hidden rounded-lg aspect-square bg-gradient-to-br from-gray-800/50 to-gray-900/50 animate-pulse mb-1.5" />
                 </div>
               ))
             ) : (
@@ -908,33 +929,31 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                   initial={{ opacity: 0, y: 30, scale: 0.9 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ delay: 0.1 * index, duration: 0.5 }}
-                  whileHover={{ scale: 1.05, y: -5 }}
                   className="group cursor-pointer"
                   onClick={() => handleCollectionClick(collection.id)}
                 >
-                  <div className="relative overflow-hidden rounded-lg aspect-[2/3] mb-2">
+                  <div className="relative overflow-hidden rounded-lg aspect-square mb-1.5">
                     {collection.image && collection.image !== '/api/placeholder/300/450' ? (
                       <MediaRenderer
                         src={collection.image}
                         alt={collection.title}
-                        className="w-full h-full group-hover:scale-110 transition-transform duration-500"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-purple-900/50 to-blue-900/50" />
                     )}
-                    <div className="absolute top-1 md:top-2 left-1 md:left-2">
-                      <div className="bg-black/60 backdrop-blur-sm rounded-full w-6 h-6 md:w-8 md:h-8 flex items-center justify-center">
-                        <span className="text-white text-xs font-bold">#{index + 1}</span>
-                      </div>
-                    </div>
-                    <div className="absolute top-1 md:top-2 right-1 md:right-2">
-                      <Badge className="bg-green-500/90 text-white font-bold text-xs px-1 md:px-2 py-1">
-                        {collection.change}
-                      </Badge>
-                    </div>
                   </div>
-                  <h3 className="text-white font-bold text-xs md:text-sm mb-1 truncate">{collection.title}</h3>
-                  <p className="text-white/70 text-xs">{collection.floor}</p>
+                  <div className="mb-2">
+                    <h3 className="text-white font-bold text-base md:text-lg truncate leading-tight">{collection.title}</h3>
+                    <p className="text-[rgb(163,255,18)] text-sm md:text-base truncate leading-tight">{formatCreator(collection.creatorAddress, collection.creatorName)}</p>
+                  </div>
+                  <div>
+                    <p className="text-white/50 text-xs uppercase tracking-wider leading-tight">Floor Price</p>
+                    <p className="text-sm leading-tight">
+                      <span className="text-white font-medium">{formatFloorPrice(collection.floor).value}</span>
+                      <span className="text-white/60 ml-0.5">{formatFloorPrice(collection.floor).currency}</span>
+                    </p>
+                  </div>
                 </motion.div>
               ))
             )}
@@ -946,21 +965,21 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.8, duration: 0.8 }}
-          className="px-4 md:px-8 py-8 md:py-16"
+          className="px-4 md:px-8 py-4 md:py-6"
         >
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-3 md:mb-4">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">More to Explore</h2>
-              <p className="text-white/70">Discover collections across all categories</p>
+              <h2 className="text-xl md:text-2xl font-bold text-white">More to Explore</h2>
+              <p className="text-white/70 text-sm">Discover collections across all categories</p>
             </div>
-            <div className="flex items-center gap-4">
-              <select className="bg-black/40 border border-white/20 text-white rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
+            <div className="flex items-center gap-2">
+              <select className="bg-black/40 border border-white/20 text-white rounded-lg px-2 md:px-3 py-1.5 text-xs md:text-sm">
                 <option value="all">All Categories</option>
                 <option value="gaming">Gaming</option>
                 <option value="art">Art</option>
                 <option value="collectibles">Collectibles</option>
               </select>
-              <select className="bg-black/40 border border-white/20 text-white rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
+              <select className="bg-black/40 border border-white/20 text-white rounded-lg px-2 md:px-3 py-1.5 text-xs md:text-sm">
                 <option value="trending">Trending</option>
                 <option value="newest">Newest</option>
                 <option value="volume">Volume</option>
@@ -969,18 +988,17 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
             {[...mockCollections.featured, ...mockCollections.trending.slice(0, 2)].map((collection, index) => (
               <motion.div
                 key={`${collection.id}-grid`}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 * index, duration: 0.6 }}
-                whileHover={{ scale: 1.05, y: -5 }}
                 className="group cursor-pointer"
                 onClick={() => handleCollectionClick(collection.id)}
               >
-                <div className="relative overflow-hidden rounded-lg aspect-[2/3] mb-2">
+                <div className="relative overflow-hidden rounded-lg aspect-square mb-1.5">
                   {'image' in collection && collection.image.endsWith('.webm') ? (
                     <video
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
@@ -998,24 +1016,27 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
                   )}
-                  {'trending' in collection && (
-                    <div className="absolute top-1 md:top-2 right-1 md:right-2">
-                      <Badge className="bg-green-500/90 text-white font-bold text-xs px-1 md:px-2 py-1">
-                        {(collection as any).trending}
-                      </Badge>
-                    </div>
-                  )}
                 </div>
-                <h3 className="text-white font-bold text-xs md:text-sm mb-1 truncate">{collection.title}</h3>
-                <p className="text-white/70 text-xs">{collection.floor}</p>
+                <div className="mb-2">
+                  <h3 className="text-white font-bold text-base md:text-lg truncate leading-tight">{collection.title}</h3>
+                  <p className="text-[rgb(163,255,18)] text-sm md:text-base truncate leading-tight">{'creator' in collection ? collection.creator : 'Unknown'}</p>
+                </div>
+                <div>
+                  <p className="text-white/50 text-xs uppercase tracking-wider leading-tight">Floor Price</p>
+                  <p className="text-sm leading-tight">
+                    <span className="text-white font-medium">{formatFloorPrice(collection.floor).value}</span>
+                    <span className="text-white/60 ml-0.5">{formatFloorPrice(collection.floor).currency}</span>
+                  </p>
+                </div>
               </motion.div>
             ))}
           </div>
 
-          <div className="flex justify-center mt-12">
-            <Button 
-              variant="outline" 
-              className="border-white/20 text-white hover:bg-white/10 px-8 py-3"
+          <div className="flex justify-center mt-6">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-white/20 text-white hover:bg-white/10 px-6 py-2"
             >
               Load More Collections
             </Button>

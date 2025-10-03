@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MediaRenderer } from "@/components/MediaRenderer";
-import { useStudioData, Collection } from "@/hooks/use-studio-data";
+import { useLaunchpadData, LaunchpadCollection } from "@/hooks/use-launchpad-data";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -43,7 +43,7 @@ interface LaunchpadViewProps {
 
 export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
   const router = useRouter();
-  const { collections, isLoading, error } = useStudioData();
+  const { collections, isLoading, error } = useLaunchpadData();
 
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [viewType, setViewType] = useState<"grid" | "list">("grid");
@@ -52,16 +52,16 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Filter collections based on search and category
-  const filteredCollections = collections.filter((collection: Collection) => {
+  const filteredCollections = collections.filter((collection: LaunchpadCollection) => {
     const matchesSearch = !searchQuery ||
       collection.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       collection.symbol?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCategory =
       selectedCategory === 'all' ||
-      (selectedCategory === 'live' && collection.isDeployed) ||
-      (selectedCategory === 'featured' && collection.volume > 50) ||
-      (selectedCategory === 'trending' && collection.floorPrice > 1);
+      (selectedCategory === 'live' && collection.hasActiveClaimPhase) ||
+      (selectedCategory === 'featured' && collection.isDeployed && collection.mintedSupply > 0) ||
+      (selectedCategory === 'trending' && collection.mintedSupply > 10);
 
     return matchesSearch && matchesCategory;
   });
@@ -70,9 +70,9 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
   const updatedCategories = categories.map(cat => ({
     ...cat,
     count: cat.id === 'all' ? collections.length.toString() :
-           cat.id === 'live' ? collections.filter(c => c.isDeployed).length.toString() :
-           cat.id === 'featured' ? collections.filter(c => c.volume > 50).length.toString() :
-           cat.id === 'trending' ? collections.filter(c => c.floorPrice > 1).length.toString() :
+           cat.id === 'live' ? collections.filter(c => c.hasActiveClaimPhase).length.toString() :
+           cat.id === 'featured' ? collections.filter(c => c.isDeployed && c.mintedSupply > 0).length.toString() :
+           cat.id === 'trending' ? collections.filter(c => c.mintedSupply > 10).length.toString() :
            cat.count
   }));
 
@@ -146,7 +146,7 @@ export function LaunchpadView({ setViewMode }: LaunchpadViewProps) {
               className="mb-6"
             >
               <div className="flex items-center gap-4 mb-4">
-                <Badge className="bg-[rgb(163,255,18)] text-black font-bold px-3 py-1">
+                <Badge variant="outline" className="font-bold px-3 py-1">
                   🚀 Launchpad
                 </Badge>
                 <Badge className="bg-white/10 text-white border-white/20">
