@@ -29,6 +29,11 @@ model User {
   socials            UserSocial[]        @relation("UserSocials")
   suggestions        UserSuggestion[]
   lists              UserList[]
+  // P2P Trading relations
+  initiatedTrades    Trade[]             @relation("TradeInitiator")
+  receivedTrades     Trade[]             @relation("TradeCounterparty")
+  tradeMessages      TradeMessage[]
+  tradeHistory       TradeHistory[]
 }
 
 model CreatorApplication {
@@ -137,6 +142,8 @@ model Nft {
   updatedAt    DateTime   @updatedAt
   collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   traits       NftTrait[]
+  // P2P Trading relation
+  tradeItems   TradeItem[]
 
   @@unique([collectionId, tokenId])
   @@index([collectionId, rarityRank])
@@ -309,4 +316,127 @@ model ListItem {
   @@unique([listId, itemType, itemId])
   @@index([listId, addedAt])
   @@index([itemType, itemId])
+}
+
+// P2P Trading Models
+
+model Trade {
+  id                String        @id @default(uuid())
+  initiatorId       String
+  counterpartyId    String
+  status            TradeStatus   @default(DRAFT)
+  escrowAddress     String?       // Contract address once deployed
+  metadata          Json?         // Additional trade metadata
+  fairnessScore     Float?        // Calculated fairness score
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  agreedAt          DateTime?     // When both parties agreed
+  escrowDeployedAt  DateTime?     // When escrow contract was deployed
+  finalizedAt       DateTime?     // When trade was completed
+  canceledAt        DateTime?     // When trade was canceled
+  
+  // Relations
+  initiator         User          @relation("TradeInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
+  counterparty      User          @relation("TradeCounterparty", fields: [counterpartyId], references: [id], onDelete: Cascade)
+  items             TradeItem[]
+  messages          TradeMessage[]
+  history           TradeHistory[]
+
+  @@index([initiatorId, status])
+  @@index([counterpartyId, status])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model TradeItem {
+  id          String      @id @default(uuid())
+  tradeId     String
+  nftId       String?
+  side        TradeSide   // INITIATOR or COUNTERPARTY
+  tokenAmount Float?      // For ERC20 tokens
+  tokenAddress String?    // Token contract address
+  metadata    Json?       // Additional item metadata
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  trade       Trade       @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  nft         Nft?        @relation(fields: [nftId], references: [id], onDelete: SetNull)
+
+  @@index([tradeId, side])
+  @@index([nftId])
+}
+
+model TradeMessage {
+  id        String   @id @default(uuid())
+  tradeId   String
+  userId    String
+  message   String
+  messageType MessageType @default(TEXT)
+  metadata  Json?    // Additional message data
+  createdAt DateTime @default(now())
+  
+  // Relations
+  trade     Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId, createdAt])
+  @@index([userId])
+}
+
+model TradeHistory {
+  id          String        @id @default(uuid())
+  tradeId     String
+  userId      String
+  action      TradeAction
+  oldStatus   TradeStatus?
+  newStatus   TradeStatus?
+  metadata    Json?         // Additional action data
+  createdAt   DateTime      @default(now())
+  
+  // Relations
+  trade       Trade         @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tradeId, createdAt])
+  @@index([userId])
+}
+
+// Enums
+enum TradeStatus {
+  DRAFT
+  PENDING
+  COUNTERED
+  AGREED
+  ESCROW_DEPLOYED
+  DEPOSITED
+  FINALIZED
+  CANCELED
+  REJECTED
+}
+
+enum TradeSide {
+  INITIATOR
+  COUNTERPARTY
+}
+
+enum MessageType {
+  TEXT
+  SYSTEM
+  COUNTEROFFER
+  ACCEPTANCE
+  REJECTION
+}
+
+enum TradeAction {
+  CREATED
+  UPDATED
+  COUNTEROFFER
+  ACCEPTED
+  REJECTED
+  AGREED
+  ESCROW_DEPLOYED
+  DEPOSITED
+  FINALIZED
+  CANCELED
 }

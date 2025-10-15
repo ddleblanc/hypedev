@@ -145,7 +145,7 @@ export function OwnedNFTsWindow() {
                 {selectedCount} NFT{selectedCount !== 1 ? 's' : ''} Selected
               </div>
               <div className="text-white font-bold">
-                {totalSelectedValue.toFixed(2)} ETH
+                {totalSelectedValue.toFixed(6)} ETH
               </div>
             </div>
           </motion.div>

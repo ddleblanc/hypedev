@@ -201,7 +201,8 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
               damping: 30,
               duration: 0.4
             }}
-            className="fixed top-0 left-0 right-0 z-50 h-16 bg-black/95 backdrop-blur-xl border-b border-white/10"
+            className="fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-xl border-b border-white/10"
+            style={{ backgroundColor: 'rgb(3, 3, 3)' }}
           >
             <div className="h-full px-4 md:px-6 flex items-center justify-between">
               {/* Desktop Left - Logo & Back */}
@@ -343,7 +344,8 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
             initial={false}
             animate={{ opacity: mobileMenuOpen ? 1 : 0, pointerEvents: mobileMenuOpen ? 'auto' : 'none' }}
             transition={{ duration: 0.2 }}
-            className="lg:hidden fixed inset-0 bg-black/95 backdrop-blur-xl z-[60]"
+            className="lg:hidden fixed inset-0 backdrop-blur-xl z-[60]"
+            style={{ backgroundColor: 'rgb(3, 3, 3)' }}
             onClick={() => setMobileMenuOpen(false)}
           >
             <div

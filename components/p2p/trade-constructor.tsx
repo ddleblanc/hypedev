@@ -117,12 +117,12 @@ export function TradeConstructor() {
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-black/40 rounded-lg p-3">
             <div className="text-[rgb(163,255,18)] text-sm font-bold mb-1">YOUR OFFER</div>
-            <div className="text-white text-lg font-black">{userTotalValue.toFixed(2)} ETH</div>
+            <div className="text-white text-lg font-black">{userTotalValue.toFixed(6)} ETH</div>
             <div className="text-white/60 text-xs">{trade.userNFTs.length} NFTs + Tokens</div>
           </div>
           <div className="bg-black/40 rounded-lg p-3">
             <div className="text-purple-400 text-sm font-bold mb-1">THEIR OFFER</div>
-            <div className="text-white text-lg font-black">{opponentTotalValue.toFixed(2)} ETH</div>
+            <div className="text-white text-lg font-black">{opponentTotalValue.toFixed(6)} ETH</div>
             <div className="text-white/60 text-xs">{trade.opponentNFTs.length} NFTs + Tokens</div>
           </div>
         </div>
@@ -307,7 +307,7 @@ export function TradeConstructor() {
               <div className="flex justify-between text-sm">
                 <span className="text-white/70">Value Difference:</span>
                 <span className={`font-bold ${valueDifference > 1 ? 'text-yellow-400' : 'text-green-400'}`}>
-                  {valueDifference.toFixed(2)} ETH
+                  {valueDifference.toFixed(6)} ETH
                 </span>
               </div>
               <div className="flex justify-between text-sm">

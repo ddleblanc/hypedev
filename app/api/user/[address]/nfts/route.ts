@@ -78,13 +78,19 @@ export async function GET(
     // Apply ownership/creation filter
     if (filter === 'owned') {
       baseQuery.where = {
-        ownerAddress: normalizedAddress,
+        ownerAddress: {
+          equals: normalizedAddress,
+          mode: 'insensitive'
+        },
         isMinted: true
       }
     } else if (filter === 'created') {
       baseQuery.where = {
         collection: {
-          creatorAddress: normalizedAddress
+          creatorAddress: {
+            equals: normalizedAddress,
+            mode: 'insensitive'
+          }
         },
         isMinted: true
       }
@@ -93,12 +99,18 @@ export async function GET(
       baseQuery.where = {
         OR: [
           {
-            ownerAddress: normalizedAddress,
+            ownerAddress: {
+              equals: normalizedAddress,
+              mode: 'insensitive'
+            },
             isMinted: true
           },
           {
             collection: {
-              creatorAddress: normalizedAddress
+              creatorAddress: {
+                equals: normalizedAddress,
+                mode: 'insensitive'
+              }
             },
             isMinted: true
           }

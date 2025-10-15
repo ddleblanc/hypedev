@@ -54,6 +54,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useP2PTrading } from "@/contexts/p2p-trading-context";
 import { GameCommandCard } from "@/components/ui/game-command-card";
+import { MediaRenderer } from "@/components/media-renderer";
 
 interface AnimatedSidebarProps {
   show: boolean;
@@ -137,12 +138,18 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
     userNFTs,
     selectedTrader,
     toggleUserNFTSelection,
-    confirmUserNFTs
+    confirmUserNFTs,
+    isLoadingUserNFTs,
+    userNFTsError,
+    refreshUserNFTs
   } = currentRoute === 'p2p' ? p2pContext : {
     userNFTs: [],
     selectedTrader: null,
     toggleUserNFTSelection: () => {},
-    confirmUserNFTs: () => {}
+    confirmUserNFTs: () => {},
+    isLoadingUserNFTs: false,
+    userNFTsError: null,
+    refreshUserNFTs: () => {}
   };
   const [expandedCategories, setExpandedCategories] = useState<string[]>(['gaming']);
   const [priceRange, setPriceRange] = useState([0, 100]);
@@ -264,7 +271,8 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                   duration: 0.4
                 }
           }
-          className={`fixed left-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : `top-16 ${showFooter ? 'md:bottom-[44.6px]' : 'md:bottom-0'} w-80`} bg-black/95 backdrop-blur-xl border-r border-white/10 z-40 overflow-hidden flex flex-col`}
+          className={`fixed left-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : `top-16 ${showFooter ? 'md:bottom-[44.6px]' : 'md:bottom-0'} w-80`} backdrop-blur-xl border-r border-white/10 z-40 overflow-hidden flex flex-col`}
+          style={{ backgroundColor: 'rgb(3, 3, 3)' }}
         >
           {/* Header */}
           <div className="p-6 border-b border-white/10">
@@ -1459,63 +1467,102 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                   
                   {/* NFT List */}
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    <AnimatePresence mode="popLayout">
-                      {userNFTs.map((nft, index) => (
-                        <motion.div
-                          key={nft.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{
-                            opacity: 0,
-                            scale: 0.5,
-                            x: 400,
-                            transition: { duration: 0.4, ease: "easeIn" }
-                          }}
-                          transition={{ delay: 0.3 + index * 0.05 }}
-                          className="flex items-center gap-3 py-3 hover:text-white transition-colors cursor-pointer group"
-                          onClick={() => toggleUserNFTSelection(nft.id)}
-                        >
-                        <div className="relative">
-                          <img 
-                            src={nft.image} 
-                            alt={nft.name} 
-                            className="w-12 h-12 rounded-lg object-cover"
-                          />
-                          {nft.selected && (
-                            <div className="absolute inset-0 bg-white/20 rounded-lg flex items-center justify-center">
-                              <CheckCircle2 className="w-6 h-6 text-white" />
-                            </div>
-                          )}
+                    {isLoadingUserNFTs ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                          <p className="text-sm text-white/60">Loading your NFTs...</p>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{nft.name}</p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-white font-mono">{nft.value} ETH</span>
-                            {nft.rarity && (
-                              <Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-purple-500/30">
-                                {nft.rarity}
-                              </Badge>
-                            )}
-                          </div>
+                      </div>
+                    ) : userNFTsError ? (
+                      <div className="flex flex-col items-center justify-center py-8 gap-3">
+                        <div className="text-center">
+                          <p className="text-sm text-red-400 mb-2">Failed to load NFTs</p>
+                          <p className="text-xs text-white/60">{userNFTsError}</p>
                         </div>
                         <Button
                           size="sm"
-                          variant="ghost"
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleUserNFTSelection(nft.id);
-                          }}
+                          variant="outline"
+                          onClick={refreshUserNFTs}
+                          className="border-white/20 text-white/70 hover:bg-white/10"
                         >
-                          {nft.selected ? (
-                            <Minus className="h-4 w-4 text-red-400" />
-                          ) : (
-                            <Plus className="h-4 w-4 text-white" />
-                          )}
+                          Try Again
                         </Button>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
+                      </div>
+                    ) : userNFTs.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 gap-3">
+                        <div className="text-center">
+                          <p className="text-sm text-white/60 mb-2">No NFTs found</p>
+                          <p className="text-xs text-white/40">Mint some NFTs to start trading</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => router.push('/studio/create')}
+                          className="border-white/20 text-white/70 hover:bg-white/10"
+                        >
+                          Create NFT
+                        </Button>
+                      </div>
+                    ) : (
+                      <AnimatePresence mode="popLayout">
+                        {userNFTs.map((nft, index) => (
+                          <motion.div
+                            key={nft.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{
+                              opacity: 0,
+                              scale: 0.5,
+                              x: 400,
+                              transition: { duration: 0.4, ease: "easeIn" }
+                            }}
+                            transition={{ delay: 0.3 + index * 0.05 }}
+                            className="flex items-center gap-3 py-3 hover:text-white transition-colors cursor-pointer group"
+                            onClick={() => toggleUserNFTSelection(nft.id)}
+                          >
+                          <div className="relative">
+                            <MediaRenderer
+                              src={nft.image}
+                              alt={nft.name}
+                              className="w-12 h-12 rounded-lg object-cover"
+                            />
+                            {nft.selected && (
+                              <div className="absolute inset-0 bg-white/20 rounded-lg flex items-center justify-center">
+                                <CheckCircle2 className="w-6 h-6 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{nft.name}</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-white font-mono">{nft.value.toFixed(6)} ETH</span>
+                              {nft.rarity && (
+                                <Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-purple-500/30">
+                                  {nft.rarity}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleUserNFTSelection(nft.id);
+                            }}
+                          >
+                            {nft.selected ? (
+                              <Minus className="h-4 w-4 text-red-400" />
+                            ) : (
+                              <Plus className="h-4 w-4 text-white" />
+                            )}
+                          </Button>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    )}
                   </div>
                 </div>
 
@@ -1537,7 +1584,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-white/60">Total Value</span>
                       <span className="text-sm font-bold text-white">
-                        {userNFTs.filter(nft => nft.selected).reduce((sum, nft) => sum + nft.value, 0).toFixed(1)} ETH
+                        {userNFTs.filter(nft => nft.selected).reduce((sum, nft) => sum + nft.value, 0).toFixed(6)} ETH
                       </span>
                     </div>
                     <div className="flex items-center justify-between">

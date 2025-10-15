@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   ChevronLeft,
   Search,
   Users,
@@ -31,6 +31,7 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type Trader } from "@/contexts/p2p-trading-context";
 import { useConditionalP2P } from "@/hooks/use-conditional-p2p";
+import { MediaRenderer } from "@/components/media-renderer";
 
 interface RightAnimatedSidebarProps {
   show: boolean;
@@ -167,6 +168,7 @@ const mockTraders: Trader[] = [
   { 
     id: '1', 
     name: 'CryptoKing', 
+    walletAddress: '0x1234567890123456789012345678901234567890',
     avatar: 'https://picsum.photos/40/40?random=201',
     rating: 4.9,
     trades: 2847,
@@ -177,6 +179,7 @@ const mockTraders: Trader[] = [
   { 
     id: '2', 
     name: 'NFTWhale', 
+    walletAddress: '0x2345678901234567890123456789012345678901',
     avatar: 'https://picsum.photos/40/40?random=202',
     rating: 4.7,
     trades: 1923,
@@ -187,6 +190,7 @@ const mockTraders: Trader[] = [
   { 
     id: '3', 
     name: 'DigitalTrader', 
+    walletAddress: '0x3456789012345678901234567890123456789012',
     avatar: 'https://picsum.photos/40/40?random=203',
     rating: 4.5,
     trades: 1456,
@@ -215,8 +219,17 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
     traderNFTs, 
     selectTrader, 
     toggleTraderNFTSelection, 
-    confirmTraderNFTs 
+    confirmTraderNFTs,
+    isLoadingTraders,
+    isLoadingTraderNFTs,
+    tradersError,
+    traderNFTsError,
+    refreshTraders
   } = useConditionalP2P(isP2P);
+  
+  // Get traders from the P2P context
+  const p2pContext = useConditionalP2P(true); // Always get the full context
+  const traders = p2pContext.traders || [];
   
   const [searchMode, setSearchMode] = useState<'trader' | 'item'>('trader');
   const [searchQuery, setSearchQuery] = useState('');
@@ -267,7 +280,8 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
                   duration: 0.4
                 }
           }
-          className={`fixed right-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : `top-16 ${showFooter ? 'bottom-[44.6px]' : 'bottom-0'} w-80`} bg-black/95 backdrop-blur-xl border-l border-white/10 z-40 overflow-hidden flex flex-col`}
+          className={`fixed right-0 top-0 bottom-0 ${currentRoute === 'museum' ? 'w-1/2' : `top-16 ${showFooter ? 'bottom-[44.6px]' : 'bottom-0'} w-80`} backdrop-blur-xl border-l border-white/10 z-40 overflow-hidden flex flex-col`}
+          style={{ backgroundColor: 'rgb(3, 3, 3)' }}
         >
           {/* Header */}
           <div className="p-6 border-b border-white/10">
@@ -279,10 +293,10 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
               {selectedTrader || selectedPlayer ? (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <img 
-                      src={selectedTrader?.avatar || selectedPlayer?.avatar || ''} 
+                    <MediaRenderer
+                      src={selectedTrader?.avatar || selectedPlayer?.avatar || ''}
                       alt={selectedTrader?.name || selectedPlayer?.name || ''}
-                      className="w-10 h-10 rounded-full"
+                      className="w-10 h-10 rounded-full object-cover"
                     />
                     <div>
                       <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -490,9 +504,9 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
                             onClick={() => toggleTraderNFTSelection(nft.id)}
                           >
                           <div className="relative">
-                            <img 
-                              src={nft.image} 
-                              alt={nft.name} 
+                            <MediaRenderer
+                              src={nft.image}
+                              alt={nft.name}
                               className="w-12 h-12 rounded-lg object-cover"
                             />
                             {nft.selected && (
@@ -504,7 +518,7 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-white truncate">{nft.name}</p>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-[rgb(163,255,18)] font-mono">{nft.value} ETH</span>
+                              <span className="text-xs text-[rgb(163,255,18)] font-mono">{nft.value.toFixed(6)} ETH</span>
                               {nft.rarity && (
                                 <Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-purple-500/30">
                                   {nft.rarity}
@@ -537,7 +551,7 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
                             {traderNFTs
                               .filter(nft => nft.selected)
                               .reduce((sum, nft) => sum + nft.value, 0)
-                              .toFixed(1)} ETH
+                              .toFixed(6)} ETH
                           </span>
                         </div>
                       </div>
@@ -680,10 +694,10 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
                             >
                               <div className="flex items-center gap-3">
                                 <div className="relative">
-                                  <img 
-                                    src={player.avatar} 
+                                  <MediaRenderer
+                                    src={player.avatar}
                                     alt={player.name}
-                                    className="w-10 h-10 rounded-full"
+                                    className="w-10 h-10 rounded-full object-cover"
                                   />
                                   {player.isOnline && (
                                     <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-[rgb(163,255,18)] rounded-full border-2 border-black" />
@@ -733,10 +747,10 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
                               <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-br from-yellow-500 to-orange-500 rounded text-black font-bold text-sm">
                                 #{index + 1}
                               </div>
-                              <img 
-                                src={player.avatar} 
+                              <MediaRenderer
+                                src={player.avatar}
                                 alt={player.name}
-                                className="w-10 h-10 rounded-full"
+                                className="w-10 h-10 rounded-full object-cover"
                               />
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
@@ -773,54 +787,151 @@ export function RightAnimatedSidebar({ show, showFooter = true, currentRoute = '
                     searchMode === 'trader' ? (
                       <>
                         <h3 className="text-sm font-semibold text-white/80 mb-4">ONLINE TRADERS</h3>
-                        <div className="space-y-3">
-                          {mockTraders.map((trader, index) => (
-                            <motion.div
-                              key={trader.id}
-                              initial={{ opacity: 0, x: 20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.1 * index }}
+                        {isLoadingTraders ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                              <p className="text-sm text-white/60">Loading traders...</p>
+                            </div>
+                          </div>
+                        ) : tradersError ? (
+                          <div className="flex flex-col items-center justify-center py-8 gap-3">
+                            <div className="text-center">
+                              <p className="text-sm text-red-400 mb-2">Failed to load traders</p>
+                              <p className="text-xs text-white/60">{tradersError}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={refreshTraders}
+                              className="border-white/20 text-white/70 hover:bg-white/10"
                             >
-                              <Card 
-                                className="bg-white/5 border-white/10 p-3 hover:bg-white/10 transition-colors cursor-pointer"
-                                onClick={() => handleTraderSelect(trader)}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="relative">
-                                    <img 
-                                      src={trader.avatar} 
-                                      alt={trader.name}
-                                      className="w-10 h-10 rounded-full"
-                                    />
-                                    {trader.isOnline && (
-                                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-[rgb(163,255,18)] rounded-full border-2 border-black" />
-                                    )}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm font-medium text-white">{trader.name}</span>
-                                      <Badge className={`text-[10px] ${
-                                        trader.tier === 'DIAMOND' ? 'bg-blue-500/20 text-blue-400' :
-                                        trader.tier === 'GOLD' ? 'bg-yellow-500/20 text-yellow-400' :
-                                        'bg-gray-500/20 text-gray-400'
-                                      }`}>
-                                        {trader.tier}
-                                      </Badge>
-                                    </div>
-                                    <div className="flex items-center gap-3 mt-1">
-                                      <div className="flex items-center gap-1">
-                                        <Star className="w-3 h-3 text-[rgb(163,255,18)]" />
-                                        <span className="text-xs text-[rgb(163,255,18)]">{trader.rating}</span>
-                                      </div>
-                                      <span className="text-xs text-white/60">{trader.trades} trades</span>
-                                      <span className="text-xs text-white/60">{trader.successRate}% success</span>
-                                    </div>
-                                  </div>
+                              Try Again
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            {selectedTrader ? (
+                              // Show selected trader's NFTs
+                              <>
+                                <div className="flex items-center justify-between mb-4">
+                                  <h4 className="text-sm font-medium text-white/80">
+                                    {selectedTrader.name}'s Collection
+                                  </h4>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => selectTrader(null)}
+                                    className="text-white/60 hover:text-white"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
                                 </div>
-                              </Card>
-                            </motion.div>
-                          ))}
-                        </div>
+                                {isLoadingTraderNFTs ? (
+                                  <div className="flex items-center justify-center py-4">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                                  </div>
+                                ) : traderNFTsError ? (
+                                  <div className="text-center py-4">
+                                    <p className="text-xs text-red-400">{traderNFTsError}</p>
+                                  </div>
+                                ) : traderNFTs.length === 0 ? (
+                                  <div className="text-center py-4">
+                                    <p className="text-xs text-white/60">No NFTs available</p>
+                                  </div>
+                                ) : (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {traderNFTs.map((nft, index) => (
+                                      <motion.div
+                                        key={nft.id}
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: 0.1 * index }}
+                                        className="relative group cursor-pointer"
+                                        onClick={() => toggleTraderNFTSelection(nft.id)}
+                                      >
+                                        <div className="relative">
+                                          <MediaRenderer
+                                            src={nft.image}
+                                            alt={nft.name}
+                                            className="w-full aspect-square rounded-lg object-cover"
+                                          />
+                                          {nft.selected && (
+                                            <div className="absolute inset-0 bg-white/20 rounded-lg flex items-center justify-center">
+                                              <CheckCircle2 className="w-6 h-6 text-white" />
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="mt-1">
+                                          <p className="text-xs text-white truncate">{nft.name}</p>
+                                          <p className="text-xs text-white/60">{nft.value.toFixed(6)} ETH</p>
+                                        </div>
+                                      </motion.div>
+                                    ))}
+                                  </div>
+                                )}
+                                {traderNFTs.filter(nft => nft.selected).length > 0 && (
+                                  <Button
+                                    className="w-full mt-4 bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold"
+                                    onClick={confirmTraderNFTs}
+                                  >
+                                    Confirm {traderNFTs.filter(nft => nft.selected).length} NFTs
+                                  </Button>
+                                )}
+                              </>
+                            ) : (
+                              // Show traders list
+                              <div className="space-y-3">
+                                {traders.map((trader, index) => (
+                                  <motion.div
+                                    key={trader.id}
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.1 * index }}
+                                  >
+                                    <Card 
+                                      className="bg-white/5 border-white/10 p-3 hover:bg-white/10 transition-colors cursor-pointer"
+                                      onClick={() => selectTrader(trader)}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="relative">
+                                          <MediaRenderer
+                                            src={trader.avatar}
+                                            alt={trader.name}
+                                            className="w-10 h-10 rounded-full object-cover"
+                                          />
+                                          {trader.isOnline && (
+                                            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-[rgb(163,255,18)] rounded-full border-2 border-black" />
+                                          )}
+                                        </div>
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-sm font-medium text-white">{trader.name}</span>
+                                            <Badge className={`text-[10px] ${
+                                              trader.tier === 'DIAMOND' ? 'bg-blue-500/20 text-blue-400' :
+                                              trader.tier === 'GOLD' ? 'bg-yellow-500/20 text-yellow-400' :
+                                              'bg-gray-500/20 text-gray-400'
+                                            }`}>
+                                              {trader.tier}
+                                            </Badge>
+                                          </div>
+                                          <div className="flex items-center gap-3 mt-1">
+                                            <div className="flex items-center gap-1">
+                                              <Star className="w-3 h-3 text-[rgb(163,255,18)]" />
+                                              <span className="text-xs text-[rgb(163,255,18)]">{trader.rating}</span>
+                                            </div>
+                                            <span className="text-xs text-white/60">{trader.trades} trades</span>
+                                            <span className="text-xs text-white/60">{trader.successRate}% success</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </Card>
+                                  </motion.div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </>
                     ) : (
                       <>

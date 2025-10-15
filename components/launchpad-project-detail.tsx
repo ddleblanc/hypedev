@@ -493,7 +493,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
       // Update to confirm step (user is confirming in wallet)
       updateStep('confirm', 60);
 
-      const txHash = await claimNFT(
+      const result = await claimNFT(
         {
           contractAddress: collection.address,
           chainId: requiredChainId,
@@ -504,22 +504,23 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
         account
       );
 
-      console.log("Mint transaction submitted! Tx hash:", txHash);
-      console.log("Waiting for blockchain confirmation...");
+      console.log("Mint transaction submitted! Tx hash:", result.transactionHash);
 
       // Update to pending step (transaction submitted)
       updateStep('pending', 80);
-      setTxHash(txHash);
+      setTxHash(result.transactionHash);
 
-      // Wait for transaction to be mined (you can add a loading state here)
-      // The transaction is already confirmed when sendTransaction returns
+      console.log("Waiting for blockchain confirmation...");
+      // Transaction receipt is already available in result.receipt
+      console.log("Transaction confirmed! Receipt:", result.receipt);
 
       // Get the current token supply to determine token IDs that were minted
       const isDropContract = ['DropERC721', 'ERC721Drop', 'OpenEditionERC721'].includes(collection.contractType || '');
 
-      // Prepare NFT data for database
+      // Prepare NFT data for database with real token IDs
       const nftsToSave = [];
       for (let i = 0; i < mintQuantity; i++) {
+        const tokenId = (result.startTokenId + BigInt(i)).toString();
         const nftData: any = {
           name: isDropContract && collection.sharedMetadata?.name
             ? collection.sharedMetadata.name
@@ -534,7 +535,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
             ? collection.sharedMetadata.attributes
             : [],
           ownerAddress: account.address,
-          tokenId: `${Date.now()}-${i}`, // Temporary - would need to query contract for real token IDs
+          tokenId: tokenId, // Real token ID from blockchain
           metadataUri: isDropContract && collection.sharedMetadata?.image
             ? collection.sharedMetadata.image
             : collection.image
@@ -583,7 +584,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
       }
 
       // Show success message
-      console.log("Mint complete! Transaction hash:", txHash);
+      console.log("Mint complete! Transaction hash:", result.transactionHash);
 
       // Mark transaction as successful
       updateStep('success', 100);

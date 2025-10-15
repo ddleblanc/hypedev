@@ -33,10 +33,11 @@ export function AnimatedFooter({ show }: AnimatedFooterProps) {
             damping: 30,
             duration: 0.4
           }}
-          className="fixed bottom-0 left-0 right-0 z-40 bg-black/95 backdrop-blur-xl border-t border-white/10"
+          className="fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl border-t border-white/10"
+          style={{ backgroundColor: 'rgb(3, 3, 3)' }}
         >
           {/* Stats Bar Only */}
-          <div className="bg-black/50">
+          <div style={{ backgroundColor: 'rgba(3, 3, 3, 0.3)' }}>
             <div className="container mx-auto px-6 py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-8">

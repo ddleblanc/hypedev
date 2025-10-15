@@ -14,13 +14,22 @@ interface MediaRendererProps {
 
 export function MediaRenderer({ src, alt, className, style, width, height }: MediaRendererProps) {
   // Handle IPFS URIs and regular URLs
+  // Ensure object-cover is applied by default
+  const mergedClassName = className?.includes('object-') ? className : `${className || ''} object-cover`.trim();
+
+  // Force object-cover via style to override Thirdweb's inline styles
+  const mergedStyle: React.CSSProperties = {
+    objectFit: 'cover',
+    ...style,
+  };
+
   return (
     <ThirdwebMediaRenderer
       client={client}
       src={src}
       alt={alt}
-      className={className}
-      style={style}
+      className={mergedClassName}
+      style={mergedStyle}
       width={width}
       height={height}
     />

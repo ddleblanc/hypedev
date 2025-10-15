@@ -1,4 +1,4 @@
-import { getContract, prepareContractCall, sendTransaction, readContract } from "thirdweb"
+import { getContract, prepareContractCall, sendTransaction, readContract, waitForReceipt } from "thirdweb"
 import { upload } from "thirdweb/storage"
 import { client } from "./thirdweb"
 import { lazyMint } from "thirdweb/extensions/erc721"
@@ -145,7 +145,7 @@ export async function claimNFT({
   recipient,
   quantity = 1,
   value // Optional: ETH value to send with transaction
-}: Omit<MintOptions, 'metadata'> & { quantity?: number; value?: bigint }, account: Account): Promise<string> {
+}: Omit<MintOptions, 'metadata'> & { quantity?: number; value?: bigint }, account: Account): Promise<{ transactionHash: string; receipt: any; startTokenId: bigint }> {
   try {
     const chain = defineChain(chainId)
 
@@ -154,6 +154,20 @@ export async function claimNFT({
       chain,
       address: contractAddress,
     })
+
+    // Get the next token ID before minting to know which tokens will be minted
+    let startTokenId: bigint;
+    try {
+      const totalSupply = await readContract({
+        contract,
+        method: "function totalSupply() view returns (uint256)",
+      });
+      startTokenId = totalSupply;
+      console.log('Next token ID to mint will be:', startTokenId.toString());
+    } catch (e) {
+      console.log('Could not read totalSupply, defaulting to 0');
+      startTokenId = BigInt(0);
+    }
 
     // Use thirdweb's claimTo extension
     const transaction = claimTo({
@@ -170,8 +184,23 @@ export async function claimNFT({
       account
     })
 
-    console.log('Claim transaction result:', result)
-    return result.transactionHash
+    console.log('Claim transaction submitted:', result.transactionHash)
+
+    // Wait for the transaction to be mined
+    console.log('Waiting for transaction receipt...');
+    const receipt = await waitForReceipt({
+      client,
+      chain,
+      transactionHash: result.transactionHash,
+    });
+
+    console.log('Transaction mined! Receipt:', receipt);
+
+    return {
+      transactionHash: result.transactionHash,
+      receipt,
+      startTokenId
+    }
   } catch (error) {
     console.error('Claiming error:', error)
     // Preserve the original error instead of wrapping it

@@ -6,7 +6,13 @@ const defaultP2PState = {
   traderNFTs: [] as any[],
   selectTrader: () => {},
   toggleTraderNFTSelection: () => {},
-  confirmTraderNFTs: () => {}
+  confirmTraderNFTs: () => {},
+  isLoadingTraders: false,
+  isLoadingTraderNFTs: false,
+  tradersError: null,
+  traderNFTsError: null,
+  refreshTraders: () => {},
+  traders: [] as any[]
 };
 
 export function useConditionalP2P(isP2P: boolean) {
