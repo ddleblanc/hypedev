@@ -173,8 +173,8 @@ export async function GET(request: NextRequest) {
         },
         stats: {
           totalTrades: trades.length,
-          activeTrades: trades.filter(t => ['PENDING', 'AGREED', 'ESCROW_DEPLOYED'].includes(t.status)).length,
-          completedTrades: trades.filter(t => t.status === 'COMPLETED').length
+          activeTrades: trades.filter(t => ['PENDING', 'COUNTERED', 'AGREED', 'ESCROW_DEPLOYED', 'DEPOSITED'].includes(t.status)).length,
+          completedTrades: trades.filter(t => t.status === 'FINALIZED').length
         },
         pagination: {
           page,

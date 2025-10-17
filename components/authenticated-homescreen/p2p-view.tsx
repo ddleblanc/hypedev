@@ -91,6 +91,7 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
   const [conversation, setConversation] = useState<any[]>([]);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [activeConversations, setActiveConversations] = useState<any[]>([]);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
 
   // History filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -248,6 +249,7 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
   const fetchActiveConversations = async () => {
     if (!address) return;
 
+    setIsLoadingConversations(true);
     try {
       const response = await fetch(`/api/p2p/trades?address=${address}&limit=50`);
       const data = await response.json();
@@ -267,7 +269,7 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
               trades: [trade],
               lastActivity: trade.updatedAt,
               lastMessage: trade.messages?.[0] || null,
-              activeTrades: trade.status === 'PENDING' || trade.status === 'AGREED' ? 1 : 0,
+              activeTrades: ['PENDING', 'COUNTERED', 'AGREED', 'ESCROW_DEPLOYED', 'DEPOSITED'].includes(trade.status) ? 1 : 0,
               totalTrades: 1
             });
           } else {
@@ -285,7 +287,7 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
             }
 
             // Count active trades
-            if (trade.status === 'PENDING' || trade.status === 'AGREED') {
+            if (['PENDING', 'COUNTERED', 'AGREED', 'ESCROW_DEPLOYED', 'DEPOSITED'].includes(trade.status)) {
               existing.activeTrades++;
             }
           }
@@ -299,6 +301,8 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
       }
     } catch (error) {
       console.error('Error fetching active conversations:', error);
+    } finally {
+      setIsLoadingConversations(false);
     }
   };
 
@@ -474,7 +478,14 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                 <div className="px-4 pb-2">
                   <h2 className="text-xs text-white/40 uppercase tracking-wider mb-3">Conversations</h2>
                   <div className="space-y-2">
-                    {activeConversations.length > 0 ? (
+                    {isLoadingConversations ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="flex flex-col items-center gap-3">
+                          <Loader2 className="h-8 w-8 text-white/40 animate-spin" />
+                          <p className="text-white/40 text-sm">Loading conversations...</p>
+                        </div>
+                      </div>
+                    ) : activeConversations.length > 0 ? (
                       activeConversations.map(convo => {
                         const { trader, lastMessage, lastActivity, activeTrades, totalTrades } = convo;
 
@@ -541,40 +552,14 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                         );
                       })
                     ) : (
-                      // Fallback to showing suggested traders when no active conversations
-                      traders.slice(0, 3).map(trader => (
-                        <button
-                          key={trader.id}
-                          onClick={() => {
-                            selectTrader(trader);
-                            setMobileView('trading');
-                          }}
-                          className="w-full bg-white/5 rounded-xl p-3 flex items-center gap-3 hover:bg-white/10 transition-all"
-                        >
-                          <div className="relative">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden">
-                              {trader.avatar ? (
-                                <MediaRenderer
-                                  src={trader.avatar}
-                                  alt={trader.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-white font-bold text-lg">
-                                  {trader.name.charAt(0).toUpperCase()}
-                                </span>
-                              )}
-                            </div>
-                            {trader.isOnline && (
-                              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
-                            )}
-                          </div>
-                          <div className="flex-1 text-left">
-                            <p className="text-white text-sm font-medium">{trader.name}</p>
-                            <p className="text-white/40 text-xs">Start trading</p>
-                          </div>
-                        </button>
-                      ))
+                      // Empty state when no conversations
+                      <div className="text-center py-8">
+                        <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center">
+                          <MessageCircle className="h-8 w-8 text-white/20" />
+                        </div>
+                        <p className="text-white/40 text-sm">No conversations yet</p>
+                        <p className="text-white/30 text-xs mt-1">Start a new trade to begin</p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -583,11 +568,19 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                 <div className="px-4 pt-4">
                   <h2 className="text-xs text-white/40 uppercase tracking-wider mb-3">Suggested Traders</h2>
                   <div className="space-y-2">
-                    {traders
-                      .filter(trader => trader && !activeConversations.some(convo => convo?.trader?.id === trader.id))
-                      .slice(0, 5)
-                      .map(trader => trader ? (
-                      <button
+                    {isLoadingTraders ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="flex flex-col items-center gap-3">
+                          <Loader2 className="h-6 w-6 text-white/40 animate-spin" />
+                          <p className="text-white/40 text-xs">Loading traders...</p>
+                        </div>
+                      </div>
+                    ) : traders.length > 0 ? (
+                      traders
+                        .filter(trader => trader && !activeConversations.some(convo => convo?.trader?.id === trader.id))
+                        .slice(0, 5)
+                        .map(trader => trader ? (
+                        <button
                         key={trader.id}
                         onClick={() => {
                           selectTrader(trader);
@@ -626,7 +619,12 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                           </div>
                         )}
                       </button>
-                    ) : null)}
+                    ) : null)
+                    ) : (
+                      <div className="text-center py-6">
+                        <p className="text-white/30 text-xs">No traders available</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -669,16 +667,22 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                       if (item.type === 'trade_event') {
                         const statusMessages: Record<string, string> = {
                           'AGREED': '✓ Both parties agreed',
-                          'COMPLETED': '✓ Trade completed successfully',
-                          'CANCELLED': '✗ Trade was cancelled',
-                          'DISPUTED': '⚠ Trade disputed'
+                          'FINALIZED': '✓ Trade completed successfully',
+                          'CANCELED': '✗ Trade was cancelled',
+                          'REJECTED': '✗ Trade was rejected',
+                          'COUNTERED': '↔ Counter-offer made',
+                          'ESCROW_DEPLOYED': '🔒 Escrow deployed',
+                          'DEPOSITED': '💰 Assets deposited'
                         };
                         const message = statusMessages[item.newStatus] || `Trade ${item.action.toLowerCase()}`;
                         const statusColors: Record<string, string> = {
                           'AGREED': 'text-blue-400 bg-blue-400/10',
-                          'COMPLETED': 'text-green-400 bg-green-400/10',
-                          'CANCELLED': 'text-red-400 bg-red-400/10',
-                          'DISPUTED': 'text-yellow-400 bg-yellow-400/10'
+                          'FINALIZED': 'text-green-400 bg-green-400/10',
+                          'CANCELED': 'text-red-400 bg-red-400/10',
+                          'REJECTED': 'text-red-400 bg-red-400/10',
+                          'COUNTERED': 'text-purple-400 bg-purple-400/10',
+                          'ESCROW_DEPLOYED': 'text-cyan-400 bg-cyan-400/10',
+                          'DEPOSITED': 'text-yellow-400 bg-yellow-400/10'
                         };
                         const colorClass = statusColors[item.newStatus] || 'text-white/40 bg-white/5';
 
@@ -769,18 +773,24 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                       </div>
                     </div>
 
-                    {/* Stats */}
+                    {/* Stats - Will be loaded from API in future */}
                     <div className="grid grid-cols-3 gap-4">
                       <div className="text-center">
-                        <p className="text-white text-2xl font-bold">247</p>
+                        <p className="text-white text-2xl font-bold">
+                          {isLoadingConversations ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : '0'}
+                        </p>
                         <p className="text-white/40 text-xs">Trades</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-white text-2xl font-bold">98%</p>
+                        <p className="text-white text-2xl font-bold">
+                          {isLoadingConversations ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : '0%'}
+                        </p>
                         <p className="text-white/40 text-xs">Success</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-white text-2xl font-bold">4.9</p>
+                        <p className="text-white text-2xl font-bold">
+                          {isLoadingConversations ? <Loader2 className="h-6 w-6 animate-spin mx-auto" /> : '0.0'}
+                        </p>
                         <p className="text-white/40 text-xs">Rating</p>
                       </div>
                     </div>
