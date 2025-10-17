@@ -79,8 +79,14 @@ function useCommandCenterKeyframes() {
 
 export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELECT" }: GameCommandCenterProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useCommandCenterKeyframes();
+
+  // Prevent animation during SSR/initial hydration
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   const handlePrevious = () => {
     setSelectedIndex((prev) => (prev - 1 + options.length) % options.length);
@@ -235,9 +241,9 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
             key={option.id}
             className={clsx(
               "group cursor-pointer relative overflow-hidden",
-              "animate-[expandFromCenter_0.5s_ease-out_both]"
+              isHydrated && "animate-[expandFromCenter_0.5s_ease-out_both]"
             )}
-            style={{ animationDelay }}
+            style={{ animationDelay: isHydrated ? animationDelay : undefined }}
             onClick={() => onOptionClick(option)}
             onMouseEnter={(e) => {
               const video = e.currentTarget.querySelector("video");

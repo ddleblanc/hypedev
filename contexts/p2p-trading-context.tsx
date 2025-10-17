@@ -234,22 +234,36 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
     fetchTraders();
   }, []);
 
-  useEffect(() => {
-    if (selectedTrader) {
-      fetchTraderNFTs(selectedTrader.walletAddress);
-    }
-  }, [selectedTrader]);
+  // Removed the useEffect that was causing double fetching
+  // The selectTrader function already handles fetching NFTs
 
   // Functions
   const toggleUserNFTSelection = (nftId: string) => {
-    setUserNFTs(prev => 
-      prev.map(nft => 
-        nft.id === nftId ? { ...nft, selected: !nft.selected } : nft
-      )
-    );
+    // First check if it's on the board
+    const boardNft = userBoardNFTs.find(n => n.id === nftId);
+    if (boardNft) {
+      // Remove from board and add back to sidebar
+      setUserBoardNFTs(prev => prev.filter(n => n.id !== nftId));
+      setUserNFTs(prev => [...prev, { ...boardNft, selected: false }].sort((a, b) => a.name.localeCompare(b.name)));
+      return;
+    }
+
+    // Then check if it's in the sidebar
+    const sidebarNft = userNFTs.find(n => n.id === nftId);
+    if (!sidebarNft) return;
+
+    // Check board limit (6 NFTs max)
+    if (userBoardNFTs.length >= 6) {
+      return; // Don't add if board is full
+    }
+
+    // Add to board and remove from sidebar
+    setUserBoardNFTs(prev => [...prev, { ...sidebarNft, selected: true }]);
+    setUserNFTs(prev => prev.filter(n => n.id !== nftId));
   };
 
   const confirmUserNFTs = () => {
+    // Kept for backwards compatibility, but not needed anymore
     const selectedNFTs = userNFTs.filter(nft => nft.selected);
     setUserBoardNFTs(prev => [...prev, ...selectedNFTs]);
     // Remove confirmed NFTs from sidebar to enable layout animation
@@ -272,28 +286,48 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
   };
 
   const selectTrader = (trader: Trader | null) => {
+    // Clear previous trader data immediately
+    setTraderNFTs([]);
+    setTraderBoardNFTs([]);
+
     setSelectedTrader(trader);
     if (trader) {
       // Use NFTs from trader object if available, otherwise fetch
       if (trader.nfts && trader.nfts.length > 0) {
         setTraderNFTs(trader.nfts);
       } else {
+        // Only fetch if we don't have NFTs already
         fetchTraderNFTs(trader.walletAddress);
       }
-    } else {
-      setTraderNFTs([]);
     }
   };
 
   const toggleTraderNFTSelection = (nftId: string) => {
-    setTraderNFTs(prev => 
-      prev.map(nft => 
-        nft.id === nftId ? { ...nft, selected: !nft.selected } : nft
-      )
-    );
+    // First check if it's on the board
+    const boardNft = traderBoardNFTs.find(n => n.id === nftId);
+    if (boardNft) {
+      // Remove from board and add back to sidebar
+      setTraderBoardNFTs(prev => prev.filter(n => n.id !== nftId));
+      setTraderNFTs(prev => [...prev, { ...boardNft, selected: false }].sort((a, b) => a.name.localeCompare(b.name)));
+      return;
+    }
+
+    // Then check if it's in the sidebar
+    const sidebarNft = traderNFTs.find(n => n.id === nftId);
+    if (!sidebarNft) return;
+
+    // Check board limit (6 NFTs max)
+    if (traderBoardNFTs.length >= 6) {
+      return; // Don't add if board is full
+    }
+
+    // Add to board and remove from sidebar
+    setTraderBoardNFTs(prev => [...prev, { ...sidebarNft, selected: true }]);
+    setTraderNFTs(prev => prev.filter(n => n.id !== nftId));
   };
 
   const confirmTraderNFTs = () => {
+    // Kept for backwards compatibility, but not needed anymore
     const selectedNFTs = traderNFTs.filter(nft => nft.selected);
     setTraderBoardNFTs(prev => [...prev, ...selectedNFTs]);
     // Remove confirmed NFTs from sidebar to enable layout animation

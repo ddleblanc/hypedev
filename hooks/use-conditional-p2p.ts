@@ -4,6 +4,7 @@ import { useP2PTrading } from "@/contexts/p2p-trading-context";
 const defaultP2PState = {
   selectedTrader: null as any,
   traderNFTs: [] as any[],
+  traderBoardNFTs: [] as any[],
   selectTrader: () => {},
   toggleTraderNFTSelection: () => {},
   confirmTraderNFTs: () => {},

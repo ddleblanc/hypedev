@@ -229,14 +229,8 @@ export async function PUT(
         });
 
       case 'counteroffer':
-        // Only counterparty can make a counteroffer
-        if (trade.initiatorId === user.id) {
-          return NextResponse.json(
-            { success: false, error: 'Only the counterparty can make a counteroffer' },
-            { status: 403 }
-          );
-        }
-
+        // Both parties can make a counteroffer when status is PENDING or COUNTERED
+        // This allows back-and-forth negotiation
         if (trade.status !== 'PENDING' && trade.status !== 'COUNTERED') {
           return NextResponse.json(
             { success: false, error: 'Cannot make counteroffer in current status' },
@@ -283,14 +277,8 @@ export async function PUT(
         break;
 
       case 'accept':
-        // Only counterparty can accept
-        if (trade.initiatorId === user.id) {
-          return NextResponse.json(
-            { success: false, error: 'Only the counterparty can accept the trade' },
-            { status: 403 }
-          );
-        }
-
+        // Both parties can accept a trade offer
+        // The party who did NOT make the last change can accept
         if (trade.status !== 'PENDING' && trade.status !== 'COUNTERED') {
           return NextResponse.json(
             { success: false, error: 'Cannot accept trade in current status' },
@@ -303,14 +291,7 @@ export async function PUT(
         break;
 
       case 'reject':
-        // Only counterparty can reject
-        if (trade.initiatorId === user.id) {
-          return NextResponse.json(
-            { success: false, error: 'Only the counterparty can reject the trade' },
-            { status: 403 }
-          );
-        }
-
+        // Both parties can reject a trade offer
         if (trade.status !== 'PENDING' && trade.status !== 'COUNTERED') {
           return NextResponse.json(
             { success: false, error: 'Cannot reject trade in current status' },
@@ -350,12 +331,44 @@ export async function PUT(
     }
 
     // Update trade
-    const updatedTrade = await prisma.trade.update({
+    await prisma.trade.update({
       where: { id },
       data: {
         status: newStatus,
         ...updateData
-      },
+      }
+    });
+
+    // Add message if provided
+    if (message) {
+      await prisma.tradeMessage.create({
+        data: {
+          tradeId: id,
+          userId: user.id,
+          message,
+          messageType: action === 'counteroffer' ? 'COUNTEROFFER' : 
+                      action === 'accept' ? 'ACCEPTANCE' : 
+                      action === 'reject' ? 'REJECTION' : 'TEXT',
+          metadata
+        }
+      });
+    }
+
+    // Add history entry
+    await prisma.tradeHistory.create({
+      data: {
+        tradeId: id,
+        userId: user.id,
+        action: action.toUpperCase(),
+        oldStatus: trade.status,
+        newStatus,
+        metadata: { message: `Trade ${action}ed` }
+      }
+    });
+
+    // Fetch the complete updated trade with all relations
+    const completeUpdatedTrade = await prisma.trade.findUnique({
+      where: { id },
       include: {
         initiator: {
           select: {
@@ -387,40 +400,35 @@ export async function PUT(
               }
             }
           }
+        },
+        messages: {
+          include: {
+            user: {
+              select: {
+                username: true,
+                profilePicture: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        },
+        history: {
+          include: {
+            user: {
+              select: {
+                username: true,
+                profilePicture: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
         }
-      }
-    });
-
-    // Add message if provided
-    if (message) {
-      await prisma.tradeMessage.create({
-        data: {
-          tradeId: id,
-          userId: user.id,
-          message,
-          messageType: action === 'counteroffer' ? 'COUNTEROFFER' : 
-                      action === 'accept' ? 'ACCEPTANCE' : 
-                      action === 'reject' ? 'REJECTION' : 'TEXT',
-          metadata
-        }
-      });
-    }
-
-    // Add history entry
-    await prisma.tradeHistory.create({
-      data: {
-        tradeId: id,
-        userId: user.id,
-        action: action.toUpperCase(),
-        oldStatus: trade.status,
-        newStatus,
-        metadata: { message: `Trade ${action}ed` }
       }
     });
 
     return NextResponse.json({
       success: true,
-      data: updatedTrade
+      data: completeUpdatedTrade
     });
   } catch (error) {
     console.error('Error updating trade:', error);

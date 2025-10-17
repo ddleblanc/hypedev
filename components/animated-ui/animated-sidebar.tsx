@@ -44,7 +44,8 @@ import {
   Package,
   Database,
   PieChart,
-  MoreHorizontal
+  MoreHorizontal,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -136,17 +137,17 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
   // Only use P2P data when on P2P route
   const {
     userNFTs,
+    userBoardNFTs,
     selectedTrader,
     toggleUserNFTSelection,
-    confirmUserNFTs,
     isLoadingUserNFTs,
     userNFTsError,
     refreshUserNFTs
   } = currentRoute === 'p2p' ? p2pContext : {
     userNFTs: [],
+    userBoardNFTs: [],
     selectedTrader: null,
     toggleUserNFTSelection: () => {},
-    confirmUserNFTs: () => {},
     isLoadingUserNFTs: false,
     userNFTsError: null,
     refreshUserNFTs: () => {}
@@ -1466,7 +1467,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                   </div>
                   
                   {/* NFT List */}
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  <div className="space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 320px)' }}>
                     {isLoadingUserNFTs ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="flex flex-col items-center gap-2">
@@ -1505,132 +1506,76 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                         </Button>
                       </div>
                     ) : (
-                      <AnimatePresence mode="popLayout">
-                        {userNFTs.map((nft, index) => (
-                          <motion.div
-                            key={nft.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{
-                              opacity: 0,
-                              scale: 0.5,
-                              x: 400,
-                              transition: { duration: 0.4, ease: "easeIn" }
-                            }}
-                            transition={{ delay: 0.3 + index * 0.05 }}
-                            className="flex items-center gap-3 py-3 hover:text-white transition-colors cursor-pointer group"
-                            onClick={() => toggleUserNFTSelection(nft.id)}
-                          >
-                          <div className="relative">
-                            <MediaRenderer
-                              src={nft.image}
-                              alt={nft.name}
-                              className="w-12 h-12 rounded-lg object-cover"
-                            />
-                            {nft.selected && (
-                              <div className="absolute inset-0 bg-white/20 rounded-lg flex items-center justify-center">
-                                <CheckCircle2 className="w-6 h-6 text-white" />
-                              </div>
-                            )}
+                      <div>
+                        {/* NFTs in Sidebar */}
+                        {userNFTs.length > 0 && (
+                          <div className="space-y-2">
+                            {userNFTs.map((nft, index) => (
+                              <motion.div
+                                key={nft.id}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.02 }}
+                                className="flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group"
+                                onClick={() => toggleUserNFTSelection(nft.id)}
+                              >
+                                <div className="relative">
+                                  <MediaRenderer
+                                    src={nft.image}
+                                    alt={nft.name}
+                                    className="w-12 h-12 rounded-lg object-cover"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-white truncate">{nft.name}</p>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-white/60 font-mono">{nft.value.toFixed(3)} ETH</span>
+                                    {nft.rarity && (
+                                      <Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-purple-500/30">
+                                        {nft.rarity}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Plus className="h-4 w-4 text-[rgb(163,255,18)]" />
+                                </div>
+                              </motion.div>
+                            ))}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{nft.name}</p>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-white font-mono">{nft.value.toFixed(6)} ETH</span>
-                              {nft.rarity && (
-                                <Badge className="text-[10px] bg-purple-500/20 text-purple-400 border-purple-500/30">
-                                  {nft.rarity}
-                                </Badge>
-                              )}
+                        )}
+
+                        {/* NFTs on Board Indicator */}
+                        {userBoardNFTs.length > 0 && (
+                          <div className="mt-4 p-3 bg-[rgb(163,255,18)]/10 rounded-lg border border-[rgb(163,255,18)]/20">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle2 className="h-4 w-4 text-[rgb(163,255,18)]" />
+                              <p className="text-xs font-semibold text-[rgb(163,255,18)]">ON BOARD ({userBoardNFTs.length}/6)</p>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {userBoardNFTs.map((nft) => (
+                                <div
+                                  key={`board-${nft.id}`}
+                                  className="relative group cursor-pointer"
+                                  onClick={() => toggleUserNFTSelection(nft.id)}
+                                >
+                                  <MediaRenderer
+                                    src={nft.image}
+                                    alt={nft.name}
+                                    className="w-full aspect-square rounded object-cover opacity-60 hover:opacity-100 transition-opacity"
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="bg-black/60 rounded-full p-1">
+                                      <X className="h-3 w-3 text-white" />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleUserNFTSelection(nft.id);
-                            }}
-                          >
-                            {nft.selected ? (
-                              <Minus className="h-4 w-4 text-red-400" />
-                            ) : (
-                              <Plus className="h-4 w-4 text-white" />
-                            )}
-                          </Button>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
+                        )}
+                      </div>
                     )}
-                  </div>
-                </div>
-
-                {/* Trade Summary */}
-                <div className="p-6 border-b border-white/10">
-                  <motion.h3
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="text-sm font-semibold text-white/80 mb-4"
-                  >
-                    TRADE SUMMARY
-                  </motion.h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-white/60">Selected NFTs</span>
-                      <span className="text-sm font-bold text-white">{userNFTs.filter(nft => nft.selected).length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-white/60">Total Value</span>
-                      <span className="text-sm font-bold text-white">
-                        {userNFTs.filter(nft => nft.selected).reduce((sum, nft) => sum + nft.value, 0).toFixed(6)} ETH
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-white/60">Trader Selected</span>
-                      <span className="text-sm font-bold text-white">{selectedTrader?.name || 'None'}</span>
-                    </div>
-                  </div>
-                  <Button 
-                    className="w-full mt-4 bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold"
-                    disabled={userNFTs.filter(nft => nft.selected).length === 0}
-                    onClick={confirmUserNFTs}
-                  >
-                    {userNFTs.filter(nft => nft.selected).length > 0 
-                      ? `Confirm ${userNFTs.filter(nft => nft.selected).length} NFTs` 
-                      : 'Select NFTs First'
-                    }
-                  </Button>
-                </div>
-
-                {/* Quick Stats */}
-                <div className="p-6">
-                  <motion.h3
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="text-sm font-semibold text-white/80 mb-4"
-                  >
-                    MY STATS
-                  </motion.h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white/5 rounded-lg p-2">
-                      <div className="text-xs text-white/60">Total NFTs</div>
-                      <div className="text-lg font-bold text-white">{userNFTs.length}</div>
-                    </div>
-                    <div className="bg-white/5 rounded-lg p-2">
-                      <div className="text-xs text-white/60">Portfolio</div>
-                      <div className="text-lg font-bold text-white">42.8 ETH</div>
-                    </div>
-                    <div className="bg-white/5 rounded-lg p-2">
-                      <div className="text-xs text-white/60">Trades</div>
-                      <div className="text-lg font-bold text-white">127</div>
-                    </div>
-                    <div className="bg-white/5 rounded-lg p-2">
-                      <div className="text-xs text-white/60">Success</div>
-                      <div className="text-lg font-bold text-white">94%</div>
-                    </div>
                   </div>
                 </div>
               </>
@@ -1999,60 +1944,6 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
             )}
           </div>
 
-          {/* Footer Actions */}
-          {currentRoute === 'studio' ? (
-            <div className="p-4 border-t border-white/10 bg-black/50">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="text-center"
-              >
-                <p className="text-xs text-white/40">
-                  Studio v1.0
-                </p>
-              </motion.div>
-            </div>
-          ) : currentRoute === 'lootboxes-detail' ? (
-            <div className="p-4 border-t border-white/10 bg-black/50">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="text-center"
-              >
-                <p className="text-xs text-white/40">
-                  Lootbox Explorer v1.0
-                </p>
-              </motion.div>
-            </div>
-          ) : currentRoute === 'p2p' ? (
-            <div className="p-4 border-t border-white/10 bg-black/50">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="text-center"
-              >
-                <p className="text-xs text-white/40">
-                  P2P Trading v1.0
-                </p>
-              </motion.div>
-            </div>
-          ) : (pathname?.startsWith('/collection/') || currentRoute === 'collection') ? (
-            <div className="p-4 border-t border-white/10 bg-black/50">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.6 }}
-                className="text-center"
-              >
-                <p className="text-xs text-white/40">
-                  Collection Manager v1.0
-                </p>
-              </motion.div>
-            </div>
-          ) : currentRoute === 'museum' ? null : null}
         </motion.div>
       )}
     </AnimatePresence>
