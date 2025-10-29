@@ -1351,7 +1351,7 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
                   }}
                   className="h-10 w-10 p-0 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
                 >
-                  <ArrowRightLeft className="h-4 w-4 text-white" />
+                  <Plus className="h-5 w-5 text-white" />
                 </button>
               ) : null}
               <Input
