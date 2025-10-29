@@ -247,14 +247,112 @@ export function IntegratedTradeHistory({
                     className="p-4 cursor-pointer"
                     onClick={() => setExpandedTrade(isExpanded ? null : trade.id)}
                   >
-                    <div className="flex items-center gap-4">
+                    {/* Mobile Layout */}
+                    <div className="md:hidden">
+                      {/* Top Row - Avatar, Name, Status */}
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="relative flex-shrink-0">
+                          {otherParty.profilePicture ? (
+                            <MediaRenderer
+                              src={otherParty.profilePicture}
+                              alt={otherParty.username}
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center">
+                              <span className="text-white font-bold text-lg">
+                                {otherParty.username?.[0]?.toUpperCase() || 'U'}
+                              </span>
+                            </div>
+                          )}
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-black flex items-center justify-center border border-white/10">
+                            {React.createElement(getStatusIcon(trade.status), {
+                              className: cn("h-3 w-3", trade.status === 'PENDING' ? 'text-yellow-400' : 'text-white/60')
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <p className="text-sm font-semibold text-white truncate">
+                              {isInitiator ? '→' : '←'} {otherParty.username || 'Unknown'}
+                            </p>
+                          </div>
+                          <Badge className={cn("text-[10px] px-2 py-0.5 border", getStatusStyle(trade.status))}>
+                            {getStatusLabel(trade.status)}
+                          </Badge>
+                        </div>
+
+                        <ChevronRight className={cn(
+                          "h-5 w-5 text-white/40 transition-transform flex-shrink-0",
+                          isExpanded && "rotate-90"
+                        )} />
+                      </div>
+
+                      {/* Middle Row - Trade Values */}
+                      <div className="bg-white/5 rounded-lg p-3 mb-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-white/40 uppercase tracking-wide">You Offer</span>
+                            <span className="text-base font-mono font-semibold text-[rgb(163,255,18)]">
+                              {isInitiator ? initiatorValue.toFixed(3) : counterpartyValue.toFixed(3)} ETH
+                            </span>
+                          </div>
+                          <ArrowUpDown className="h-4 w-4 text-white/40 mx-2 flex-shrink-0" />
+                          <div className="flex flex-col gap-1 text-right">
+                            <span className="text-[10px] text-white/40 uppercase tracking-wide">They Offer</span>
+                            <span className="text-base font-mono font-semibold text-purple-400">
+                              {isInitiator ? counterpartyValue.toFixed(3) : initiatorValue.toFixed(3)} ETH
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom Row - Meta Info */}
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-3 text-white/50">
+                          <span>{formatDate(trade.createdAt)}</span>
+                          <span>{trade._count.items} items</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {trade._count.messages > 0 && (
+                            <div className="flex items-center gap-1 text-blue-400">
+                              <MessageSquare className="h-3 w-3" />
+                              <span className="text-xs">{trade._count.messages}</span>
+                            </div>
+                          )}
+                          {trade.fairnessScore > 0 && (
+                            <div className={cn(
+                              "flex items-center gap-1 px-2 py-1 rounded-full",
+                              trade.fairnessScore >= 80 ? "text-green-400 bg-green-400/10" :
+                              trade.fairnessScore >= 60 ? "text-yellow-400 bg-yellow-400/10" :
+                              "text-red-400 bg-red-400/10"
+                            )}>
+                              <TrendingUp className="h-3 w-3" />
+                              <span className="text-xs font-medium">{trade.fairnessScore}%</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Desktop Layout - Original */}
+                    <div className="hidden md:flex items-center gap-4">
                       {/* User Avatar */}
                       <div className="relative">
-                        <MediaRenderer
-                          src={otherParty.profilePicture || `https://via.placeholder.com/40x40/333/fff?text=${otherParty.username?.[0] || 'U'}`}
-                          alt={otherParty.username}
-                          className="w-10 h-10 rounded-full object-cover"
-                        />
+                        {otherParty.profilePicture ? (
+                          <MediaRenderer
+                            src={otherParty.profilePicture}
+                            alt={otherParty.username}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">
+                              {otherParty.username?.[0]?.toUpperCase() || 'U'}
+                            </span>
+                          </div>
+                        )}
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-gray-900 flex items-center justify-center">
                           {React.createElement(getStatusIcon(trade.status), {
                             className: cn("h-2.5 w-2.5", trade.status === 'PENDING' ? 'text-yellow-400' : 'text-white/60')

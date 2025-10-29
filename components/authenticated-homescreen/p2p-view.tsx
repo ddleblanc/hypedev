@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import { useP2PTrading } from "@/contexts/p2p-trading-context";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useP2PHeader } from "@/contexts/p2p-header-context";
 import {
   X,
   History,
@@ -16,6 +18,7 @@ import {
   TrendingUp,
   // AlertCircle,
   Loader2,
+  Check,
   // CheckCircle2,
   // Info,
   Users,
@@ -25,7 +28,9 @@ import {
   Sparkles,
   User,
   MessageCircle,
-  Clock
+  Clock,
+  Menu,
+  Home
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,11 +42,14 @@ import { MediaRenderer } from "@/components/media-renderer";
 
 type P2PViewProps = {
   setViewMode: (mode: string) => void;
+  initialTraderAddress?: string;
 };
 
-export function P2PView({ setViewMode: _ }: P2PViewProps) {
+export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) {
   const { user } = useWalletAuthOptimized();
   const address = user?.walletAddress;
+  const router = useRouter();
+  const p2pHeaderContext = useP2PHeader();
 
   const {
     userNFTs,
@@ -64,6 +72,8 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
     activeTradeId,
     clearActiveTradeId,
     isLoadingTraders,
+    clearUserBoard,
+    clearTraderBoard,
     isLoadingTraderNFTs
   } = useP2PTrading();
 
@@ -82,7 +92,10 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
   const [contactSearchQuery, setContactSearchQuery] = useState("");
 
   // Mobile navigation states (chat-like)
-  const [mobileView, setMobileView] = useState<'contacts' | 'trading' | 'profile'>('contacts');
+  // Start in 'trading' view if we have a trader address in URL, otherwise 'contacts'
+  const [mobileView, setMobileView] = useState<'contacts' | 'trading' | 'profile'>(
+    initialTraderAddress ? 'trading' : 'contacts'
+  );
   const [showNewTradeSheet, setShowNewTradeSheet] = useState(false);
   const [isCreatingOffer, setIsCreatingOffer] = useState(false); // Track if we're in offer creation mode
   const [showTradeHistory, setShowTradeHistory] = useState(false); // Show trade history for mobile
@@ -92,6 +105,9 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [activeConversations, setActiveConversations] = useState<any[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+
+  // Chat scroll ref
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // History filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -138,6 +154,46 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
       return parts.slice(1, -1).join('-');
     }
     return id;
+  };
+
+  // Check if the board has been modified from the original loaded trade
+  const isBoardModified = () => {
+    if (!loadedTrade || !activeTradeId) return false;
+
+    // Get the original NFT IDs from the loaded trade
+    const isInitiator = loadedTrade.initiator.walletAddress === address;
+    const originalUserItems = loadedTrade.items
+      .filter((item: any) => isInitiator ? item.side === 'INITIATOR' : item.side === 'COUNTERPARTY')
+      .map((item: any) => item.nft.id);
+    const originalTraderItems = loadedTrade.items
+      .filter((item: any) => isInitiator ? item.side === 'COUNTERPARTY' : item.side === 'INITIATOR')
+      .map((item: any) => item.nft.id);
+
+    // Extract real NFT IDs from current board (remove 'user-' or 'trader-' prefix)
+    const currentUserIds = userBoardNFTs.map(nft => extractRealNFTId(nft.id));
+    const currentTraderIds = traderBoardNFTs.map(nft => extractRealNFTId(nft.id));
+
+    // Check if the counts or IDs have changed
+    if (currentUserIds.length !== originalUserItems.length || currentTraderIds.length !== originalTraderItems.length) {
+      return true;
+    }
+
+    // Check if the same NFTs are present
+    const userIdsMatch = currentUserIds.every(id => originalUserItems.includes(id)) &&
+                         originalUserItems.every((id: string) => currentUserIds.includes(id));
+    const traderIdsMatch = currentTraderIds.every(id => originalTraderItems.includes(id)) &&
+                           originalTraderItems.every((id: string) => currentTraderIds.includes(id));
+
+    return !userIdsMatch || !traderIdsMatch;
+  };
+
+  const boardModified = isBoardModified();
+
+  // Reset board to original loaded trade state
+  const handleResetBoard = () => {
+    if (loadedTrade && activeTradeId) {
+      loadTradeIntoBoard(loadedTrade);
+    }
   };
 
   // Send trade offer
@@ -204,12 +260,12 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
         // setSuccess(activeTradeId ? 'Counter-offer sent!' : 'Trade offer sent!');
         clearAllSelections();
         setMessage("");
+        setIsCreatingOffer(false); // Close board view and return to chat
         if (activeTradeId) clearActiveTradeId();
 
-        // Show in history
+        // Refresh conversation to show new trade message
+        await fetchConversation();
         setRefreshHistoryKey(prev => prev + 1);
-        setActiveTab('history');
-        setSelectedTradeId(data.data.id);
 
         // setTimeout(() => setSuccess(null), 5000);
       } else {
@@ -225,6 +281,80 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
   };
 
   const canSendOffer = userBoardNFTs.length > 0 && selectedTrader && !isCreating && !isViewingHistory;
+
+  // Accept trade
+  const handleAcceptTrade = async () => {
+    if (!address || !activeTradeId) return;
+
+    setIsCreating(true);
+    try {
+      const response = await fetch(`/api/p2p/trades/${activeTradeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'accept',
+          userAddress: address,
+          message: message || 'Trade accepted!'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        clearAllSelections();
+        setMessage("");
+        clearActiveTradeId();
+
+        // Refresh history and show the accepted trade
+        setRefreshHistoryKey(prev => prev + 1);
+        setActiveTab('history');
+        setSelectedTradeId(data.data.id);
+      } else {
+        console.error('Accept error:', data.error || 'Failed to accept trade');
+      }
+    } catch (error) {
+      console.error('Error accepting trade:', error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Reject trade
+  const handleRejectTrade = async () => {
+    if (!address || !activeTradeId) return;
+
+    setIsCreating(true);
+    try {
+      const response = await fetch(`/api/p2p/trades/${activeTradeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reject',
+          userAddress: address,
+          message: message || 'Trade rejected'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        clearAllSelections();
+        setMessage("");
+        clearActiveTradeId();
+
+        // Refresh history and show the rejected trade
+        setRefreshHistoryKey(prev => prev + 1);
+        setActiveTab('history');
+        setSelectedTradeId(data.data.id);
+      } else {
+        console.error('Reject error:', data.error || 'Failed to reject trade');
+      }
+    } catch (error) {
+      console.error('Error rejecting trade:', error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   // Fetch conversation between user and selected trader
   const fetchConversation = async () => {
@@ -306,6 +436,64 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
     }
   };
 
+  // Handle trader selection from route (both mobile and desktop)
+  useEffect(() => {
+    // If no address in URL, clear selection and show contacts on mobile
+    if (!initialTraderAddress) {
+      if (selectedTrader && window.innerWidth < 768) {
+        clearAllSelections();
+        setMobileView('contacts');
+      }
+      return;
+    }
+
+    const normalizedAddress = initialTraderAddress.toLowerCase();
+
+    // Check if we already have the correct trader selected
+    if (selectedTrader?.walletAddress.toLowerCase() === normalizedAddress) {
+      // Already have correct trader, just ensure mobile is in trading view
+      if (window.innerWidth < 768) {
+        setMobileView('trading');
+      }
+      return;
+    }
+
+    // Try to find trader in active conversations first (most common case)
+    const conversation = activeConversations.find(
+      convo => convo.trader?.walletAddress?.toLowerCase() === normalizedAddress
+    );
+
+    if (conversation) {
+      const traderObj = {
+        id: conversation.trader.id,
+        name: conversation.trader.username || 'Unknown',
+        username: conversation.trader.username,
+        walletAddress: conversation.trader.walletAddress,
+        avatar: conversation.trader.profilePicture || '',
+        rating: 0,
+        trades: conversation.totalTrades,
+        successRate: 0,
+        isOnline: false,
+        tier: 'SILVER' as const
+      };
+      selectTrader(traderObj);
+      // Set mobile view to trading after selecting
+      if (window.innerWidth < 768) {
+        setMobileView('trading');
+      }
+      return;
+    }
+
+    // Fallback: try to find in traders list
+    const trader = traders.find(t => t.walletAddress.toLowerCase() === normalizedAddress);
+    if (trader) {
+      selectTrader(trader);
+      if (window.innerWidth < 768) {
+        setMobileView('trading');
+      }
+    }
+  }, [initialTraderAddress, traders, activeConversations]);
+
   // Send a chat message
   const sendChatMessage = async (messageText: string) => {
     if (!address || !selectedTrader || !messageText.trim()) return;
@@ -374,6 +562,19 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
     }
   }, [selectedTrader, address]);
 
+  // Auto-scroll to bottom when conversation changes or trader is selected
+  useEffect(() => {
+    if (chatContainerRef.current && conversation.length > 0) {
+      // Use setTimeout to ensure DOM has updated
+      setTimeout(() => {
+        chatContainerRef.current?.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: 'smooth'
+        });
+      }, 100);
+    }
+  }, [conversation, selectedTrader]);
+
   // Load active conversations on mount
   useEffect(() => {
     if (address) {
@@ -381,37 +582,81 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
     }
   }, [address]);
 
+  // Update P2P header context when selected trader changes
+  useEffect(() => {
+    if (selectedTrader && initialTraderAddress) {
+      p2pHeaderContext.setSelectedTrader({
+        name: selectedTrader.name,
+        avatar: selectedTrader.avatar,
+        isOnline: selectedTrader.isOnline,
+        walletAddress: selectedTrader.walletAddress
+      });
+    } else {
+      p2pHeaderContext.setSelectedTrader(null);
+    }
+  }, [selectedTrader, initialTraderAddress]);
+
+  // Update isCreatingOffer state in context
+  useEffect(() => {
+    if (initialTraderAddress) {
+      p2pHeaderContext.setIsCreatingOffer(isCreatingOffer);
+    } else {
+      // Clear the state when not on conversation page
+      p2pHeaderContext.setIsCreatingOffer(false);
+    }
+  }, [isCreatingOffer, initialTraderAddress]);
+
+  // Set callbacks for context
+  useEffect(() => {
+    if (initialTraderAddress) {
+      p2pHeaderContext.setOnBack(() => {
+        router.push('/p2p');
+      });
+
+      p2pHeaderContext.setOnCancelOffer(() => {
+        setIsCreatingOffer(false);
+        clearUserBoard();
+        clearTraderBoard();
+        setMessage("");
+      });
+
+      p2pHeaderContext.setOnShowHistory(() => {
+        setShowTradeHistory(true);
+      });
+    }
+
+    return () => {
+      if (initialTraderAddress) {
+        p2pHeaderContext.setOnBack(undefined);
+        p2pHeaderContext.setOnCancelOffer(undefined);
+        p2pHeaderContext.setOnShowHistory(undefined);
+      }
+    };
+  }, [initialTraderAddress, clearUserBoard, clearTraderBoard]);
+
   return (
     <>
       {/* Mobile Layout - Full Screen Chat-like Experience */}
       <div className="md:hidden fixed inset-0 flex flex-col bg-black">
-        {/* Header - Changes based on view */}
-        <div className="fixed top-16 left-0 right-0 z-30 bg-black border-b border-white/10">
+        {/* Header - Changes based on view - Hidden on mobile for conversation page */}
+        {!initialTraderAddress && (
+          <div className="fixed top-16 left-0 right-0 z-30 bg-black">
           {mobileView === 'contacts' ? (
-            // Contacts list header
-            <div className="flex items-center justify-between p-4">
-              <h1 className="text-white text-xl font-bold">Trades</h1>
-              <button
-                onClick={() => setShowNewTradeSheet(true)}
-                className="w-10 h-10 rounded-full bg-[rgb(163,255,18)] flex items-center justify-center"
-              >
-                <Plus className="h-5 w-5 text-black" />
-              </button>
-            </div>
+            // Contacts list header - empty on mobile (no extra header needed)
+            null
           ) : mobileView === 'trading' && selectedTrader ? (
             // Trading view header with partner info
-            <div className="flex items-center gap-3 p-3">
+            <div className="h-16 flex items-center gap-3 px-4">
               <button
                 onClick={() => {
-                  setMobileView('contacts');
-                  clearAllSelections();
+                  router.push('/p2p');
                 }}
-                className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center"
+                className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center flex-shrink-0"
               >
                 <ChevronLeft className="h-5 w-5 text-white" />
               </button>
-              <div className="flex-1 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden">
+              <div className="flex-1 flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {selectedTrader.avatar ? (
                     <MediaRenderer
                       src={selectedTrader.avatar}
@@ -424,8 +669,8 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                     </span>
                   )}
                 </div>
-                <div>
-                  <p className="text-white text-sm font-medium">{selectedTrader.name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white text-sm font-medium truncate">{selectedTrader.name}</p>
                   <p className="text-white/40 text-xs">
                     {selectedTrader.isOnline ? 'Online' : 'Offline'}
                   </p>
@@ -436,9 +681,20 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                 onClick={() => {
                   setShowTradeHistory(true);
                 }}
-                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors flex-shrink-0"
               >
                 <History className="h-4 w-4 text-white" />
+              </button>
+              {/* Hamburger Menu */}
+              <button
+                onClick={() => {
+                  // TODO: Open mobile sidebar/menu
+                  console.log('Open mobile menu');
+                }}
+                className="p-1.5 text-white/80 hover:text-white bg-black/20 backdrop-blur-sm rounded-lg border border-white/10 transition-all flex-shrink-0"
+                aria-label="Menu"
+              >
+                <Menu className="w-5 h-5" />
               </button>
             </div>
           ) : (
@@ -447,10 +703,11 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
               <h1 className="text-white text-xl font-bold">Profile</h1>
             </div>
           )}
-        </div>
+          </div>
+        )}
 
         {/* Content Area - Scrollable */}
-        <div className="flex-1 overflow-y-auto mt-[128px] mb-[72px]">
+        <div className={`flex-1 overflow-y-auto mb-[72px] ${initialTraderAddress ? 'mt-16' : 'mt-16'}`}>
           <AnimatePresence mode="wait">
             {mobileView === 'contacts' ? (
               // Contacts/Active Trades List View
@@ -462,22 +719,22 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                 transition={{ duration: 0.2 }}
               >
                 {/* Search Bar */}
-                <div className="p-4 pb-2">
+                <div className="px-4 pt-6 pb-6">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                     <Input
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search trades..."
-                      className="w-full pl-10 h-11 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl"
+                      className="w-full pl-10 h-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl"
                     />
                   </div>
                 </div>
 
                 {/* Active Trades Section */}
-                <div className="px-4 pb-2">
+                <div className="px-4 pb-6">
                   <h2 className="text-xs text-white/40 uppercase tracking-wider mb-3">Conversations</h2>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {isLoadingConversations ? (
                       <div className="flex items-center justify-center py-12">
                         <div className="flex flex-col items-center gap-3">
@@ -507,7 +764,7 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                                 tier: 'SILVER' as const
                               };
                               selectTrader(traderObj);
-                              setMobileView('trading');
+                              router.push(`/p2p/${trader.walletAddress}`);
                             }}
                             className="w-full bg-white/5 rounded-xl p-3 flex items-center gap-3 hover:bg-white/10 transition-all"
                           >
@@ -538,15 +795,10 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                                 }
                               </p>
                             </div>
-                            <div className="text-right">
+                            <div className="flex flex-col items-end justify-center">
                               <p className="text-xs text-white/40">
                                 {formatTimeAgo(new Date(lastActivity))}
                               </p>
-                              {activeTrades > 0 && (
-                                <div className="mt-1 w-5 h-5 rounded-full bg-[rgb(163,255,18)] flex items-center justify-center">
-                                  <span className="text-black text-[10px] font-bold">{activeTrades}</span>
-                                </div>
-                              )}
                             </div>
                           </button>
                         );
@@ -565,9 +817,9 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                 </div>
 
                 {/* Suggested Traders Section - Exclude those already in conversations */}
-                <div className="px-4 pt-4">
+                <div className="px-4 pb-6">
                   <h2 className="text-xs text-white/40 uppercase tracking-wider mb-3">Suggested Traders</h2>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {isLoadingTraders ? (
                       <div className="flex items-center justify-center py-8">
                         <div className="flex flex-col items-center gap-3">
@@ -584,7 +836,7 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                         key={trader.id}
                         onClick={() => {
                           selectTrader(trader);
-                          setMobileView('trading');
+                          router.push(`/p2p/${trader.walletAddress}`);
                         }}
                         className="w-full bg-black/40 rounded-xl p-3 flex items-center gap-3 hover:bg-white/5 transition-all"
                       >
@@ -639,7 +891,7 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                 className="flex flex-col h-full"
               >
                 {/* Chat Messages Area */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
                   {isLoadingConversation ? (
                     <div className="flex items-center justify-center py-12">
                       <Loader2 className="h-8 w-8 text-white/40 animate-spin" />
@@ -725,29 +977,45 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                 </div>
               </motion.div>
             ) : mobileView === 'trading' && !selectedTrader ? (
-              // Empty state when no trader selected
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="flex flex-col items-center justify-center h-full p-8"
-              >
-                <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                  <Users className="h-12 w-12 text-white/20" />
-                </div>
-                <h3 className="text-white text-lg font-medium mb-2">No Trader Selected</h3>
-                <p className="text-white/40 text-sm text-center mb-6">
-                  Select a trader from your contacts or start a new trade
-                </p>
-                <button
-                  onClick={() => setMobileView('contacts')}
-                  className="px-6 py-3 bg-[rgb(163,255,18)] text-black rounded-xl font-medium"
+              // Loading or Empty state
+              initialTraderAddress ? (
+                // Loading state - trader address exists but not loaded yet
+                <motion.div
+                  key="loading"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col items-center justify-center h-full p-8"
                 >
-                  View Contacts
-                </button>
-              </motion.div>
+                  <Loader2 className="h-12 w-12 text-[rgb(163,255,18)] animate-spin mb-4" />
+                  <p className="text-white/40 text-sm">Loading conversation...</p>
+                </motion.div>
+              ) : (
+                // Empty state when no trader selected
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex flex-col items-center justify-center h-full p-8"
+                >
+                  <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                    <Users className="h-12 w-12 text-white/20" />
+                  </div>
+                  <h3 className="text-white text-lg font-medium mb-2">No Trader Selected</h3>
+                  <p className="text-white/40 text-sm text-center mb-6">
+                    Select a trader from your contacts or start a new trade
+                  </p>
+                  <button
+                    onClick={() => router.push('/p2p')}
+                    className="px-6 py-3 bg-[rgb(163,255,18)] text-black rounded-xl font-medium"
+                  >
+                    View Contacts
+                  </button>
+                </motion.div>
+              )
             ) : mobileView === 'profile' ? (
               // Profile View
               <motion.div
@@ -820,9 +1088,31 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
           </AnimatePresence>
         </div>
 
+        {/* Floating Action Button - New Trade */}
+        {mobileView === 'contacts' && (
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowNewTradeSheet(true)}
+            className="md:hidden fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 shadow-lg shadow-black/50 flex items-center justify-center hover:bg-black/60 transition-all"
+          >
+            <Plus className="h-6 w-6 text-white" />
+          </motion.button>
+        )}
+
         {/* Mobile Bottom Navigation Bar */}
-        <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-white/10 md:hidden">
-          <div className="grid grid-cols-3 h-16">
+        {!(mobileView === 'trading' && !selectedTrader && initialTraderAddress) && (
+          <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-white/10 md:hidden">
+            <div className="grid grid-cols-4 h-16">
+            <button
+              onClick={() => router.push('/')}
+              className="flex flex-col items-center justify-center gap-1 transition-colors text-white/60"
+            >
+              <Home className="h-5 w-5" />
+              <span className="text-[10px]">Home</span>
+            </button>
             <button
               onClick={() => setMobileView('contacts')}
               className={cn(
@@ -860,28 +1150,31 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
               <span className="text-[10px]">Profile</span>
             </button>
           </div>
-        </div>
+          </div>
+        )}
 
         {/* Mobile Chat Input - Fixed at bottom when trading */}
-        {mobileView === 'trading' && selectedTrader && !isCreatingOffer && (
-          <div className="fixed bottom-16 left-0 right-0 bg-black border-t border-white/10 p-3 md:hidden">
+        {mobileView === 'trading' && selectedTrader && (
+          <div className="fixed bottom-16 left-0 right-0 bg-black border-t border-white/10 p-3 md:hidden z-50">
             <div className="flex gap-2">
-              {/* New Trade Button */}
-              <button
-                onClick={() => {
-                  setIsCreatingOffer(true);
-                }}
-                className="h-10 w-10 p-0 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-              >
-                <ArrowRightLeft className="h-4 w-4 text-white" />
-              </button>
+              {/* New Trade / Cancel Button */}
+              {!isCreatingOffer ? (
+                <button
+                  onClick={() => {
+                    setIsCreatingOffer(true);
+                  }}
+                  className="h-10 w-10 p-0 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
+                >
+                  <ArrowRightLeft className="h-4 w-4 text-white" />
+                </button>
+              ) : null}
               <Input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type a message..."
+                placeholder={isCreatingOffer ? "Add a message (optional)..." : "Type a message..."}
                 className="flex-1 h-10 bg-white/5 border-white/10 text-white text-sm placeholder:text-white/40 rounded-xl"
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && message.trim()) {
+                  if (e.key === 'Enter' && !isCreatingOffer && message.trim()) {
                     e.preventDefault();
                     sendChatMessage(message);
                   }
@@ -889,14 +1182,16 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
               />
               <Button
                 onClick={() => {
-                  if (message.trim()) {
+                  if (isCreatingOffer) {
+                    sendOffer();
+                  } else if (message.trim()) {
                     sendChatMessage(message);
                   }
                 }}
-                disabled={!message.trim()}
+                disabled={isCreatingOffer ? !canSendOffer : !message.trim()}
                 className={cn(
                   "h-10 w-10 p-0 rounded-xl",
-                  message.trim()
+                  (isCreatingOffer ? canSendOffer : message.trim())
                     ? "bg-[rgb(163,255,18)] text-black"
                     : "bg-white/10 text-white/40"
                 )}
@@ -909,44 +1204,49 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
 
         {/* Offer Creation Mode - Shows trading boards */}
         {mobileView === 'trading' && selectedTrader && isCreatingOffer && (
-          <div className="fixed inset-0 z-50 bg-black md:hidden">
-            {/* Header */}
-            <div className="fixed top-0 left-0 right-0 z-10 bg-black border-b border-white/10 p-3">
-              <div className="flex items-center justify-between">
+          <div className={`fixed left-0 right-0 bottom-32 bg-black md:hidden flex flex-col z-40 ${initialTraderAddress ? 'top-16' : 'top-32'}`}>
+            {/* Header - Hidden on mobile for conversation page (AnimatedHeader handles it) */}
+            {!initialTraderAddress && (
+              <div className="flex-shrink-0 bg-black border-b border-white/10 h-16 flex items-center px-4">
                 <button
                   onClick={() => {
                     setIsCreatingOffer(false);
-                    // Clear boards
-                    clearAllSelections();
+                    // Clear only the NFTs from boards, keep trader selected
+                    while (userBoardNFTs.length > 0) {
+                      removeUserNFTFromBoard(userBoardNFTs[0].id);
+                    }
+                    while (traderBoardNFTs.length > 0) {
+                      removeTraderNFTFromBoard(traderBoardNFTs[0].id);
+                    }
+                    setMessage("");
                   }}
-                  className="flex items-center gap-2 text-white"
+                  className="flex items-center gap-2 text-white flex-shrink-0"
                 >
                   <X className="h-5 w-5" />
                   <span className="text-sm">Cancel</span>
                 </button>
-                <h3 className="text-white font-semibold">Create Offer</h3>
+                <h3 className="text-white font-semibold flex-1 text-center">Create Offer</h3>
+                {/* Hamburger Menu */}
                 <button
-                  onClick={sendOffer}
-                  disabled={!canSendOffer}
-                  className={cn(
-                    "px-4 py-1.5 rounded-full text-sm font-medium",
-                    canSendOffer
-                      ? "bg-[rgb(163,255,18)] text-black"
-                      : "bg-white/10 text-white/40"
-                  )}
+                  onClick={() => {
+                    // TODO: Open mobile sidebar/menu
+                    console.log('Open mobile menu');
+                  }}
+                  className="p-1.5 text-white/80 hover:text-white bg-black/20 backdrop-blur-sm rounded-lg border border-white/10 transition-all flex-shrink-0"
+                  aria-label="Menu"
                 >
-                  Send
+                  <Menu className="w-5 h-5" />
                 </button>
               </div>
-            </div>
+            )}
 
-            {/* Trading Boards */}
-            <div className="pt-16 pb-4 px-4 h-full overflow-y-auto">
-              <div className="space-y-4">
-                {/* Your NFTs */}
-                <div className="bg-black/40 rounded-xl p-4 border border-[rgb(163,255,18)]/20">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm text-white">Your Offer</span>
+            {/* Trading Boards - 50/50 Split */}
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Your NFTs - Takes 50% */}
+              <div className="flex-1 flex flex-col border-b border-white/10 overflow-hidden">
+                <div className="flex-shrink-0 bg-black/40 border-b border-[rgb(163,255,18)]/20 px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white font-medium">Your Offer</span>
                     <button
                       onClick={() => setShowUserNFTSheet(true)}
                       className="flex items-center gap-1 px-3 py-1.5 bg-[rgb(163,255,18)]/10 rounded-full"
@@ -955,16 +1255,18 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                       <span className="text-xs text-[rgb(163,255,18)]">Add NFTs</span>
                     </button>
                   </div>
+                </div>
 
+                <div className="flex-1 overflow-y-auto p-4">
                   {userBoardNFTs.length > 0 ? (
                     <div className="grid grid-cols-3 gap-2">
                       {userBoardNFTs.map((nft) => (
                         <div key={nft.id} className="relative aspect-square">
                           <button
                             onClick={() => removeUserNFTFromBoard(nft.id)}
-                            className="absolute top-1 right-1 z-10 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center"
+                            className="absolute top-1 right-1 z-10 w-5 h-5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center hover:bg-black/80 transition-all"
                           >
-                            <X className="h-2.5 w-2.5 text-white" />
+                            <X className="h-3 w-3 text-white" />
                           </button>
                           <MediaRenderer
                             src={nft.image}
@@ -975,16 +1277,18 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                       ))}
                     </div>
                   ) : (
-                    <div className="py-8 text-center">
+                    <div className="h-full flex items-center justify-center">
                       <p className="text-white/40 text-sm">No NFTs selected</p>
                     </div>
                   )}
                 </div>
+              </div>
 
-                {/* Their NFTs */}
-                <div className="bg-black/40 rounded-xl p-4 border border-purple-500/20">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm text-white">Their Offer</span>
+              {/* Their NFTs - Takes 50% */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-shrink-0 bg-black/40 border-b border-purple-500/20 px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white font-medium">Their Offer</span>
                     <button
                       onClick={() => setShowTraderNFTSheet(true)}
                       className="flex items-center gap-1 px-3 py-1.5 bg-purple-500/10 rounded-full"
@@ -993,16 +1297,18 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                       <span className="text-xs text-purple-400">Add NFTs</span>
                     </button>
                   </div>
+                </div>
 
+                <div className="flex-1 overflow-y-auto p-4">
                   {traderBoardNFTs.length > 0 ? (
                     <div className="grid grid-cols-3 gap-2">
                       {traderBoardNFTs.map((nft) => (
                         <div key={nft.id} className="relative aspect-square">
                           <button
                             onClick={() => removeTraderNFTFromBoard(nft.id)}
-                            className="absolute top-1 right-1 z-10 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center"
+                            className="absolute top-1 right-1 z-10 w-5 h-5 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center hover:bg-black/80 transition-all"
                           >
-                            <X className="h-2.5 w-2.5 text-white" />
+                            <X className="h-3 w-3 text-white" />
                           </button>
                           <MediaRenderer
                             src={nft.image}
@@ -1013,47 +1319,11 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                       ))}
                     </div>
                   ) : (
-                    <div className="py-8 text-center">
+                    <div className="h-full flex items-center justify-center">
                       <p className="text-white/40 text-sm">No NFTs selected</p>
                     </div>
                   )}
                 </div>
-
-                {/* Message Input */}
-                <div>
-                  <Textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Add a message to your offer (optional)..."
-                    className="w-full bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl resize-none"
-                    rows={3}
-                  />
-                </div>
-
-                {/* Fairness Indicator */}
-                {fairnessScore > 0 && (
-                  <div className="bg-black/40 rounded-xl p-4 border border-white/10">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-white/60">Fairness Score</span>
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "text-sm font-medium",
-                          fairnessScore >= 80 ? "text-green-400" :
-                          fairnessScore >= 60 ? "text-yellow-400" :
-                          "text-red-400"
-                        )}>
-                          {fairnessScore}%
-                        </div>
-                        <TrendingUp className={cn(
-                          "h-4 w-4",
-                          fairnessScore >= 80 ? "text-green-400" :
-                          fairnessScore >= 60 ? "text-yellow-400" :
-                          "text-red-400"
-                        )} />
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -1253,9 +1523,18 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                               />
                               <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black to-transparent">
                                 <p className="text-[10px] text-white truncate">{nft.name}</p>
-                                <p className="text-[10px] text-[rgb(163,255,18)]/80 font-mono">
-                                  {nft.value.toFixed(3)}
-                                </p>
+                                {nft.value > 0 ? (
+                                  <>
+                                    <p className="text-[10px] text-[rgb(163,255,18)]/80 font-mono">
+                                      ≈ {nft.value.toFixed(3)} ETH
+                                    </p>
+                                    <p className="text-[8px] text-white/40">
+                                      {nft.collection?.floorPrice && nft.collection.floorPrice > 0 ? 'Floor price' : 'Est. value'}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="text-[8px] text-white/40">Price TBD</p>
+                                )}
                               </div>
                             </div>
                           </motion.div>
@@ -1311,9 +1590,18 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                               />
                               <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black to-transparent">
                                 <p className="text-[10px] text-white truncate">{nft.name}</p>
-                                <p className="text-[10px] text-purple-400/80 font-mono">
-                                  {nft.value.toFixed(3)}
-                                </p>
+                                {nft.value > 0 ? (
+                                  <>
+                                    <p className="text-[10px] text-purple-400/80 font-mono">
+                                      ≈ {nft.value.toFixed(3)} ETH
+                                    </p>
+                                    <p className="text-[8px] text-white/40">
+                                      {nft.collection?.floorPrice && nft.collection.floorPrice > 0 ? 'Floor price' : 'Est. value'}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="text-[8px] text-white/40">Price TBD</p>
+                                )}
                               </div>
                             </div>
                           </motion.div>
@@ -1383,29 +1671,113 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                   <p className="mt-1 text-xs text-white/40">{message.length} characters</p>
                 )}
               </div>
-              {/* Send Offer Button */}
-              <Button
-                onClick={sendOffer}
-                disabled={!canSendOffer}
-                className={cn(
-                  "self-stretch px-6 transition-all min-w-[140px]",
-                  canSendOffer
-                    ? "bg-gradient-to-r from-[rgb(163,255,18)] to-green-500 text-black hover:shadow-lg hover:shadow-[rgb(163,255,18)]/30"
-                    : "bg-white/10 text-white/40"
-                )}
-              >
-                {isCreating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
+              {/* Action Buttons */}
+              {activeTradeId && loadedTrade ? (
+                boardModified ? (
+                  // Board has been modified - show Reset and Counter-Offer
+                  <div className="flex flex-col gap-3">
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleResetBoard}
+                        variant="outline"
+                        className="flex-1 px-6 bg-white/5 text-white/70 border-white/10 hover:bg-white/10"
+                      >
+                        <ArrowRightLeft className="h-4 w-4 mr-2" />
+                        Reset to Original
+                      </Button>
+                      <Button
+                        onClick={sendOffer}
+                        disabled={!canSendOffer}
+                        className={cn(
+                          "flex-1 px-6",
+                          canSendOffer
+                            ? "bg-gradient-to-r from-[rgb(163,255,18)] to-green-500 text-black hover:shadow-lg hover:shadow-[rgb(163,255,18)]/30"
+                            : "bg-white/10 text-white/40"
+                        )}
+                      >
+                        {isCreating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Send Counter-Offer
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-white/40 text-center">
+                      Board modified - Reset to accept/reject original offer
+                    </p>
+                  </div>
                 ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    {activeTradeId ? 'Send Counter-Offer' : 'Send Offer'}
-                  </>
-                )}
-              </Button>
+                  // Board unchanged - show Accept/Reject buttons
+                  <div className="flex flex-col gap-3">
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleRejectTrade}
+                        disabled={isCreating}
+                        className="flex-1 px-6 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30"
+                      >
+                        {isCreating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Rejecting...
+                          </>
+                        ) : (
+                          <>
+                            <X className="h-4 w-4 mr-2" />
+                            Reject
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleAcceptTrade}
+                        disabled={isCreating}
+                        className="flex-1 px-6 bg-gradient-to-r from-[rgb(163,255,18)] to-green-500 text-black hover:shadow-lg hover:shadow-[rgb(163,255,18)]/30"
+                      >
+                        {isCreating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Accepting...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="h-4 w-4 mr-2" />
+                            Accept Trade
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )
+              ) : (
+                // Show Send Offer button when creating new offer
+                <Button
+                  onClick={sendOffer}
+                  disabled={!canSendOffer}
+                  className={cn(
+                    "self-stretch px-6 transition-all min-w-[140px]",
+                    canSendOffer
+                      ? "bg-gradient-to-r from-[rgb(163,255,18)] to-green-500 text-black hover:shadow-lg hover:shadow-[rgb(163,255,18)]/30"
+                      : "bg-white/10 text-white/40"
+                  )}
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      {activeTradeId ? 'Send Counter-Offer' : 'Send Offer'}
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -1566,7 +1938,7 @@ export function P2PView({ setViewMode: _ }: P2PViewProps) {
                           onClick={() => {
                             selectTrader(trader);
                             setShowNewTradeSheet(false);
-                            setMobileView('trading');
+                            router.push(`/p2p/${trader.walletAddress}`);
                           }}
                           className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-white/5 transition-all"
                         >

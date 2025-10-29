@@ -11,6 +11,7 @@ datasource db {
 model User {
   id                 String              @id @default(uuid())
   walletAddress      String              @unique
+  email              String?             @unique
   createdAt          DateTime            @default(now())
   bannerImage        String?
   bio                String?
@@ -115,6 +116,8 @@ model Collection {
   contractType      String            @default("DropERC721")
   sharedMetadata    Json?
   sharedMetadataSetAt DateTime?
+  floorPrice        Float?            // Current market floor price
+  lastFloorPriceSync DateTime?        // Cache timestamp
   project           Project?          @relation(fields: [projectId], references: [id])
   collectionTraits  CollectionTrait[]
   nfts              Nft[]
@@ -138,6 +141,8 @@ model Nft {
   rarityTier   String?
   searchVector String?
   traitCount   Int        @default(0)
+  listingPrice Float?     // User's asking price on marketplace
+  isListed     Boolean    @default(false)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { createThirdwebClient, getContract, defineChain } from 'thirdweb';
 import { getNFTs, totalSupply } from 'thirdweb/extensions/erc721';
+import { getCachedFloorPrice } from '@/lib/marketplace/floor-price';
 
 const prisma = new PrismaClient();
 
@@ -84,6 +85,9 @@ export async function GET(
       }
     }
 
+    // Fetch floor price (cached) before formatting
+    const floorPrice = await getCachedFloorPrice(collection.id);
+
     // Format the collection data to match the expected structure
     const formattedCollection = {
       id: collection.id,
@@ -110,8 +114,8 @@ export async function GET(
         totalSupply: onChainSupply,
         owners: totalNfts,
         uniqueOwners: uniqueOwners,
-        floorPrice: '0.00000', // TODO: Fetch from marketplace contract
-        floorPriceUSD: 0,
+        floorPrice: floorPrice ? floorPrice.toFixed(5) : '0.00000',
+        floorPriceUSD: 0, // TODO: Convert ETH to USD
         ceilingPrice: '0.00000',
         volume24h: '0.00000',
         volume7d: '0.00000',

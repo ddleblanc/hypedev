@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 export interface UserWithSocials {
   id: string
   walletAddress: string
+  email: string | null
   username: string | null
   profileCompleted: boolean
   profilePicture: string | null
@@ -21,35 +22,73 @@ export interface UserWithSocials {
 }
 
 export class AuthService {
-  static async findOrCreateUser(walletAddress: string): Promise<UserWithSocials> {
+  static async findOrCreateUser(walletAddress: string, email?: string): Promise<UserWithSocials> {
     // Normalize wallet address to lowercase for consistency
     const normalizedAddress = walletAddress.toLowerCase()
 
+    // First, try to find existing user
     let user = await prisma.user.findUnique({
       where: { walletAddress: normalizedAddress },
       include: { socials: true }
     })
 
     if (!user) {
-      // Create user and default watchlist in a transaction
-      user = await prisma.$transaction(async (tx) => {
-        const newUser = await tx.user.create({
-          data: { walletAddress: normalizedAddress },
+      // Use a transaction to create user and watchlist atomically
+      try {
+        user = await prisma.$transaction(async (tx) => {
+          // Try to create the user
+          const newUser = await tx.user.create({
+            data: {
+              walletAddress: normalizedAddress,
+              email: email || null
+            },
+            include: { socials: true }
+          })
+
+          // Create default watchlist for the new user
+          await tx.userList.create({
+            data: {
+              userId: newUser.id,
+              name: 'Watchlist',
+              type: 'watchlist',
+              isPublic: false,
+            }
+          })
+
+          return newUser
+        })
+      } catch (error: any) {
+        // If we hit a unique constraint error, the user was created by another request
+        // Fetch the user that was created
+        if (error.code === 'P2002') {
+          user = await prisma.user.findUnique({
+            where: { walletAddress: normalizedAddress },
+            include: { socials: true }
+          })
+
+          if (!user) {
+            throw new Error('Failed to create or find user')
+          }
+        } else {
+          throw error
+        }
+      }
+    }
+
+    // Update email if provided and user doesn't have one
+    if (email && !user.email) {
+      try {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { email },
           include: { socials: true }
         })
-
-        // Create default watchlist for the new user
-        await tx.userList.create({
-          data: {
-            userId: newUser.id,
-            name: 'Watchlist',
-            type: 'watchlist',
-            isPublic: false,
-          }
-        })
-
-        return newUser
-      })
+      } catch (error: any) {
+        // If email is already taken by another user, ignore the error
+        if (error.code !== 'P2002') {
+          throw error
+        }
+      }
     }
 
     return user

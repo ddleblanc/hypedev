@@ -14,6 +14,7 @@ export interface NFT {
     name: string;
     symbol: string;
     image: string;
+    floorPrice?: number;
   };
   tokenId?: string;
   collectionId?: string;
@@ -74,6 +75,10 @@ interface P2PTradingContextType {
   activeTradeId: string | null;
   clearActiveTradeId: () => void;
 
+  // Price management
+  updateUserNFTPrice: (nftId: string, newPrice: number) => void;
+  updateTraderNFTPrice: (nftId: string, newPrice: number) => void;
+
   // Board history navigation
   loadedTrade: any | null;
   boardHistoryIndex: number;
@@ -88,13 +93,15 @@ const convertAPINFTToContextNFT = (apiNft: any): NFT => ({
   id: apiNft.id,
   name: apiNft.name,
   image: apiNft.image,
-  value: apiNft.rarityScore ? Math.round(apiNft.rarityScore * 10) / 10 : Math.random() * 5,
+  // Use listing price if available, otherwise use collection floor price, otherwise default to 0
+  value: apiNft.listingPrice || apiNft.collection?.floorPrice || 0,
   rarity: (apiNft.rarityTier || 'COMMON').toUpperCase() as any,
   selected: false,
   collection: apiNft.collection ? {
     name: apiNft.collection.name,
     symbol: apiNft.collection.symbol,
-    image: apiNft.collection.image
+    image: apiNft.collection.image,
+    floorPrice: apiNft.collection.floorPrice
   } : undefined,
   tokenId: apiNft.tokenId,
   collectionId: apiNft.collectionId,
@@ -362,6 +369,18 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
     setActiveTradeId(null);
   };
 
+  const updateUserNFTPrice = (nftId: string, newPrice: number) => {
+    setUserBoardNFTs(prev => prev.map(nft =>
+      nft.id === nftId ? { ...nft, value: newPrice } : nft
+    ));
+  };
+
+  const updateTraderNFTPrice = (nftId: string, newPrice: number) => {
+    setTraderBoardNFTs(prev => prev.map(nft =>
+      nft.id === nftId ? { ...nft, value: newPrice } : nft
+    ));
+  };
+
   const refreshUserNFTs = () => {
     fetchUserNFTs();
   };
@@ -535,15 +554,17 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
     setUserBoardNFTs(userNFTsToLoad);
     setTraderBoardNFTs(traderNFTsToLoad);
 
-    // Select the trader
+    // Select the trader and fetch their available NFTs for counter-offers
     const otherParty = isInitiator ? trade.counterparty : trade.initiator;
     const traderToSelect = traders.find(t => t.walletAddress === otherParty.walletAddress);
 
     if (traderToSelect) {
       setSelectedTrader(traderToSelect);
+      // Fetch their NFTs so user can add/replace items in counter-offer
+      fetchTraderNFTs(traderToSelect.walletAddress);
     } else {
       // Create a temporary trader object if not in list
-      setSelectedTrader({
+      const tempTrader: Trader = {
         id: otherParty.id,
         name: otherParty.username,
         username: otherParty.username,
@@ -554,7 +575,10 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
         successRate: 0,
         isOnline: false,
         tier: 'SILVER'
-      });
+      };
+      setSelectedTrader(tempTrader);
+      // Fetch their NFTs so user can add/replace items in counter-offer
+      fetchTraderNFTs(tempTrader.walletAddress);
     }
   };
 
@@ -586,6 +610,8 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
     loadTradeIntoBoard,
     activeTradeId,
     clearActiveTradeId,
+    updateUserNFTPrice,
+    updateTraderNFTPrice,
     loadedTrade,
     boardHistoryIndex,
     navigateBoardHistory,

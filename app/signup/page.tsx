@@ -182,23 +182,12 @@ function SignupContent() {
   // Show profile setup if user exists but profile not completed
   if (user && !user.profileCompleted) {
     return (
-      <div className="min-h-screen bg-background">
-        <Button
-          variant="ghost"
-          onClick={() => router.push('/')}
-          className="fixed top-4 left-4 z-10"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Home
-        </Button>
-        
-        <ProfileSetup
-          userId={user.id}
-          walletAddress={user.walletAddress}
-          onComplete={handleProfileComplete}
-          onApplyCreator={handleApplyCreator}
-        />
-      </div>
+      <ProfileSetup
+        userId={user.id}
+        walletAddress={user.walletAddress}
+        onComplete={handleProfileComplete}
+        onApplyCreator={handleApplyCreator}
+      />
     )
   }
 

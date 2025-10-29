@@ -13,6 +13,7 @@ import { BackgroundCarousel } from "@/components/background-carousel";
 import { useStudio } from "@/contexts/studio-context";
 import { P2PTradingProvider } from "@/contexts/p2p-trading-context";
 import { ListsProvider, useLists } from "@/contexts/lists-context";
+import { useP2PHeader } from "@/contexts/p2p-header-context";
 import { CollectionProvider, useCollectionOptional } from "@/contexts/collection-context";
 import { StudioMobileNav } from "@/components/studio/studio-mobile-nav";
 import { motion, AnimatePresence } from "framer-motion";
@@ -100,6 +101,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     
     if (pathname === '/') {
       currentRoute = 'home';
+    } else if (segments[0] === 'p2p' && segments[1]) {
+      currentRoute = 'p2p-conversation';
     } else if (segments[0] === 'play' && segments[1]) {
       currentRoute = `play-${segments[1]}`;
     } else if (segments[0] === 'lootboxes') {
@@ -154,13 +157,22 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: 'home'
       };
     } else if (currentRoute === 'p2p') {
-      return { 
-        showHeader: true, 
-        showFooter: !isMobile, 
-        showSidebar: !isMobile, 
-        showRightSidebar: !isMobile, 
-        navigationDepth: 2, 
-        previousRoute: 'home' 
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: !isMobile,
+        navigationDepth: 2,
+        previousRoute: 'home'
+      };
+    } else if (currentRoute === 'p2p-conversation') {
+      return {
+        showHeader: true, // Show header on all screen sizes
+        showFooter: false,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'p2p'
       };
     } else if (isPlaySubRoute) {
       return { 
@@ -414,11 +426,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   const getCurrentRoute = () => {
     if (pathname === '/') return 'home';
     const segments = pathname.split('/').filter(Boolean);
-    
+
+    if (segments[0] === 'p2p' && segments[1]) {
+      return 'p2p-conversation';
+    }
+
     if (segments[0] === 'play' && segments[1]) {
       return `play-${segments[1]}`;
     }
-    
+
     if (segments[0] === 'lootboxes') {
       if (segments[1] === 'reveal') {
         return 'lootboxes-reveal';
@@ -539,6 +555,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         showRightSidebar: !isMobile,
         navigationDepth: 2,
         previousRoute: 'home'
+      };
+    } else if (currentRoute === 'p2p-conversation') {
+      newState = {
+        showHeader: true, // Show header on all screen sizes
+        showFooter: false,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'p2p'
       };
     } else if (isPlaySubRoute) {
       newState = {
@@ -738,6 +763,7 @@ function ProgressiveUIWrapperInner({
 }: any) {
   const listsContext = useLists();
   const collectionContext = useCollectionOptional();
+  const p2pHeader = useP2PHeader();
 
   // Prepare lists data for sidebar
   const listsData = currentRoute === 'lists' ? {
@@ -765,6 +791,13 @@ function ProgressiveUIWrapperInner({
         currentRoute={currentRoute}
         onStudioViewChange={handleStudioViewChange}
         currentStudioView={currentStudioView}
+        p2pData={{
+          selectedTrader: p2pHeader.selectedTrader || undefined,
+          isCreatingOffer: p2pHeader.isCreatingOffer,
+          onBack: p2pHeader.onBack,
+          onCancelOffer: p2pHeader.onCancelOffer,
+          onShowHistory: p2pHeader.onShowHistory
+        }}
       />
       <AnimatedFooter show={uiState.showFooter && !isStudioRoute} />
       {/* Mobile sidebar overlay for studio */}

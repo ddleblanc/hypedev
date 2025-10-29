@@ -64,7 +64,10 @@ export async function GET(
             symbol: true,
             creatorAddress: true,
             chainId: true,
-            address: true
+            address: true,
+            floorPrice: true,
+            lastFloorPriceSync: true,
+            image: true
           }
         },
         traits: {
@@ -134,7 +137,10 @@ export async function GET(
         collectionSlug: nftWithCollection.collection.name.toLowerCase().replace(/\s+/g, '-'),
         contractAddress: nftWithCollection.collection.address,
         chain: getChainName(nftWithCollection.collection.chainId),
+        collectionId: nftWithCollection.collectionId,
         rarity: nftWithCollection.rarityTier || 'Common',
+        rarityScore: nftWithCollection.rarityScore,
+        rarityTier: nftWithCollection.rarityTier,
         rank: nftWithCollection.rarityRank || Math.floor(Math.random() * 10000) + 1,
         traits: nftWithCollection.traits.reduce((acc: any, trait: any) => {
           acc[trait.traitType] = trait.value
@@ -143,14 +149,16 @@ export async function GET(
         // Ownership/creation status
         owned: nftWithCollection.ownerAddress?.toLowerCase() === normalizedAddress,
         created: nftWithCollection.collection.creatorAddress.toLowerCase() === normalizedAddress,
-      // Market data (would come from marketplace APIs in production)
-      price: null, // TODO: Integrate marketplace data
-      lastSale: null, // TODO: Integrate marketplace data
-      floorPrice: +(Math.random() * 2 + 0.1).toFixed(2), // Mock floor price
-      listed: false, // TODO: Integrate marketplace data
-      auction: false, // TODO: Integrate marketplace data
-        new: (Date.now() - new Date(nftWithCollection.createdAt).getTime()) < (7 * 24 * 60 * 60 * 1000), // New if created within 7 days
-        topBid: null, // TODO: Integrate marketplace data
+        // Real market data from database
+        price: nftWithCollection.listingPrice,
+        listingPrice: nftWithCollection.listingPrice,
+        lastSale: null, // TODO: Track historical sales
+        floorPrice: nftWithCollection.collection.floorPrice || 0,
+        listed: nftWithCollection.isListed,
+        isListed: nftWithCollection.isListed,
+        auction: false, // TODO: Integrate auction data
+        new: (Date.now() - new Date(nftWithCollection.createdAt).getTime()) < (7 * 24 * 60 * 60 * 1000),
+        topBid: null, // TODO: Integrate offer data
         // Social metrics (would come from separate service)
         likes: Math.floor(Math.random() * 500) + 10,
         views: Math.floor(Math.random() * 2000) + 100,
@@ -159,6 +167,13 @@ export async function GET(
         royalty: 5.0,
         createdAt: nftWithCollection.createdAt,
         updatedAt: nftWithCollection.updatedAt,
+        // Include collection for P2P context
+        collection: {
+          name: nftWithCollection.collection.name,
+          symbol: nftWithCollection.collection.symbol,
+          image: nftWithCollection.collection.image,
+          floorPrice: nftWithCollection.collection.floorPrice
+        }
       };
     })
 

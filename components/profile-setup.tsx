@@ -31,6 +31,8 @@ import {
 import { cn } from '@/lib/utils'
 import { uploadImageToThirdweb } from '@/lib/thirdweb'
 import { MediaRenderer } from '@/components/media-renderer'
+import { ConnectButton } from 'thirdweb/react'
+import { client } from '@/lib/thirdweb'
 
 const socialPlatforms = [
   { value: 'twitter', label: 'Twitter', icon: Twitter },
@@ -194,39 +196,53 @@ export function ProfileSetup({ userId, walletAddress, onComplete, onApplyCreator
                 <p className="text-sm text-muted-foreground">Complete your profile to join the elite community</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <div className="text-sm font-medium text-foreground">
-                  {(() => {
-                    let completed = 0
-                    const total = 3
-                    if (form.watch('username')) completed++
-                    if (form.watch('profilePicture') || form.watch('bannerImage')) completed++
-                    if (form.formState.isValid && usernameAvailable !== false) completed++
-                    return `${completed}/${total} Complete`
-                  })()}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="text-right hidden sm:block">
+                  <div className="text-sm font-medium text-foreground">
+                    {(() => {
+                      let completed = 0
+                      const total = 3
+                      if (form.watch('username')) completed++
+                      if (form.watch('profilePicture') || form.watch('bannerImage')) completed++
+                      if (form.formState.isValid && usernameAvailable !== false) completed++
+                      return `${completed}/${total} Complete`
+                    })()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Setup Progress</div>
                 </div>
-                <div className="text-xs text-muted-foreground">Setup Progress</div>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3].map((step) => {
+                    let isCompleted = false
+                    if (step === 1 && form.watch('username')) isCompleted = true
+                    if (step === 2 && (form.watch('profilePicture') || form.watch('bannerImage'))) isCompleted = true
+                    if (step === 3 && form.formState.isValid && usernameAvailable !== false) isCompleted = true
+
+                    return (
+                      <div
+                        key={step}
+                        className={cn(
+                          "w-2 h-2 rounded-full transition-all duration-300",
+                          isCompleted
+                            ? "bg-primary shadow-lg shadow-primary/50"
+                            : "bg-muted"
+                        )}
+                      />
+                    )
+                  })}
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                {[1, 2, 3].map((step) => {
-                  let isCompleted = false
-                  if (step === 1 && form.watch('username')) isCompleted = true
-                  if (step === 2 && (form.watch('profilePicture') || form.watch('bannerImage'))) isCompleted = true
-                  if (step === 3 && form.formState.isValid && usernameAvailable !== false) isCompleted = true
-                  
-                  return (
-                    <div
-                      key={step}
-                      className={cn(
-                        "w-2 h-2 rounded-full transition-all duration-300",
-                        isCompleted 
-                          ? "bg-primary shadow-lg shadow-primary/50" 
-                          : "bg-muted"
-                      )}
-                    />
-                  )
-                })}
+              <div className="border-l border-border pl-4 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  Wrong account?
+                </span>
+                <ConnectButton
+                  client={client}
+                  appMetadata={{
+                    name: "HYPERCHAINX",
+                    url: "https://hyperchainx.com",
+                  }}
+                />
               </div>
             </div>
           </div>

@@ -36,11 +36,14 @@ import {
   Wallet,
   ArrowRight,
   Gift,
-  Briefcase
+  Briefcase,
+  ChevronDown,
+  History
 } from "lucide-react";
 import { ConnectButton } from "thirdweb/react";
 import { client } from "@/lib/thirdweb";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { MediaRenderer } from "@/components/media-renderer";
 
 interface AnimatedHeaderProps {
   show: boolean;
@@ -48,13 +51,26 @@ interface AnimatedHeaderProps {
   currentRoute: string;
   onStudioViewChange?: (view: string) => void;
   currentStudioView?: string;
+  p2pData?: {
+    selectedTrader?: {
+      name: string;
+      avatar?: string;
+      isOnline?: boolean;
+      walletAddress: string;
+    };
+    isCreatingOffer?: boolean;
+    onBack?: () => void;
+    onCancelOffer?: () => void;
+    onShowHistory?: () => void;
+  };
 }
 
-export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewChange, currentStudioView }: AnimatedHeaderProps) {
+export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewChange, currentStudioView, p2pData }: AnimatedHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isConnected } = useWalletAuthOptimized();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false);
 
   // Dynamic navigation based on current route context
   const getNavigationItems = () => {
@@ -152,6 +168,53 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
 
   const navItems = getNavigationItems();
 
+  // Get current section for mobile dropdown
+  const getCurrentSection = () => {
+    const path = pathname || '/';
+
+    // Studio section
+    if (path.startsWith('/studio') || currentRoute === 'studio') {
+      return { label: 'STUDIO', icon: Palette, route: '/studio', color: 'rgb(255,215,0)' };
+    }
+
+    // Trade section (marketplace, launchpad, tokens, p2p, collection)
+    if (path.startsWith('/marketplace') || path.startsWith('/launchpad') ||
+        path.startsWith('/tokens') || path.startsWith('/p2p') ||
+        path.startsWith('/collection') ||
+        ['marketplace', 'launchpad', 'launchpad-detail', 'tokens', 'p2p', 'collection', 'trade'].includes(currentRoute)) {
+      return { label: 'TRADE', icon: TrendingUp, route: '/trade', color: 'rgb(163,255,18)' };
+    }
+
+    // Play section
+    if (path.startsWith('/play') || currentRoute.startsWith('play')) {
+      return { label: 'PLAY', icon: Gamepad2, route: '/play', color: 'rgb(163,255,18)' };
+    }
+
+    // Museum section
+    if (path.startsWith('/museum') || currentRoute === 'museum') {
+      return { label: 'MUSEUM', icon: Crown, route: '/museum', color: 'rgb(163,255,18)' };
+    }
+
+    // Lootboxes section
+    if (path.startsWith('/lootboxes') || currentRoute.startsWith('lootbox')) {
+      return { label: 'LOOTBOXES', icon: Gift, route: '/lootboxes', color: 'rgb(163,255,18)' };
+    }
+
+    // Default
+    return null;
+  };
+
+  const currentSection = getCurrentSection();
+
+  // All available sections for dropdown
+  const allSections = [
+    { label: 'TRADE', icon: TrendingUp, route: '/trade', color: 'rgb(163,255,18)' },
+    { label: 'PLAY', icon: Gamepad2, route: '/play', color: 'rgb(163,255,18)' },
+    { label: 'MUSEUM', icon: Crown, route: '/museum', color: 'rgb(163,255,18)' },
+    { label: 'LOOTBOXES', icon: Gift, route: '/lootboxes', color: 'rgb(163,255,18)' },
+    { label: 'STUDIO', icon: Palette, route: '/studio', color: 'rgb(255,215,0)' }
+  ];
+
   const handleNavItemClick = async (item: any) => {
     setMobileMenuOpen(false); // Close mobile menu on navigation
 
@@ -206,7 +269,7 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
           >
             <div className="h-full px-4 md:px-6 flex items-center justify-between">
               {/* Desktop Left - Logo & Back */}
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 {currentRoute !== 'home' && (
                   <motion.button
                     initial={{ opacity: 0, x: -10 }}
@@ -227,15 +290,205 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                   </motion.button>
                 )}
 
-                <Link href="/" className="flex items-center gap-2">
-                  <Image
-                    src="/assets/img/logo-text.png"
-                    alt="HYPERCHAINX"
-                    width={120}
-                    height={40}
-                    className="h-8 w-auto"
-                  />
-                </Link>
+                {/* P2P Board View - Mobile specific header (highest priority) */}
+                {p2pData?.isCreatingOffer ? (
+                  <>
+                    {/* Mobile Cancel Button for Board View */}
+                    <button
+                      onClick={() => p2pData.onCancelOffer?.()}
+                      className="md:hidden flex items-center gap-2 text-white flex-shrink-0"
+                    >
+                      <X className="h-5 w-5" />
+                      <span className="text-sm">Cancel</span>
+                    </button>
+
+                    {/* Mobile - Spacer for centering */}
+                    <div className="md:hidden flex-1"></div>
+
+                    {/* Desktop - Regular Logo */}
+                    <Link href="/" className="hidden md:flex items-center gap-2">
+                      <Image
+                        src="/assets/img/logo-text.png"
+                        alt="HYPERCHAINX"
+                        width={120}
+                        height={40}
+                        className="h-8 w-auto"
+                      />
+                    </Link>
+                  </>
+                ) : currentRoute === 'p2p-conversation' && p2pData?.selectedTrader ? (
+                  <>
+                    {/* Mobile Back Button for P2P */}
+                    <button
+                      onClick={() => p2pData.onBack?.()}
+                      className="md:hidden w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center flex-shrink-0"
+                    >
+                      <ChevronLeft className="h-5 w-5 text-white" />
+                    </button>
+
+                    {/* Mobile - Trader Info */}
+                    <div className="md:hidden flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {p2pData.selectedTrader.avatar ? (
+                          <MediaRenderer
+                            src={p2pData.selectedTrader.avatar}
+                            alt={p2pData.selectedTrader.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-white font-bold text-sm">
+                            {p2pData.selectedTrader.name.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white text-sm font-medium truncate">{p2pData.selectedTrader.name}</p>
+                        <p className="text-white/40 text-xs">
+                          {p2pData.selectedTrader.isOnline ? 'Online' : 'Offline'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Desktop - Regular Logo */}
+                    <Link href="/" className="hidden md:flex items-center gap-2">
+                      <Image
+                        src="/assets/img/logo-text.png"
+                        alt="HYPERCHAINX"
+                        width={120}
+                        height={40}
+                        className="h-8 w-auto"
+                      />
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/" className="flex items-center gap-2">
+                      {/* Mobile logo - icon only */}
+                      <Image
+                        src="/assets/img/logo.png"
+                        alt="HYPERCHAINX"
+                        width={32}
+                        height={32}
+                        className="h-8 w-auto md:hidden"
+                      />
+                      {/* Desktop logo - with text */}
+                      <Image
+                        src="/assets/img/logo-text.png"
+                        alt="HYPERCHAINX"
+                        width={120}
+                        height={40}
+                        className="h-8 w-auto hidden md:block"
+                      />
+                    </Link>
+
+                    {/* Mobile Section Dropdown */}
+                    {currentSection && (
+                      <div className="md:hidden relative">
+                    <motion.button
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.2 }}
+                      onClick={() => setSectionDropdownOpen(!sectionDropdownOpen)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all"
+                      style={{
+                        backgroundColor: sectionDropdownOpen ? 'rgba(163,255,18,0.15)' : 'rgba(0,0,0,0.4)',
+                        borderColor: sectionDropdownOpen ? currentSection.color : 'rgba(255,255,255,0.1)',
+                        backdropFilter: 'blur(12px)'
+                      }}
+                    >
+                      <currentSection.icon
+                        className="w-4 h-4"
+                        style={{ color: currentSection.color }}
+                      />
+                      <span
+                        className="text-xs font-black tracking-wider"
+                        style={{ color: currentSection.color }}
+                      >
+                        {currentSection.label}
+                      </span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 transition-transform ${sectionDropdownOpen ? 'rotate-180' : ''}`}
+                        style={{ color: currentSection.color }}
+                      />
+                    </motion.button>
+
+                    {/* Dropdown Menu */}
+                    <AnimatePresence>
+                      {sectionDropdownOpen && (
+                        <>
+                          {/* Backdrop */}
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-40"
+                            onClick={() => setSectionDropdownOpen(false)}
+                          />
+
+                          {/* Dropdown */}
+                          <motion.div
+                            initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                            className="absolute left-0 top-full mt-2 w-48 rounded-xl border border-white/10 overflow-hidden z-50"
+                            style={{ backgroundColor: 'rgb(3,3,3)', backdropFilter: 'blur(20px)' }}
+                          >
+                            {allSections.map((section, index) => {
+                              const isCurrentSection = section.label === currentSection.label;
+                              const SectionIcon = section.icon;
+
+                              return (
+                                <motion.button
+                                  key={section.label}
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: index * 0.05 }}
+                                  onClick={async () => {
+                                    setSectionDropdownOpen(false);
+                                    await router.push(section.route);
+                                    if (onNavigate) {
+                                      const routeName = section.route.substring(1);
+                                      onNavigate(routeName || 'home');
+                                    }
+                                  }}
+                                  className={`w-full flex items-center gap-3 px-4 py-3 transition-all ${
+                                    isCurrentSection
+                                      ? 'bg-white/10'
+                                      : 'hover:bg-white/5'
+                                  }`}
+                                  style={{
+                                    borderLeft: isCurrentSection ? `3px solid ${section.color}` : '3px solid transparent'
+                                  }}
+                                >
+                                  <SectionIcon
+                                    className="w-5 h-5 flex-shrink-0"
+                                    style={{ color: section.color }}
+                                  />
+                                  <span
+                                    className={`text-sm font-bold tracking-wide ${
+                                      isCurrentSection ? 'text-white' : 'text-white/70'
+                                    }`}
+                                  >
+                                    {section.label}
+                                  </span>
+                                  {isCurrentSection && (
+                                    <div
+                                      className="ml-auto w-1.5 h-1.5 rounded-full"
+                                      style={{ backgroundColor: section.color }}
+                                    />
+                                  )}
+                                </motion.button>
+                              );
+                            })}
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               {/* Center Section - Desktop Navigation */}
@@ -323,6 +576,16 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                     <ConnectButton client={client} />
                   )}
                 </motion.div>
+
+                {/* P2P Trade History Button - Mobile Only */}
+                {currentRoute === 'p2p-conversation' && p2pData?.selectedTrader && !p2pData?.isCreatingOffer && (
+                  <button
+                    onClick={() => p2pData.onShowHistory?.()}
+                    className="lg:hidden w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors flex-shrink-0"
+                  >
+                    <History className="h-4 w-4 text-white" />
+                  </button>
+                )}
 
                 {/* Mobile Hamburger Menu - Right Side */}
                 <motion.button

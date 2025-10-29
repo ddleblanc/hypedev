@@ -6,6 +6,7 @@ import { PersistentBackground } from "@/components/persistent-background";
 import { AppNavigationProvider } from "@/contexts/app-navigation-context";
 import { StudioProvider } from "@/contexts/studio-context";
 import { BackgroundCarouselProvider } from "@/contexts/background-carousel-context";
+import { P2PHeaderProvider } from "@/contexts/p2p-header-context";
 import { FloatingTransactionPill } from "@/components/transaction/floating-transaction-pill";
 import { LayoutWrapper } from "@/components/layout-wrapper";
 import { Toaster } from "@/components/ui/toaster";
@@ -29,11 +30,13 @@ export default function RootLayout({
           <BackgroundCarouselProvider>
             <AppNavigationProvider>
               <StudioProvider>
-                <PersistentBackground>
-                  <LayoutWrapper>
-                    {children}
-                  </LayoutWrapper>
-                </PersistentBackground>
+                <P2PHeaderProvider>
+                  <PersistentBackground>
+                    <LayoutWrapper>
+                      {children}
+                    </LayoutWrapper>
+                  </PersistentBackground>
+                </P2PHeaderProvider>
               </StudioProvider>
             </AppNavigationProvider>
           </BackgroundCarouselProvider>

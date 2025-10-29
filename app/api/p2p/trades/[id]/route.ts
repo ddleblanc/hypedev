@@ -354,12 +354,21 @@ export async function PUT(
       });
     }
 
+    // Map action to TradeAction enum
+    const actionMap: Record<string, string> = {
+      'counteroffer': 'COUNTEROFFER',
+      'accept': 'ACCEPTED',
+      'reject': 'REJECTED',
+      'cancel': 'CANCELED',
+      'message': 'UPDATED'
+    };
+
     // Add history entry
     await prisma.tradeHistory.create({
       data: {
         tradeId: id,
         userId: user.id,
-        action: action.toUpperCase(),
+        action: actionMap[action] || action.toUpperCase(),
         oldStatus: trade.status,
         newStatus,
         metadata: { message: `Trade ${action}ed` }

@@ -8,6 +8,7 @@ import { client } from '@/lib/thirdweb'
 export interface AuthUser {
   id: string
   walletAddress: string
+  email?: string
   username?: string
   profileCompleted: boolean
   profilePicture?: string
@@ -44,25 +45,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
 
-  const fetchOrCreateUser = useCallback(async (walletAddress: string) => {
+  const fetchOrCreateUser = useCallback(async (walletAddress: string, email?: string) => {
     setIsLoading(true)
     try {
       const response = await fetch('/api/auth/connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletAddress })
+        body: JSON.stringify({ walletAddress, email })
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
         setUser(data.user)
-        
+
         // If user needs onboarding, redirect to signup
         if (data.requiresOnboarding) {
           router.push(`/signup?userId=${data.user.id}&walletAddress=${walletAddress}&profileCompleted=${data.user.profileCompleted}`)
         }
-        
+
         return data.user
       } else {
         console.error('Failed to authenticate user:', data.error)
@@ -113,7 +114,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (account?.address && !hasChecked) {
       setHasChecked(true)
-      fetchOrCreateUser(account.address)
+
+      // Try to extract email from in-app wallet account
+      let email: string | undefined
+
+      // Check if this is an in-app wallet with email
+      // Thirdweb in-app wallets store the email in the account object
+      if (account && 'details' in account) {
+        const details = account.details as any
+        if (details?.email) {
+          email = details.email
+        }
+      }
+
+      fetchOrCreateUser(account.address, email)
     } else if (!account?.address && hasChecked) {
       // Wallet disconnected
       setUser(null)
@@ -136,11 +150,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setIsLoading(false)
           }
         }, 100) // Very short timeout just to let auto-connect initialize
-        
+
         return () => clearTimeout(timeout)
       }
     }
-  }, [account?.address, hasChecked, isInitialized, isAutoConnecting, autoConnectAttempted, fetchOrCreateUser])
+  }, [account?.address, hasChecked, isInitialized, isAutoConnecting, autoConnectAttempted, fetchOrCreateUser, account])
 
   const value: AuthContextType = {
     user,
