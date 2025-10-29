@@ -30,7 +30,8 @@ import {
   MessageCircle,
   Clock,
   Menu,
-  Home
+  Home,
+  Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -96,6 +97,7 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
   const [mobileView, setMobileView] = useState<'contacts' | 'trading' | 'profile'>(
     initialTraderAddress ? 'trading' : 'contacts'
   );
+  const [mobileSearchTab, setMobileSearchTab] = useState<'item' | 'trader'>('item'); // Default to 'item' view
   const [showNewTradeSheet, setShowNewTradeSheet] = useState(false);
   const [isCreatingOffer, setIsCreatingOffer] = useState(false); // Track if we're in offer creation mode
   const [showTradeHistory, setShowTradeHistory] = useState(false); // Show trade history for mobile
@@ -105,6 +107,10 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [activeConversations, setActiveConversations] = useState<any[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+
+  // Item search data
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearchingItems, setIsSearchingItems] = useState(false);
 
   // Chat scroll ref
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -634,10 +640,41 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
     };
   }, [initialTraderAddress, clearUserBoard, clearTraderBoard]);
 
+  // Search for items when query changes (on item tab)
+  useEffect(() => {
+    if (mobileSearchTab === 'item' && searchQuery.trim().length > 0) {
+      const searchItems = async () => {
+        setIsSearchingItems(true);
+        try {
+          const response = await fetch(`/api/p2p/search-items?query=${encodeURIComponent(searchQuery)}`);
+          if (response.ok) {
+            const data = await response.json();
+            setSearchResults(data.results || []);
+          } else {
+            setSearchResults([]);
+          }
+        } catch (error) {
+          console.error('Error searching items:', error);
+          setSearchResults([]);
+        } finally {
+          setIsSearchingItems(false);
+        }
+      };
+
+      const debounceTimer = setTimeout(searchItems, 300);
+      return () => clearTimeout(debounceTimer);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery, mobileSearchTab]);
+
   return (
     <>
       {/* Mobile Layout - Full Screen Chat-like Experience */}
-      <div className="md:hidden fixed inset-0 flex flex-col bg-black">
+      <div className={cn(
+        "md:hidden fixed inset-0 flex flex-col",
+        initialTraderAddress && isCreatingOffer ? "bg-black" : ""
+      )}>
         {/* Header - Changes based on view - Hidden on mobile for conversation page */}
         {!initialTraderAddress && (
           <div className="fixed top-16 left-0 right-0 z-30 bg-black">
@@ -718,22 +755,169 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
               >
+                {/* Tab Switcher */}
+                <div className="border-b border-white/10">
+                  <div className="flex">
+                    <button
+                      onClick={() => setMobileSearchTab('item')}
+                      className={cn(
+                        "flex-1 py-4 text-sm font-medium transition-all flex items-center justify-center gap-2 border-b-2",
+                        mobileSearchTab === 'item'
+                          ? "text-white border-[rgb(163,255,18)]"
+                          : "text-white/60 border-transparent"
+                      )}
+                    >
+                      <Package className="w-4 h-4" />
+                      By Item
+                    </button>
+                    <button
+                      onClick={() => setMobileSearchTab('trader')}
+                      className={cn(
+                        "flex-1 py-4 text-sm font-medium transition-all flex items-center justify-center gap-2 border-b-2",
+                        mobileSearchTab === 'trader'
+                          ? "text-white border-[rgb(163,255,18)]"
+                          : "text-white/60 border-transparent"
+                      )}
+                    >
+                      <Users className="w-4 h-4" />
+                      Traders
+                    </button>
+                  </div>
+                </div>
+
                 {/* Search Bar */}
-                <div className="px-4 pt-6 pb-6">
+                <div className="px-4 pt-4 pb-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
                     <Input
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search trades..."
+                      placeholder={mobileSearchTab === 'item' ? "Search items..." : "Search trades..."}
                       className="w-full pl-10 h-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 rounded-xl"
                     />
                   </div>
                 </div>
 
-                {/* Active Trades Section */}
-                <div className="px-4 pb-6">
-                  <h2 className="text-xs text-white/40 uppercase tracking-wider mb-3">Conversations</h2>
+                {/* Content based on selected tab */}
+                {mobileSearchTab === 'item' ? (
+                  /* By Item View */
+                  <div className="px-4">
+                    {searchQuery.trim() === '' ? (
+                      <div className="text-center py-12">
+                        <Package className="w-16 h-16 text-white/20 mx-auto mb-4" />
+                        <p className="text-sm text-white/40 mb-1">
+                          Search for NFT items
+                        </p>
+                        <p className="text-xs text-white/30">
+                          Find traders who own specific items
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <h2 className="text-xs text-white/40 uppercase tracking-wider mb-4">
+                          Items matching "{searchQuery}"
+                        </h2>
+                        {isSearchingItems ? (
+                          <div className="flex items-center justify-center py-12">
+                            <div className="flex flex-col items-center gap-3">
+                              <Loader2 className="h-8 w-8 text-white/40 animate-spin" />
+                              <p className="text-white/40 text-sm">Searching items...</p>
+                            </div>
+                          </div>
+                        ) : searchResults.length > 0 ? (
+                          <div className="space-y-3">
+                            {searchResults.map((item: any) => (
+                              <div
+                                key={item.nft.id}
+                                className="bg-white/5 rounded-xl overflow-hidden"
+                              >
+                                {/* NFT Display */}
+                                <div className="p-3 border-b border-white/10">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-black/40 flex-shrink-0">
+                                      <MediaRenderer
+                                        src={item.nft.image}
+                                        alt={item.nft.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-white text-sm font-medium truncate">{item.nft.name}</p>
+                                      <p className="text-white/40 text-xs truncate">{item.nft.collectionName || 'Unknown Collection'}</p>
+                                      <p className="text-white/60 text-xs mt-1">
+                                        {item.owners.length} {item.owners.length === 1 ? 'trader has' : 'traders have'} this
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Traders who own this item */}
+                                <div className="p-2 space-y-1">
+                                  {item.owners.slice(0, 3).map((owner: any) => (
+                                    <button
+                                      key={owner.id}
+                                      onClick={() => {
+                                        const traderObj = {
+                                          id: owner.id,
+                                          name: owner.username || 'Unknown',
+                                          username: owner.username,
+                                          walletAddress: owner.walletAddress,
+                                          avatar: owner.profilePicture || '',
+                                          rating: 0,
+                                          trades: 0,
+                                          successRate: 0,
+                                          isOnline: false,
+                                          tier: 'SILVER' as const
+                                        };
+                                        selectTrader(traderObj);
+                                        router.push(`/p2p/${owner.walletAddress}`);
+                                      }}
+                                      className="w-full bg-white/5 hover:bg-white/10 rounded-lg p-2 flex items-center gap-2 transition-all"
+                                    >
+                                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                        {owner.profilePicture ? (
+                                          <MediaRenderer
+                                            src={owner.profilePicture}
+                                            alt={owner.username}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <span className="text-white font-bold text-xs">
+                                            {(owner.username || 'U').charAt(0).toUpperCase()}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="text-white/80 text-xs flex-1 text-left truncate">
+                                        {owner.username || 'Unknown User'}
+                                      </span>
+                                      <ChevronRight className="h-3 w-3 text-white/40 flex-shrink-0" />
+                                    </button>
+                                  ))}
+                                  {item.owners.length > 3 && (
+                                    <p className="text-white/40 text-xs text-center py-1">
+                                      +{item.owners.length - 3} more
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <Package className="w-12 h-12 text-white/20 mx-auto mb-3" />
+                            <p className="text-white/40 text-sm">No items found</p>
+                            <p className="text-white/30 text-xs mt-1">Try a different search term</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  /* By Trader View */
+                  <>
+                    {/* Active Trades Section */}
+                    <div className="px-4">
+                  <h2 className="text-xs text-white/40 uppercase tracking-wider mb-4">Conversations</h2>
                   <div className="space-y-3">
                     {isLoadingConversations ? (
                       <div className="flex items-center justify-center py-12">
@@ -817,8 +1001,8 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
                 </div>
 
                 {/* Suggested Traders Section - Exclude those already in conversations */}
-                <div className="px-4 pb-6">
-                  <h2 className="text-xs text-white/40 uppercase tracking-wider mb-3">Suggested Traders</h2>
+                <div className="px-4 pt-6">
+                  <h2 className="text-xs text-white/40 uppercase tracking-wider mb-4">Suggested Traders</h2>
                   <div className="space-y-3">
                     {isLoadingTraders ? (
                       <div className="flex items-center justify-center py-8">
@@ -879,6 +1063,8 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
                     )}
                   </div>
                 </div>
+                  </>
+                )}
               </motion.div>
             ) : mobileView === 'trading' && selectedTrader ? (
               // Chat View with integrated trade history
