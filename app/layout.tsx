@@ -7,6 +7,7 @@ import { AppNavigationProvider } from "@/contexts/app-navigation-context";
 import { StudioProvider } from "@/contexts/studio-context";
 import { BackgroundCarouselProvider } from "@/contexts/background-carousel-context";
 import { P2PHeaderProvider } from "@/contexts/p2p-header-context";
+import { P2PSelectionFlowProvider } from "@/contexts/p2p-selection-flow-context";
 import { FloatingTransactionPill } from "@/components/transaction/floating-transaction-pill";
 import { LayoutWrapper } from "@/components/layout-wrapper";
 import { Toaster } from "@/components/ui/toaster";
@@ -31,11 +32,13 @@ export default function RootLayout({
             <AppNavigationProvider>
               <StudioProvider>
                 <P2PHeaderProvider>
-                  <PersistentBackground>
-                    <LayoutWrapper>
-                      {children}
-                    </LayoutWrapper>
-                  </PersistentBackground>
+                  <P2PSelectionFlowProvider>
+                    <PersistentBackground>
+                      <LayoutWrapper>
+                        {children}
+                      </LayoutWrapper>
+                    </PersistentBackground>
+                  </P2PSelectionFlowProvider>
                 </P2PHeaderProvider>
               </StudioProvider>
             </AppNavigationProvider>

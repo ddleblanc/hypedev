@@ -89,24 +89,41 @@ interface P2PTradingContextType {
 const P2PTradingContext = createContext<P2PTradingContextType | undefined>(undefined);
 
 // Helper function to convert API NFT to context NFT
-const convertAPINFTToContextNFT = (apiNft: any): NFT => ({
-  id: apiNft.id,
-  name: apiNft.name,
-  image: apiNft.image,
-  // Use listing price if available, otherwise use collection floor price, otherwise default to 0
-  value: apiNft.listingPrice || apiNft.collection?.floorPrice || 0,
-  rarity: (apiNft.rarityTier || 'COMMON').toUpperCase() as any,
-  selected: false,
-  collection: apiNft.collection ? {
-    name: apiNft.collection.name,
-    symbol: apiNft.collection.symbol,
-    image: apiNft.collection.image,
-    floorPrice: apiNft.collection.floorPrice
-  } : undefined,
-  tokenId: apiNft.tokenId,
-  collectionId: apiNft.collectionId,
-  ownerAddress: apiNft.ownerAddress
-});
+const convertAPINFTToContextNFT = (apiNft: any): NFT => {
+  // The tokenId might be a number or string, ensure it's a string
+  // If tokenId is not available, use id as fallback (for consistency with collections page)
+  const tokenIdValue = apiNft.tokenId !== undefined
+    ? String(apiNft.tokenId)
+    : String(apiNft.id);
+
+  // Debug logging to understand what data we're receiving
+  if (apiNft.tokenId === undefined) {
+    console.warn('NFT has undefined tokenId, using id as fallback:', {
+      id: apiNft.id,
+      name: apiNft.name,
+      tokenIdValue
+    });
+  }
+
+  return {
+    id: apiNft.id,
+    name: apiNft.name,
+    image: apiNft.image,
+    // Use listing price if available, otherwise use collection floor price, otherwise default to 0
+    value: apiNft.listingPrice || apiNft.collection?.floorPrice || 0,
+    rarity: (apiNft.rarityTier || 'COMMON').toUpperCase() as any,
+    selected: false,
+    collection: apiNft.collection ? {
+      name: apiNft.collection.name,
+      symbol: apiNft.collection.symbol,
+      image: apiNft.collection.image,
+      floorPrice: apiNft.collection.floorPrice
+    } : undefined,
+    tokenId: tokenIdValue,
+    collectionId: apiNft.collectionId,
+    ownerAddress: apiNft.ownerAddress
+  };
+};
 
 // Helper function to convert API trader to context trader
 const convertAPITraderToContextTrader = (apiTrader: any): Trader => ({

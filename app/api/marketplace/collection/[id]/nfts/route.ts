@@ -39,6 +39,7 @@ export async function GET(
     // Format NFTs to match expected structure
     const formattedNfts = nfts.map((nft, index) => ({
       id: parseInt(nft.tokenId),
+      dbId: nft.id, // Include database UUID for matching across owners
       name: nft.name || `#${nft.tokenId}`,
       price: '0', // TODO: Fetch from blockchain marketplace
       lastSale: '0',

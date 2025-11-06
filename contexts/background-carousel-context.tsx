@@ -4,8 +4,10 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 
 interface BackgroundCarouselContextType {
   currentBackground: string;
+  overlayBackground: string | null;
   isCarouselVisible: boolean;
   setCurrentBackground: (bg: string) => void;
+  setOverlayBackground: (bg: string | null) => void;
   showCarousel: () => void;
   hideCarousel: () => void;
 }
@@ -26,6 +28,7 @@ interface BackgroundCarouselProviderProps {
 
 export const BackgroundCarouselProvider: React.FC<BackgroundCarouselProviderProps> = ({ children }) => {
   const [currentBackground, setCurrentBackground] = useState('/assets/img/bg1.jpg');
+  const [overlayBackground, setOverlayBackground] = useState<string | null>(null);
   const [isCarouselVisible, setIsCarouselVisible] = useState(false);
 
   const showCarousel = () => {
@@ -51,8 +54,10 @@ export const BackgroundCarouselProvider: React.FC<BackgroundCarouselProviderProp
   return (
     <BackgroundCarouselContext.Provider value={{
       currentBackground,
+      overlayBackground,
       isCarouselVisible,
       setCurrentBackground,
+      setOverlayBackground,
       showCarousel,
       hideCarousel,
     }}>

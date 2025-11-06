@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -40,13 +40,18 @@ import { Input } from "@/components/ui/input";
 import { IntegratedTradeHistory } from "@/components/p2p/integrated-trade-history";
 import { TradeDetailModal } from "@/components/p2p/trade-detail-modal";
 import { MediaRenderer } from "@/components/media-renderer";
+import { MobileP2PHub } from "@/components/p2p/mobile-hub";
 
 type P2PViewProps = {
   setViewMode: (mode: string) => void;
   initialTraderAddress?: string;
+  initialNftId?: string;
+  initialCollectionName?: string;
+  initialTraderNftIds?: string; // Comma-separated NFT IDs from 2-step flow
+  initialUserNftIds?: string; // Comma-separated NFT IDs from 2-step flow
 };
 
-export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) {
+export function P2PView({ setViewMode: _, initialTraderAddress, initialNftId, initialCollectionName, initialTraderNftIds, initialUserNftIds }: P2PViewProps) {
   const { user } = useWalletAuthOptimized();
   const address = user?.walletAddress;
   const router = useRouter();
@@ -114,6 +119,12 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
 
   // Chat scroll ref
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Track if initial NFT has been processed to prevent duplicate processing
+  const initialNftProcessedRef = useRef(false);
+
+  // Track if bulk NFTs from 2-step flow have been processed
+  const bulkNftsProcessedRef = useRef(false);
 
   // History filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -500,6 +511,178 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
     }
   }, [initialTraderAddress, traders, activeConversations]);
 
+  // Enable offer creation mode immediately when both trader and NFT params exist
+  useEffect(() => {
+    if (initialTraderAddress && initialNftId && window.innerWidth < 768) {
+      console.log('Setting offer creation mode for initial NFT flow');
+      setIsCreatingOffer(true);
+    }
+  }, [initialTraderAddress, initialNftId]);
+
+  // Handle adding the initial NFT to board once trader NFTs are loaded
+  useEffect(() => {
+    // Reset processed flag when params change
+    if (!initialNftId || !initialTraderAddress) {
+      initialNftProcessedRef.current = false;
+      return;
+    }
+
+    // Skip if already processed
+    if (initialNftProcessedRef.current) {
+      return;
+    }
+
+    // Wait for trader to be selected and NFTs to be loaded
+    if (!selectedTrader || isLoadingTraderNFTs || traderNFTs.length === 0) {
+      return;
+    }
+
+    // Check if NFT is already on the board (match by id or tokenId)
+    const alreadyOnBoard = traderBoardNFTs.some(nft => nft.id === initialNftId || nft.tokenId === initialNftId);
+    if (alreadyOnBoard) {
+      initialNftProcessedRef.current = true;
+      return;
+    }
+
+    // Try multiple matching strategies to find the NFT:
+
+    let nft = undefined;
+    let matchStrategy = 'none';
+
+    // Strategy 1: Database UUID match (most reliable - primary key)
+    nft = traderNFTs.find(n => String(n.id) === String(initialNftId));
+    if (nft) {
+      matchStrategy = 'database id (UUID)';
+    }
+
+    // Strategy 2: Direct tokenId match (fallback for numeric token IDs)
+    if (!nft) {
+      nft = traderNFTs.find(n => String(n.tokenId) === String(initialNftId));
+      if (nft) matchStrategy = 'tokenId exact';
+    }
+
+    // Strategy 3: If initialNftId is numeric, parse and compare tokenIds as numbers
+    if (!nft && /^\d+$/.test(initialNftId)) {
+      const numericNftId = parseInt(initialNftId);
+      nft = traderNFTs.find(n => {
+        const traderTokenIdNum = parseInt(String(n.tokenId || ''));
+        return !isNaN(traderTokenIdNum) && traderTokenIdNum === numericNftId;
+      });
+      if (nft) matchStrategy = 'numeric tokenId';
+    }
+
+    // Strategy 4: Collection + tokenId substring match
+    if (!nft && initialCollectionName) {
+      nft = traderNFTs.find(n => {
+        const collectionMatches = n.collection?.name?.toLowerCase() === initialCollectionName.toLowerCase();
+        const tokenIdContains = String(n.tokenId || '').includes(initialNftId) ||
+                                initialNftId.includes(String(n.tokenId || ''));
+        return collectionMatches && tokenIdContains;
+      });
+      if (nft) matchStrategy = 'collection + tokenId substring';
+    }
+
+    // Strategy 5: Collection + name contains the NFT ID
+    if (!nft && initialCollectionName) {
+      nft = traderNFTs.find(n => {
+        const collectionMatches = n.collection?.name?.toLowerCase() === initialCollectionName.toLowerCase();
+        const nameContainsId = n.name?.includes(initialNftId);
+        return collectionMatches && nameContainsId;
+      });
+      if (nft) matchStrategy = 'collection + name';
+    }
+
+    // Strategy 6: Collection name matching (case-insensitive, handles undefined)
+    if (!nft && initialCollectionName) {
+      const sameCollectionNFTs = traderNFTs.filter(n => {
+        const collectionName = n.collection?.name;
+        return collectionName && collectionName.toLowerCase() === initialCollectionName.toLowerCase();
+      });
+
+      if (sameCollectionNFTs.length === 1) {
+        nft = sameCollectionNFTs[0];
+        matchStrategy = 'single NFT in collection';
+      } else if (sameCollectionNFTs.length > 1) {
+        // If multiple NFTs from the collection, try to match by name containing the tokenId
+        nft = sameCollectionNFTs.find(n =>
+          n.name?.toLowerCase().includes(initialNftId.toLowerCase()) ||
+          n.tokenId?.includes(initialNftId)
+        );
+        if (nft) {
+          matchStrategy = 'collection + partial match';
+        } else {
+          // Just use the first one as a fallback
+          nft = sameCollectionNFTs[0];
+          matchStrategy = 'collection first match (fallback)';
+        }
+      }
+    }
+
+    if (nft) {
+      toggleTraderNFTSelection(nft.id);
+      initialNftProcessedRef.current = true;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialNftId, initialTraderAddress, initialCollectionName, selectedTrader, traderNFTs, isLoadingTraderNFTs, traderBoardNFTs]);
+
+  // Handle bulk NFT additions from 2-step selection flow
+  useEffect(() => {
+    // Reset processed flag when params change
+    if (!initialTraderNftIds && !initialUserNftIds) {
+      bulkNftsProcessedRef.current = false;
+      return;
+    }
+
+    // Skip if already processed
+    if (bulkNftsProcessedRef.current) {
+      return;
+    }
+
+    // Wait for data to be loaded
+    if (!selectedTrader || isLoadingTraderNFTs || traderNFTs.length === 0) {
+      return;
+    }
+
+    if (isLoadingTraderNFTs || userNFTs.length === 0) {
+      return;
+    }
+
+    // Process trader NFTs
+    if (initialTraderNftIds) {
+      const traderNftIdArray = initialTraderNftIds.split(',').filter(Boolean);
+      traderNftIdArray.forEach(nftId => {
+        // Check if already on board
+        const alreadyOnBoard = traderBoardNFTs.some(nft => nft.id === nftId);
+        if (alreadyOnBoard) return;
+
+        // Find NFT in trader's collection
+        const nft = traderNFTs.find(n => n.id === nftId);
+        if (nft) {
+          toggleTraderNFTSelection(nft.id);
+        }
+      });
+    }
+
+    // Process user NFTs
+    if (initialUserNftIds) {
+      const userNftIdArray = initialUserNftIds.split(',').filter(Boolean);
+      userNftIdArray.forEach(nftId => {
+        // Check if already on board
+        const alreadyOnBoard = userBoardNFTs.some(nft => nft.id === nftId);
+        if (alreadyOnBoard) return;
+
+        // Find NFT in user's collection
+        const nft = userNFTs.find(n => n.id === nftId);
+        if (nft) {
+          toggleUserNFTSelection(nft.id);
+        }
+      });
+    }
+
+    bulkNftsProcessedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTraderNftIds, initialUserNftIds, selectedTrader, traderNFTs, userNFTs, isLoadingTraderNFTs, traderBoardNFTs, userBoardNFTs]);
+
   // Send a chat message
   const sendChatMessage = async (messageText: string) => {
     if (!address || !selectedTrader || !messageText.trim()) return;
@@ -675,12 +858,17 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
         "md:hidden fixed inset-0 flex flex-col",
         initialTraderAddress && isCreatingOffer ? "bg-black" : ""
       )}>
-        {/* Header - Changes based on view - Hidden on mobile for conversation page */}
-        {!initialTraderAddress && (
-          <div className="fixed top-16 left-0 right-0 z-30 bg-black">
-          {mobileView === 'contacts' ? (
-            // Contacts list header - empty on mobile (no extra header needed)
-            null
+        {/* Show hub if no trader is selected and user is not creating an offer */}
+        {!initialTraderAddress && !selectedTrader ? (
+          <MobileP2PHub />
+        ) : (
+          <>
+            {/* Header - Changes based on view - Hidden on mobile for conversation page */}
+            {!initialTraderAddress && (
+              <div className="fixed top-16 left-0 right-0 z-30 bg-black">
+              {mobileView === 'contacts' ? (
+                // Contacts list header - empty on mobile (no extra header needed)
+                null
           ) : mobileView === 'trading' && selectedTrader ? (
             // Trading view header with partner info
             <div className="h-16 flex items-center gap-3 px-4">
@@ -1288,10 +1476,9 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
           </motion.button>
         )}
 
-        {/* Mobile Bottom Navigation Bar */}
-        {!(mobileView === 'trading' && !selectedTrader && initialTraderAddress) && (
-          <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-white/10 md:hidden">
-            <div className="grid grid-cols-4 h-16">
+        {/* Mobile Bottom Navigation Bar - Always visible on mobile */}
+        <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-white/10 md:hidden z-50">
+          <div className="grid grid-cols-4 h-16">
             <button
               onClick={() => router.push('/')}
               className="flex flex-col items-center justify-center gap-1 transition-colors text-white/60"
@@ -1336,8 +1523,7 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
               <span className="text-[10px]">Profile</span>
             </button>
           </div>
-          </div>
-        )}
+        </div>
 
         {/* Mobile Chat Input - Fixed at bottom when trading */}
         {mobileView === 'trading' && selectedTrader && (
@@ -1513,6 +1699,8 @@ export function P2PView({ setViewMode: _, initialTraderAddress }: P2PViewProps) 
               </div>
             </div>
           </div>
+        )}
+          </>
         )}
       </div>
 

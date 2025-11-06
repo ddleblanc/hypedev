@@ -101,8 +101,16 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     
     if (pathname === '/') {
       currentRoute = 'home';
-    } else if (segments[0] === 'p2p' && segments[1]) {
-      currentRoute = 'p2p-conversation';
+    } else if (segments[0] === 'p2p') {
+      if (segments[1] === 'collections' && segments[2]) {
+        currentRoute = 'p2p-collection-browse';
+      } else if (segments[1] === 'collections') {
+        currentRoute = 'p2p-collections';
+      } else if (segments[1]) {
+        currentRoute = 'p2p-conversation';
+      } else {
+        currentRoute = 'p2p';
+      }
     } else if (segments[0] === 'play' && segments[1]) {
       currentRoute = `play-${segments[1]}`;
     } else if (segments[0] === 'lootboxes') {
@@ -129,6 +137,24 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       return { showHeader: false, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: null };
     } else if (currentRoute === 'trade') {
       return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 1, previousRoute: 'home' };
+    } else if (currentRoute === 'p2p-collections') {
+      return {
+        showHeader: true,
+        showFooter: false,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'p2p'
+      };
+    } else if (currentRoute === 'p2p-collection-browse') {
+      return {
+        showHeader: true,
+        showFooter: false,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 4,
+        previousRoute: 'p2p-collections'
+      };
     } else if (currentRoute === 'marketplace') {
       return { 
         showHeader: !isMobile, 
@@ -427,8 +453,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     if (pathname === '/') return 'home';
     const segments = pathname.split('/').filter(Boolean);
 
-    if (segments[0] === 'p2p' && segments[1]) {
-      return 'p2p-conversation';
+    if (segments[0] === 'p2p') {
+      if (segments[1] === 'collections' && segments[2]) {
+        return 'p2p-collection-browse';
+      } else if (segments[1] === 'collections') {
+        return 'p2p-collections';
+      } else if (segments[1]) {
+        return 'p2p-conversation';
+      }
+      return 'p2p';
     }
 
     if (segments[0] === 'play' && segments[1]) {
@@ -556,13 +589,31 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 2,
         previousRoute: 'home'
       };
+    } else if (currentRoute === 'p2p-collections') {
+      newState = {
+        showHeader: true,
+        showFooter: false,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'p2p'
+      };
+    } else if (currentRoute === 'p2p-collection-browse') {
+      newState = {
+        showHeader: true,
+        showFooter: false,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 4,
+        previousRoute: 'p2p-collections'
+      };
     } else if (currentRoute === 'p2p-conversation') {
       newState = {
         showHeader: true, // Show header on all screen sizes
         showFooter: false,
         showSidebar: false,
         showRightSidebar: false,
-        navigationDepth: 3,
+        navigationDepth: 4,
         previousRoute: 'p2p'
       };
     } else if (isPlaySubRoute) {
