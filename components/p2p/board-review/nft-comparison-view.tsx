@@ -29,21 +29,19 @@ const containerVariants = {
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
+      staggerChildren: 0.04,
     },
   },
 };
 
 const cardVariants = {
-  hidden: { opacity: 0, scale: 0.8, rotateY: -90 },
+  hidden: { opacity: 0, y: 20 },
   show: {
     opacity: 1,
-    scale: 1,
-    rotateY: 0,
+    y: 0,
     transition: {
-      type: 'spring' as const,
-      stiffness: 260,
-      damping: 20,
+      duration: 0.3,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
     },
   },
 };
@@ -119,10 +117,10 @@ export function NFTComparisonView({
       {/* Swap Icon */}
       <div className="flex justify-center py-2">
         <motion.div
-          initial={{ scale: 0, rotate: -180 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.3 }}
-          className="w-12 h-12 rounded-full bg-white/[0.02] border border-white/[0.08] flex items-center justify-center"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number, number, number, number], delay: 0.1 }}
+          className="w-12 h-12 rounded-full bg-black/40 border border-white/10 flex items-center justify-center"
         >
           <ArrowRightLeft className="w-5 h-5 text-white/40 rotate-90" />
         </motion.div>
@@ -133,7 +131,7 @@ export function NFTComparisonView({
         <div className="flex items-center justify-between px-2">
           <h2 className="text-lg font-semibold text-white flex items-center gap-2">
             Their Offer
-            <span className="px-2 py-0.5 rounded-lg bg-white/[0.05] border border-white/[0.12] text-white/70 text-xs font-bold">
+            <span className="px-2 py-0.5 rounded-lg bg-black/40 border border-white/20 text-white/70 text-xs font-bold">
               {traderNFTs.length}
             </span>
           </h2>
@@ -152,7 +150,7 @@ export function NFTComparisonView({
             <motion.div
               key={nft.id}
               variants={cardVariants}
-              className="relative aspect-square rounded-xl overflow-hidden bg-black/40 backdrop-blur-xl border border-white/[0.08] hover:border-white/[0.15] transition-all"
+              className="relative aspect-square rounded-xl overflow-hidden bg-black/40 backdrop-blur-xl border border-white/10 hover:border-white/[0.15] transition-all"
             >
               {/* NFT Image */}
               <div className="absolute inset-0">

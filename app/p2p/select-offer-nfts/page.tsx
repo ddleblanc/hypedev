@@ -158,37 +158,13 @@ function UserOfferSelectionPageContent() {
         </div>
       </motion.div>
 
-      {/* Trade Context Bar */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05 }}
-        className="sticky top-[137px] z-30 bg-white/[0.02] backdrop-blur-xl border-b border-white/[0.08] px-4 py-3"
-      >
-        <div className="flex items-center justify-center gap-3 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-white/60">Trader wants</span>
-            <span className="px-2 py-1 rounded-lg bg-white/10 text-white font-semibold">
-              {selectedTraderNFTs.length} {selectedTraderNFTs.length === 1 ? 'NFT' : 'NFTs'}
-            </span>
-          </div>
-          <ArrowRight className="w-4 h-4 text-white/40" />
-          <div className="flex items-center gap-2">
-            <span className="text-white/60">Your offer</span>
-            <span className="px-2 py-1 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold">
-              {selectedUserNFTs.length} {selectedUserNFTs.length === 1 ? 'NFT' : 'NFTs'}
-            </span>
-          </div>
-        </div>
-      </motion.div>
-
       {/* Collection Browser */}
-      {collections.length > 1 && (
+      {collections.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="sticky top-[189px] z-30 bg-black/95 backdrop-blur-2xl border-b border-white/10 py-4"
+          className="sticky top-[137px] z-30 bg-black/95 backdrop-blur-2xl border-b border-white/10 py-4"
         >
           <CollectionBrowser
             collections={collections}
@@ -222,7 +198,7 @@ function UserOfferSelectionPageContent() {
 
       {/* NFT Grid */}
       {!isLoading && filteredNFTs.length > 0 && (
-        <div className={`py-6 ${collections.length > 1 ? 'mt-[52px]' : 'mt-0'}`}>
+        <div className="py-6 mt-[3.2rem]">
           <NFTSelectionGrid
             nfts={filteredNFTs}
             selectedNFTIds={selectedUserNFTs.map((nft) => nft.id)}

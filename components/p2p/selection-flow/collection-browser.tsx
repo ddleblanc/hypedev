@@ -35,14 +35,14 @@ export function CollectionBrowser({
             flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm whitespace-nowrap transition-all
             ${
               selectedCollection === null
-                ? 'bg-white/[0.03] border border-[rgb(163,255,18)]/40 text-[rgb(163,255,18)] shadow-lg shadow-[rgb(163,255,18)]/10'
-                : 'bg-white/[0.02] text-white/50 hover:bg-white/[0.05] hover:text-white/70 border border-white/[0.06]'
+                ? 'bg-black/40 border border-[rgb(163,255,18)]/40 text-[rgb(163,255,18)] shadow-lg shadow-[rgb(163,255,18)]/10'
+                : 'bg-black/40 text-white/50 hover:bg-black/60 hover:text-white/70 border border-white/10'
             }
           `}
         >
           <Layers className="w-4 h-4" />
           <span>All</span>
-          <span className={`px-1.5 py-0.5 rounded text-xs ${selectedCollection === null ? 'bg-[rgb(163,255,18)]/20' : 'bg-white/[0.06]'}`}>
+          <span className={`px-1.5 py-0.5 rounded text-xs ${selectedCollection === null ? 'bg-[rgb(163,255,18)]/20' : 'bg-black/40'}`}>
             {allNFTsCount}
           </span>
         </motion.button>
@@ -57,8 +57,8 @@ export function CollectionBrowser({
               flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm whitespace-nowrap transition-all
               ${
                 selectedCollection === collection.id
-                  ? 'bg-white/[0.03] border border-[rgb(163,255,18)]/40 text-[rgb(163,255,18)] shadow-lg shadow-[rgb(163,255,18)]/10'
-                  : 'bg-white/[0.02] text-white/50 hover:bg-white/[0.05] hover:text-white/70 border border-white/[0.06]'
+                  ? 'bg-black/40 border border-[rgb(163,255,18)]/40 text-[rgb(163,255,18)] shadow-lg shadow-[rgb(163,255,18)]/10'
+                  : 'bg-black/40 text-white/50 hover:bg-black/60 hover:text-white/70 border border-white/10'
               }
             `}
           >
@@ -72,7 +72,7 @@ export function CollectionBrowser({
               </div>
             )}
             <span className="truncate max-w-[120px]">{collection.name}</span>
-            <span className={`px-1.5 py-0.5 rounded text-xs ${selectedCollection === collection.id ? 'bg-[rgb(163,255,18)]/20' : 'bg-white/[0.06]'}`}>
+            <span className={`px-1.5 py-0.5 rounded text-xs ${selectedCollection === collection.id ? 'bg-[rgb(163,255,18)]/20' : 'bg-black/40'}`}>
               {collection.nftCount}
             </span>
           </motion.button>

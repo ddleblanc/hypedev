@@ -99,18 +99,18 @@ export function ReviewScreen({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.05 }}
-        className="sticky top-[137px] z-30 bg-white/[0.02] backdrop-blur-xl border-b border-white/[0.08] px-4 py-3"
+        className="sticky top-[137px] z-30 bg-black/40 backdrop-blur-xl border-b border-white/10 px-4 py-3"
       >
         <div className="flex items-center justify-center gap-2 text-sm">
           <span className="text-white/50">Trading with</span>
-          <span className="px-3 py-1 rounded-lg bg-white/[0.03] border border-white/[0.08] text-white font-semibold">
+          <span className="px-3 py-1 rounded-lg bg-black/40 border border-white/10 text-white font-semibold">
             {traderName || `${traderAddress.slice(0, 6)}...${traderAddress.slice(-4)}`}
           </span>
         </div>
       </motion.div>
 
       {/* Main Content */}
-      <div className="px-4 py-6 space-y-6">
+      <div className="px-4 pt-[5.5rem] pb-6 space-y-6">
         {/* NFT Comparison */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -163,7 +163,7 @@ export function ReviewScreen({
         <button
           onClick={handleSend}
           disabled={isSending || traderNFTs.length === 0 || userNFTs.length === 0}
-          className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-[rgb(163,255,18)]/30 hover:border-[rgb(163,255,18)]/50 text-[rgb(163,255,18)] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[56px]"
+          className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-black/40 hover:bg-black/60 border border-[rgb(163,255,18)]/30 hover:border-[rgb(163,255,18)]/50 text-[rgb(163,255,18)] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[56px]"
         >
           {isSending ? (
             <>

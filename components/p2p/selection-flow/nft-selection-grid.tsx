@@ -105,7 +105,7 @@ export function NFTSelectionGrid({
             {/* Initial NFT Badge */}
             {isInitial && (
               <div className="absolute top-2 left-2 z-10">
-                <div className="px-2 py-1 rounded-lg bg-white/[0.03] border border-[rgb(163,255,18)]/40 text-[rgb(163,255,18)] text-xs font-semibold">
+                <div className="px-2 py-1 rounded-lg bg-black/40 border border-[rgb(163,255,18)]/40 text-[rgb(163,255,18)] text-xs font-semibold">
                   Initially Selected
                 </div>
               </div>

@@ -17,6 +17,10 @@ interface SelectedNFTsBarProps {
   onClear?: () => void;
   nextLabel?: string;
   isLoading?: boolean;
+  tradeContext?: {
+    wantCount: number;
+    offerCount: number;
+  };
 }
 
 export function SelectedNFTsBar({
@@ -26,6 +30,7 @@ export function SelectedNFTsBar({
   onClear,
   nextLabel = 'Next',
   isLoading = false,
+  tradeContext,
 }: SelectedNFTsBarProps) {
   const count = selectedNFTs.length;
   const showCount = count > 3;
@@ -38,6 +43,25 @@ export function SelectedNFTsBar({
       transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-2xl border-t border-white/10 px-4 py-4 pb-safe-or-4"
     >
+      {/* Trade Context (optional) */}
+      {tradeContext && (
+        <div className="flex items-center justify-center gap-2 mb-3 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="text-white/50">You want</span>
+            <span className="px-1.5 py-0.5 rounded bg-black/40 border border-white/10 text-white/70 font-semibold">
+              {tradeContext.wantCount}
+            </span>
+          </div>
+          <ArrowRight className="w-3 h-3 text-white/30" />
+          <div className="flex items-center gap-1.5">
+            <span className="text-white/50">Your offer</span>
+            <span className="px-1.5 py-0.5 rounded bg-black/40 border border-[rgb(163,255,18)]/40 text-[rgb(163,255,18)] font-semibold">
+              {tradeContext.offerCount}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-3">
         {count === 0 ? (
           <>
@@ -45,7 +69,7 @@ export function SelectedNFTsBar({
             {onBack && (
               <button
                 onClick={onBack}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.06] hover:border-white/[0.12] text-white/70 hover:text-white transition-all min-h-[48px]"
+                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-black/40 hover:bg-black/60 border border-white/10 hover:border-white/20 text-white/70 hover:text-white transition-all min-h-[48px]"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span className="font-semibold">Back</span>
@@ -58,7 +82,7 @@ export function SelectedNFTsBar({
 
             <button
               disabled
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/[0.02] border border-white/[0.06] text-white/20 font-semibold min-w-[120px] justify-center cursor-not-allowed"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-black/40 border border-white/10 text-white/20 font-semibold min-w-[120px] justify-center cursor-not-allowed"
             >
               <span>{nextLabel}</span>
               <ArrowRight className="w-4 h-4" />
@@ -108,7 +132,7 @@ export function SelectedNFTsBar({
               {onClear && (
                 <button
                   onClick={onClear}
-                  className="ml-auto p-1.5 rounded-lg hover:bg-white/[0.05] transition-colors text-white/50 hover:text-white/80"
+                  className="ml-auto p-1.5 rounded-lg hover:bg-black/60 transition-colors text-white/50 hover:text-white/80"
                   disabled={isLoading}
                 >
                   <X className="w-4 h-4" />
@@ -121,7 +145,7 @@ export function SelectedNFTsBar({
               whileTap={{ scale: 0.95 }}
               onClick={onNext}
               disabled={isLoading}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-[rgb(163,255,18)]/30 hover:border-[rgb(163,255,18)]/50 text-[rgb(163,255,18)] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px] justify-center"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-black/40 hover:bg-black/60 border border-[rgb(163,255,18)]/30 hover:border-[rgb(163,255,18)]/50 text-[rgb(163,255,18)] font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px] justify-center"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-[rgb(163,255,18)]/30 border-t-[rgb(163,255,18)] rounded-full animate-spin" />
