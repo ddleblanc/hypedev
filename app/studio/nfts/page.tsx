@@ -9,8 +9,9 @@ import { useStudioData } from "@/hooks/use-studio-data";
 import {
   Plus, Grid3x3, List, Filter, Search, Upload,
   Sparkles, Hash, Crown, Star, Diamond,
-  Shuffle
+  Shuffle, CheckCircle2, Layers, TrendingUp
 } from "lucide-react";
+import { MobileStatCard } from "@/components/studio/mobile-stat-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -129,34 +130,211 @@ function NFTsContent() {
       transition={{ duration: 0.5 }}
       className="w-full min-h-screen bg-black"
     >
-      <div className="relative">
-        {/* Hero Section - Responsive */}
-        <motion.div
-          ref={heroRef}
-          className="relative h-[50vh] md:h-[40vh] overflow-hidden"
-          style={{ 
-            scale: scaleValue,
-            willChange: isClient ? 'transform' : 'auto'
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black to-[rgb(163,255,18)]/30" />
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23fbbf24' fill-opacity='0.15'%3E%3Cpath d='M0 20h20v20H0V20zm20 0h20v20H20V20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }} />
+      {isMobile ? (
+        /* MOBILE LAYOUT - iOS Premium Standard */
+        <div className="relative min-h-screen">
+          {/* Premium Gradient Hero with Stats */}
+          <div className="relative overflow-hidden">
+            {/* Gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 via-black to-[rgb(163,255,18)]/30" />
+
+            {/* Pattern overlay */}
+            <div className="absolute inset-0 opacity-20">
+              <div className="absolute inset-0" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23fbbf24' fill-opacity='0.15'%3E%3Cpath d='M0 20h20v20H0V20zm20 0h20v20H20V20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }} />
+            </div>
+
+            {/* Content - PROPER PADDING */}
+            <div className="relative pt-20 px-4 pb-8">
+              {/* Badges row */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="flex items-center gap-2 mb-3"
+              >
+                <Badge className="bg-white text-black font-bold text-xs">NFT VAULT</Badge>
+                <Badge variant="outline" className="border-white/30 text-white text-xs">{totalNFTs} TOTAL</Badge>
+              </motion.div>
+
+              {/* Title */}
+              <motion.h1
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-4xl font-black text-white mb-2"
+              >
+                NFT Gallery
+              </motion.h1>
+
+              {/* Description */}
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="text-white/80 text-sm mb-6"
+              >
+                Design unique NFTs and manage metadata
+              </motion.p>
+
+              {/* Stats Grid - 2x2 layout */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <MobileStatCard icon={Sparkles} value={totalNFTs} label="Total NFTs" delay={0.4} />
+                <MobileStatCard icon={CheckCircle2} value={mintedNFTs} label="Minted" delay={0.45} />
+                <MobileStatCard icon={Layers} value={totalCollections} label="Collections" delay={0.5} />
+                <MobileStatCard icon={TrendingUp} value={avgRarityScore} label="Avg Rarity" delay={0.55} />
+              </div>
+
+              {/* Primary CTA */}
+              <motion.button
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full bg-[rgb(163,255,18)] text-black rounded-2xl p-4 font-bold min-h-[56px] flex items-center justify-center gap-2 shadow-lg shadow-[rgb(163,255,18)]/20"
+              >
+                <Plus className="w-5 h-5" />
+                Create New NFT
+              </motion.button>
+            </div>
           </div>
 
-          <motion.div 
-            style={{ 
-              opacity: opacityValue
-            }} 
-            className="absolute bottom-0 left-0 right-0 px-4 md:px-8 py-6 md:py-8"
+          {/* Sticky Filter Bar */}
+          <div className="sticky top-20 z-30 bg-black/95 backdrop-blur-xl border-b border-white/10">
+            <div className="px-4 py-3">
+              {/* Search bar with view toggle */}
+              <div className="flex items-center gap-2 mb-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search NFTs..."
+                    className="pl-9 min-h-[48px] w-full bg-white/5 backdrop-blur-sm border-white/10 text-white placeholder:text-zinc-500 rounded-xl"
+                  />
+                </div>
+
+                {/* View Mode Toggle */}
+                <div className="flex items-center bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-1">
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2.5 rounded-lg transition-all flex items-center justify-center min-w-[44px] min-h-[44px] ${
+                      viewMode === 'grid' ? 'bg-white text-black' : 'text-zinc-500'
+                    }`}
+                  >
+                    <Grid3x3 className="w-4 h-4" />
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                    onClick={() => setViewMode('list')}
+                    className={`p-2.5 rounded-lg transition-all flex items-center justify-center min-w-[44px] min-h-[44px] ${
+                      viewMode === 'list' ? 'bg-white text-black' : 'text-zinc-500'
+                    }`}
+                  >
+                    <List className="w-4 h-4" />
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Rarity badges - horizontal scroll */}
+              <div className="flex gap-2 overflow-x-auto pb-1 mb-3">
+                {legendaryNFTs > 0 && (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                    className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 px-3 min-h-[36px] rounded-xl whitespace-nowrap flex items-center gap-1.5 text-sm font-medium"
+                  >
+                    <Crown className="w-3.5 h-3.5" />
+                    {legendaryNFTs} Legendary
+                  </motion.button>
+                )}
+                {epicNFTs > 0 && (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                    className="bg-purple-500/10 border border-purple-500/30 text-purple-500 px-3 min-h-[36px] rounded-xl whitespace-nowrap flex items-center gap-1.5 text-sm font-medium"
+                  >
+                    <Diamond className="w-3.5 h-3.5" />
+                    {epicNFTs} Epic
+                  </motion.button>
+                )}
+                {rareNFTs > 0 && (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                    className="bg-white/10 border border-white/30 text-white px-3 min-h-[36px] rounded-xl whitespace-nowrap flex items-center gap-1.5 text-sm font-medium"
+                  >
+                    <Star className="w-3.5 h-3.5" />
+                    {rareNFTs} Rare
+                  </motion.button>
+                )}
+              </div>
+
+              {/* Filter tabs */}
+              <nav className="flex items-center gap-1 overflow-x-auto">
+                {filters.map((filter) => (
+                  <motion.button
+                    key={filter.id}
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                    onClick={() => setActiveFilter(filter.id)}
+                    className={`px-3 min-h-[48px] font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-sm flex items-center ${
+                      activeFilter === filter.id
+                        ? 'text-white border-[rgb(163,255,18)]'
+                        : 'text-white/60 border-transparent hover:text-white hover:border-white/30'
+                    }`}
+                  >
+                    {filter.label}
+                    {filter.count !== undefined && (
+                      <Badge className="bg-white/10 text-white text-xs ml-2">{filter.count}</Badge>
+                    )}
+                  </motion.button>
+                ))}
+              </nav>
+            </div>
+          </div>
+
+          {/* Content with proper spacing */}
+          <div className="px-4 pb-32 pt-6">
+            <StudioMainContent currentView="nfts">
+              <StudioNFTs nfts={nfts} viewMode={viewMode} />
+            </StudioMainContent>
+          </div>
+        </div>
+      ) : (
+        /* DESKTOP LAYOUT - Keep existing parallax */
+        <div className="relative">
+          {/* Hero Section - Desktop Parallax */}
+          <motion.div
+            ref={heroRef}
+            className="relative h-[40vh] overflow-hidden"
+            style={{
+              scale: scaleValue,
+              willChange: isClient ? 'transform' : 'auto'
+            }}
           >
-            <div className="max-w-7xl">
-              {/* Mobile: Compact badges */}
-              <motion.div
-                initial={{ x: -50, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
+            <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black to-[rgb(163,255,18)]/30" />
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute inset-0" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23fbbf24' fill-opacity='0.15'%3E%3Cpath d='M0 20h20v20H0V20zm20 0h20v20H20V20z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+              }} />
+            </div>
+
+            <motion.div
+              style={{
+                opacity: opacityValue
+              }}
+              className="absolute bottom-0 left-0 right-0 px-8 py-8"
+            >
+              <div className="max-w-7xl px-4">
+                {/* Desktop badges */}
+                <motion.div
+                  initial={{ x: -50, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.2 }}
                 className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4"
               >
@@ -206,61 +384,10 @@ function NFTsContent() {
           </motion.div>
         </motion.div>
 
-        {/* Sticky Header - Responsive */}
-        <div className="sticky top-16 md:top-0 z-30 bg-black/95 backdrop-blur-lg border-b border-white/10">
-          <div className="px-4 md:px-8 py-3 md:py-4">
-            {/* Mobile: Simplified stats */}
-            {isMobile ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex gap-4">
-                    <div>
-                      <p className="text-xs text-white/60">Total</p>
-                      <p className="text-lg font-bold text-white">{totalNFTs}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-white/60">Minted</p>
-                      <p className="text-lg font-bold text-white">{mintedNFTs}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-white/60">Collections</p>
-                      <p className="text-lg font-bold text-white">{totalCollections}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="icon" variant={viewMode === 'grid' ? 'default' : 'ghost'} onClick={() => setViewMode('grid')} className="h-8 w-8">
-                      <Grid3x3 className="h-4 w-4" />
-                    </Button>
-                    <Button size="icon" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="h-8 w-8">
-                      <List className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Mobile rarity badges */}
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {legendaryNFTs > 0 && (
-                    <Badge className="bg-yellow-500/20 border-yellow-500/30 text-yellow-500 whitespace-nowrap">
-                      <Crown className="w-3 h-3 mr-1" />
-                      {legendaryNFTs} Legendary
-                    </Badge>
-                  )}
-                  {epicNFTs > 0 && (
-                    <Badge className="bg-purple-500/20 border-purple-500/30 text-purple-500 whitespace-nowrap">
-                      <Diamond className="w-3 h-3 mr-1" />
-                      {epicNFTs} Epic
-                    </Badge>
-                  )}
-                  {rareNFTs > 0 && (
-                    <Badge className="bg-white/20 border-white/30 text-white whitespace-nowrap">
-                      <Star className="w-3 h-3 mr-1" />
-                      {rareNFTs} Rare
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* Desktop: Full stats and controls */
+          {/* Desktop Sticky Header */}
+          <div className="sticky top-0 z-30 bg-black/95 backdrop-blur-lg border-b border-white/10">
+            <div className="px-8 py-4">
+              {/* Desktop: Full stats and controls */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-8">
                   <div>
@@ -354,15 +481,16 @@ function NFTsContent() {
                   </div>
                 </div>
               </div>
-            )}
 
-            {/* Filter tabs */}
+              {/* Filter tabs */}
             <nav className="flex items-center gap-1 overflow-x-auto">
               {filters.map((filter) => (
-                <button
+                <motion.button
                   key={filter.id}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                   onClick={() => setActiveFilter(filter.id)}
-                  className={`px-3 md:px-4 py-1.5 md:py-2 font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-sm md:text-base ${
+                  className={`px-3 md:px-4 ${isMobile ? 'min-h-[48px]' : 'py-2'} font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-sm md:text-base flex items-center ${
                     activeFilter === filter.id
                       ? 'text-white border-[rgb(163,255,18)]'
                       : 'text-white/60 border-transparent hover:text-white hover:border-white/30'
@@ -372,19 +500,20 @@ function NFTsContent() {
                   {filter.count !== undefined && (
                     <Badge className="bg-white/10 text-white text-xs ml-2">{filter.count}</Badge>
                   )}
-                </button>
+                </motion.button>
               ))}
             </nav>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="px-4 md:px-8 py-6 md:py-8 min-h-screen">
-          <StudioMainContent currentView="nfts">
-            <StudioNFTs nfts={nfts} viewMode={viewMode} />
-          </StudioMainContent>
+          {/* Content */}
+          <div className="px-8 py-8 pb-32 min-h-screen">
+            <StudioMainContent currentView="nfts">
+              <StudioNFTs nfts={nfts} viewMode={viewMode} />
+            </StudioMainContent>
+          </div>
         </div>
-      </div>
+      )}
     </motion.div>
   );
 }

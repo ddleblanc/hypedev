@@ -81,13 +81,13 @@ export function StudioNFTs({ nfts, viewMode }: StudioNFTsProps) {
     <>
 
       {/* NFTs Grid */}
-      <div className={viewMode === 'grid' ? 'grid grid-cols-6 gap-4' : 'space-y-4'}>
+      <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4' : 'space-y-4'}>
         {nfts.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="col-span-6 text-center py-12"
+            className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 2xl:col-span-6 text-center py-12"
           >
             <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4 mx-auto">
               <Hash className="w-8 h-8 text-white/30" />

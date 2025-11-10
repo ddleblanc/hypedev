@@ -50,31 +50,37 @@ export function CollectionStep({
   }) => (
     <div>
       <Label className="text-white mb-2 block">{label}</Label>
-      <div
-        className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:border-white/40 transition-colors cursor-pointer"
+      <motion.div
+        whileTap={{ scale: 0.98 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+        className={`border-2 border-dashed border-white/20 rounded-2xl text-center hover:border-white/40 hover:bg-white/5 transition-all cursor-pointer ${
+          isMobile ? 'p-8 min-h-[120px]' : 'p-8'
+        }`}
         onClick={() => handleImageUpload(type)}
       >
         {uploadingField === type ? (
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[rgb(163,255,18)] mx-auto mb-2"></div>
         ) : collectionData[type] ? (
           <div className="space-y-2">
-            <div className={`mx-auto mb-2 rounded-lg overflow-hidden ${
-              type === 'image' ? 'w-16 h-16' : 'w-20 h-12'
-            } ${isMobile && type === 'image' ? 'w-16 h-16' : ''}`}>
+            <div className={`mx-auto mb-2 rounded-xl overflow-hidden ${
+              type === 'image' ? 'w-20 h-20' : 'w-24 h-16'
+            }`}>
               <MediaRenderer src={collectionData[type]} className="w-full h-full object-cover" />
             </div>
-            <p className="text-xs text-[rgb(163,255,18)]">Click to change</p>
+            <p className="text-sm text-[rgb(163,255,18)] font-medium">Tap to change</p>
           </div>
         ) : (
           <>
-            <Image className="w-8 h-8 mx-auto mb-2 text-white/40" />
-            <p className="text-sm text-white/60">Click to upload{!isMobile && ' or drag and drop'}</p>
-            <p className="text-xs text-white/40 mt-1">
+            <Image className="w-10 h-10 mx-auto mb-3 text-white/40" />
+            <p className="text-base text-white/80 font-medium mb-1">
+              {isMobile ? 'Tap to upload' : 'Click to upload or drag and drop'}
+            </p>
+            <p className="text-xs text-white/40">
               {isMobile ? 'PNG, JPG, GIF, MP4 up to 10MB' : dimensions}
             </p>
           </>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 
@@ -138,56 +144,70 @@ export function CollectionStep({
         animate="animate"
         exit="exit"
         transition={{ duration: 0.3 }}
-        className="space-y-4"
+        className="space-y-6"
       >
-        <h3 className="text-xl font-bold text-white mb-4">Collection Details</h3>
+        <h3 className="text-2xl font-bold text-white mb-2">Collection Details</h3>
+        <p className="text-white/60 text-sm mb-6">
+          Set up your NFT collection with a name, symbol, and artwork
+        </p>
 
-        <Card className="bg-black/40 border-white/20">
-          <CardContent className="space-y-4 pt-6">
+        <Card className="bg-white/5 backdrop-blur-lg border-white/10 rounded-2xl">
+          <CardContent className="space-y-6 pt-6">
             <div>
-              <Label htmlFor="collection-name" className="text-white">Collection Name *</Label>
+              <Label htmlFor="collection-name" className="text-white mb-2 block font-medium">
+                Collection Name *
+              </Label>
               <Input
                 id="collection-name"
                 value={collectionData.name}
                 onChange={(e) => setCollectionData({...collectionData, name: e.target.value})}
                 placeholder="My NFT Collection"
-                className="bg-black/40 border-white/20 text-white placeholder:text-white/40"
+                className="bg-black/40 border-white/20 text-white placeholder:text-white/40 rounded-xl h-12"
               />
             </div>
 
             <div>
-              <Label htmlFor="collection-symbol" className="text-white">Symbol *</Label>
+              <Label htmlFor="collection-symbol" className="text-white mb-2 block font-medium">
+                Symbol *
+              </Label>
               <Input
                 id="collection-symbol"
                 value={collectionData.symbol}
                 onChange={(e) => setCollectionData({...collectionData, symbol: e.target.value.toUpperCase()})}
                 placeholder="NFT"
-                className="bg-black/40 border-white/20 text-white placeholder:text-white/40"
+                className="bg-black/40 border-white/20 text-white placeholder:text-white/40 rounded-xl h-12"
                 maxLength={10}
               />
+              <p className="text-xs text-white/40 mt-2">
+                3-5 characters recommended
+              </p>
             </div>
 
             <div>
-              <Label htmlFor="collection-description" className="text-white">Description</Label>
+              <Label htmlFor="collection-description" className="text-white mb-2 block font-medium">
+                Description
+              </Label>
               <Textarea
                 id="collection-description"
                 value={collectionData.description}
                 onChange={(e) => setCollectionData({...collectionData, description: e.target.value})}
                 placeholder="Describe your collection..."
-                className="bg-black/40 border-white/20 text-white placeholder:text-white/40"
+                className="bg-black/40 border-white/20 text-white placeholder:text-white/40 rounded-xl min-h-[96px]"
                 rows={4}
               />
             </div>
 
             <div>
-              <Label htmlFor="collection-category" className="text-white">Category</Label>
+              <Label htmlFor="collection-category" className="text-white mb-2 block font-medium">
+                Category
+              </Label>
               <Select value={collectionData.category} onValueChange={(value) => setCollectionData({...collectionData, category: value})}>
-                <SelectTrigger className="bg-black/40 border-white/20 text-white">
+                <SelectTrigger className="bg-black/40 border-white/20 text-white rounded-xl h-12">
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
-                <SelectContent className="bg-black/90 border-white/20">
+                <SelectContent className="bg-black/90 border-white/20 rounded-xl">
                   {categories.map((category) => (
-                    <SelectItem key={category} value={category} className="text-white hover:bg-white/10">
+                    <SelectItem key={category} value={category} className="text-white hover:bg-white/10 rounded-lg">
                       {category}
                     </SelectItem>
                   ))}
@@ -195,7 +215,7 @@ export function CollectionStep({
               </Select>
             </div>
 
-            <ImageUploadCard type="image" label="Upload Collection Image" dimensions="400x400 recommended" />
+            <ImageUploadCard type="image" label="Collection Image *" dimensions="400x400 recommended" />
           </CardContent>
         </Card>
       </motion.div>

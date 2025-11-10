@@ -84,128 +84,112 @@ function DashboardContent() {
       className="w-full min-h-screen bg-black"
     >
       {isMobile ? (
-        // MOBILE LAYOUT
-        <div className="relative">
-          {/* Mobile Hero */}
-          <div className="relative h-[60vh] overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-[rgb(163,255,18)]/20 via-black to-purple-900/20" />
+        // MOBILE LAYOUT - Premium iOS Experience
+        <div className="relative min-h-screen">
+          {/* Premium Gradient Hero */}
+          <div className="relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[rgb(163,255,18)]/20 via-black to-purple-900/30" />
             <div className="absolute inset-0 opacity-20">
               <div className="absolute inset-0" style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23a3ff12' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
               }} />
             </div>
 
-            <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between z-10">
-              <Button size="icon" variant="ghost" className="bg-black/40 backdrop-blur text-white" onClick={() => router.back()}>
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <Button size="icon" variant="ghost" className="bg-black/40 backdrop-blur text-white">
+            {/* Header Content */}
+            <div className="relative pt-20 px-4 pb-8">
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge className="bg-[rgb(163,255,18)] text-black font-bold text-xs">STUDIO</Badge>
+                  <Badge className="bg-purple-500 text-white font-bold text-xs">DASHBOARD</Badge>
+                </div>
+                <h1 className="text-4xl font-black text-white mb-2">Create & Manage</h1>
+                <p className="text-white/80 text-sm">
+                  Your NFT collections at a glance
+                </p>
+              </motion.div>
+
+              {/* Stats Cards - Inside Hero */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="grid grid-cols-2 gap-3 mb-4"
+              >
+            {/* Projects Card */}
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
+            >
+              <div className="w-10 h-10 rounded-xl bg-[rgb(163,255,18)]/10 flex items-center justify-center mb-3">
+                <Package className="w-5 h-5 text-[rgb(163,255,18)]" />
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">{projects.length}</div>
+              <div className="text-sm text-white/60">Projects</div>
+            </motion.div>
+
+            {/* Collections Card */}
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
+            >
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center mb-3">
+                <Layers className="w-5 h-5 text-purple-400" />
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">{totalCollections}</div>
+              <div className="text-sm text-white/60">Collections</div>
+            </motion.div>
+
+            {/* NFTs Card */}
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
+            >
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center mb-3">
+                <Sparkles className="w-5 h-5 text-blue-400" />
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">{totalNFTs}</div>
+              <div className="text-sm text-white/60">NFTs</div>
+            </motion.div>
+
+            {/* Revenue Card */}
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-4 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
+            >
+              <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center mb-3">
+                <DollarSign className="w-5 h-5 text-green-400" />
+              </div>
+              <div className="text-2xl font-bold text-white mb-1">{totalRevenue}</div>
+              <div className="text-sm text-white/60">Revenue</div>
+            </motion.div>
+              </motion.div>
+
+              {/* Primary CTA - Inside Hero */}
+              <motion.button
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => router.push('/studio/create')}
+                className="w-full bg-[rgb(163,255,18)] text-black rounded-2xl p-4 font-bold flex items-center justify-center gap-2 min-h-[56px] hover:bg-[rgb(163,255,18)]/90 transition-all shadow-lg shadow-[rgb(163,255,18)]/20"
+              >
                 <Plus className="w-5 h-5" />
-              </Button>
-            </div>
-
-            <div className="absolute bottom-0 left-0 right-0 p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Badge className="bg-[rgb(163,255,18)] text-black font-bold text-xs">DASHBOARD</Badge>
-                <Badge className="bg-purple-500 text-white font-bold text-xs">OVERVIEW</Badge>
-              </div>
-
-              <h1 className="text-4xl font-black text-white mb-2">Studio Dashboard</h1>
-              <p className="text-white/80 text-sm mb-4">Monitor your performance and growth</p>
-
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <Card className="bg-black/40 backdrop-blur border-white/10">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-[rgb(163,255,18)]/20">
-                        <Package className="w-4 h-4 text-[rgb(163,255,18)]" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-white/60">Projects</p>
-                        <p className="text-lg font-bold text-white">{projects.length}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-black/40 backdrop-blur border-white/10">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-purple-500/20">
-                        <Layers className="w-4 h-4 text-purple-400" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-white/60">Collections</p>
-                        <p className="text-lg font-bold text-white">{totalCollections}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-black/40 backdrop-blur border-white/10">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-blue-500/20">
-                        <Sparkles className="w-4 h-4 text-blue-400" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-white/60">NFTs</p>
-                        <p className="text-lg font-bold text-white">{totalNFTs}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-black/40 backdrop-blur border-white/10">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-md bg-green-500/20">
-                        <DollarSign className="w-4 h-4 text-green-400" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-white/60">Revenue</p>
-                        <p className="text-lg font-bold text-white">{totalRevenue}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="flex gap-2">
-                <Button className="flex-1 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Project
-                </Button>
-                <Button variant="outline" className="border-white/30 text-white hover:bg-white/10">
-                  <BarChart3 className="w-4 h-4" />
-                </Button>
-              </div>
+                <span>Create New Collection</span>
+              </motion.button>
             </div>
           </div>
 
-          {/* Mobile Time Range Tabs */}
-          <div className="sticky top-0 z-30 bg-black border-b border-white/10">
-            <div className="flex">
-              {timeRanges.map((range) => (
-                <button
-                  key={range.id}
-                  onClick={() => setTimeRange(range.id)}
-                  className={`flex-1 py-3 text-sm font-medium transition-all relative ${
-                    timeRange === range.id ? 'text-white' : 'text-white/60'
-                  }`}
-                >
-                  {range.label}
-                  {timeRange === range.id && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[rgb(163,255,18)]" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Mobile Content */}
-          <div className="min-h-screen pb-20 bg-black">
-            <div className="flex-1 overflow-hidden pt-4">
+          {/* Content Section with proper spacing */}
+          <div className="px-4 pb-32 pt-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
               <StudioMainContent currentView="dashboard">
                 <StudioDashboard
                   mockProjects={projects}
@@ -213,7 +197,7 @@ function DashboardContent() {
                   mockNFTs={nfts}
                 />
               </StudioMainContent>
-            </div>
+            </motion.div>
           </div>
         </div>
       ) : (

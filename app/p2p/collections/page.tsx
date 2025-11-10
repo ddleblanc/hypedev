@@ -6,6 +6,7 @@ import { useP2PBackground } from '@/hooks/use-p2p-background';
 import { ArrowLeft, Search, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { MediaRenderer } from '@/components/media-renderer';
+import { MobileNav } from '@/components/p2p/mobile-nav';
 
 interface Collection {
   id: string;
@@ -57,29 +58,30 @@ export default function CollectionsPage() {
   };
 
   return (
-    <div className="relative z-10 min-h-screen px-4 pt-20 pb-safe-or-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-6"
-      >
-        <button
-          onClick={navigateToHub}
-          className="flex items-center space-x-2 text-white/60 hover:text-white transition-colors mb-4 min-h-[44px]"
+    <>
+      <div className="relative z-10 min-h-screen px-4 pt-20 pb-32">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-6"
         >
-          <ArrowLeft className="w-5 h-5" />
-          <span className="text-lg">Back</span>
-        </button>
+          <button
+            onClick={navigateToHub}
+            className="flex items-center space-x-2 text-white/60 hover:text-white transition-colors mb-4 min-h-[44px]"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span className="text-lg">Back</span>
+          </button>
 
-        <h1 className="text-3xl font-bold text-white mb-2">
-          Browse Collections
-        </h1>
-        <p className="text-white/60">
-          Select a collection to view tradeable NFTs
-        </p>
-      </motion.div>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Browse Collections
+          </h1>
+          <p className="text-white/60">
+            Select a collection to view tradeable NFTs
+          </p>
+        </motion.div>
 
       {/* Search Bar */}
       <motion.div
@@ -135,7 +137,11 @@ export default function CollectionsPage() {
           </p>
         </motion.div>
       )}
-    </div>
+      </div>
+
+      {/* Mobile Navigation */}
+      <MobileNav activeTab="hub" onTabChange={() => {}} />
+    </>
   );
 }
 

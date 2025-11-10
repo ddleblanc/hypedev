@@ -159,32 +159,69 @@ function ProjectsContent() {
         </motion.div>
 
         {/* Sticky Header - Responsive */}
-        <div className="sticky top-16 md:top-0 z-30 bg-black/95 backdrop-blur-lg border-b border-white/10">
+        <div className="sticky top-20 md:top-0 z-30 bg-black/95 backdrop-blur-lg border-b border-white/10">
           <div className="px-4 md:px-8 py-3 md:py-4">
-            {/* Mobile: Simplified stats */}
+            {/* Mobile: iOS-optimized stats and controls */}
             {isMobile ? (
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex gap-4">
+              <div className="space-y-4">
+                {/* Compact stats row with dividers */}
+                <div className="flex items-center gap-4 overflow-x-auto">
                   <div>
                     <p className="text-xs text-white/60">Total</p>
                     <p className="text-lg font-bold text-white">{projects.length}</p>
                   </div>
+                  <div className="w-px h-5 bg-white/10" />
                   <div>
                     <p className="text-xs text-white/60">Active</p>
                     <p className="text-lg font-bold text-white">{activeProjects}</p>
                   </div>
+                  <div className="w-px h-5 bg-white/10" />
                   <div>
                     <p className="text-xs text-white/60">NFTs</p>
                     <p className="text-lg font-bold text-white">{totalNFTs}</p>
                   </div>
+                  <div className="w-px h-5 bg-white/10" />
+                  <div>
+                    <p className="text-xs text-white/60">Collections</p>
+                    <p className="text-lg font-bold text-white">{totalCollections}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button size="icon" variant={viewMode === 'grid' ? 'default' : 'ghost'} onClick={() => setViewMode('grid')} className="h-8 w-8">
-                    <Grid3x3 className="h-4 w-4" />
-                  </Button>
-                  <Button size="icon" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="h-8 w-8">
-                    <List className="h-4 w-4" />
-                  </Button>
+
+                {/* Search bar with view toggle - iOS height */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search projects..."
+                      className="pl-9 min-h-[48px] w-full bg-white/5 backdrop-blur-sm border-white/10 text-white placeholder:text-zinc-500 rounded-xl"
+                    />
+                  </div>
+
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-1">
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                      onClick={() => setViewMode('grid')}
+                      className={`p-2.5 rounded-lg transition-all flex items-center justify-center min-w-[44px] min-h-[44px] ${
+                        viewMode === 'grid' ? 'bg-white text-black' : 'text-zinc-500'
+                      }`}
+                    >
+                      <Grid3x3 className="w-4 h-4" />
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                      onClick={() => setViewMode('list')}
+                      className={`p-2.5 rounded-lg transition-all flex items-center justify-center min-w-[44px] min-h-[44px] ${
+                        viewMode === 'list' ? 'bg-white text-black' : 'text-zinc-500'
+                      }`}
+                    >
+                      <List className="w-4 h-4" />
+                    </motion.button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -234,10 +271,12 @@ function ProjectsContent() {
             {/* Filter tabs */}
             <nav className="flex items-center gap-1 overflow-x-auto">
               {tabs.map((tab) => (
-                <button
+                <motion.button
                   key={tab.id}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 md:px-4 py-1.5 md:py-2 font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-sm md:text-base ${
+                  className={`px-3 md:px-4 ${isMobile ? 'min-h-[48px]' : 'py-2'} font-medium transition-all duration-200 border-b-2 whitespace-nowrap text-sm md:text-base flex items-center ${
                     activeTab === tab.id
                       ? 'text-white border-[rgb(163,255,18)]'
                       : 'text-white/60 border-transparent hover:text-white hover:border-white/30'
@@ -247,14 +286,14 @@ function ProjectsContent() {
                   {tab.count > 0 && (
                     <Badge className="bg-white/10 text-white text-xs ml-2">{tab.count}</Badge>
                   )}
-                </button>
+                </motion.button>
               ))}
             </nav>
           </div>
         </div>
 
         {/* Content */}
-        <div className="px-4 md:px-8 py-6 md:py-8 min-h-screen max-w-full">
+        <div className="px-4 md:px-8 py-6 md:py-8 pb-32 min-h-screen max-w-full">
           <StudioMainContent currentView="projects">
             <StudioProjects mockProjects={projects} viewMode={viewMode} />
           </StudioMainContent>

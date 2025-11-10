@@ -7,6 +7,7 @@ import { useP2PBackground } from '@/hooks/use-p2p-background';
 import { ArrowLeft, Users, Layers, TrendingUp } from 'lucide-react';
 import { TraderSelectionSheet } from '@/components/p2p/trader-selection-sheet';
 import { MediaRenderer } from '@/components/media-renderer';
+import { MobileNav } from '@/components/p2p/mobile-nav';
 
 interface NFT {
   id: string;
@@ -166,7 +167,7 @@ export default function CollectionBrowsePage() {
 
   return (
     <>
-      <div className="relative z-10 min-h-screen px-4 pt-20 pb-safe-or-8">
+      <div className="relative z-10 min-h-screen px-4 pt-20 pb-32">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -255,6 +256,9 @@ export default function CollectionBrowsePage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Mobile Navigation */}
+      <MobileNav activeTab="hub" onTabChange={() => {}} />
     </>
   );
 }

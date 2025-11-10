@@ -17,6 +17,7 @@ import { CollectionStep } from "@/components/studio/create/collection-step";
 import { ConfigurationStep } from "@/components/studio/create/configuration-step";
 import { ReviewStep } from "@/components/studio/create/review-step";
 import { StepProgress } from "@/components/studio/create/step-progress";
+import { StudioMobileActionBar } from "@/components/studio/studio-mobile-action-bar";
 
 // Import utilities
 import {
@@ -292,68 +293,69 @@ function CreateContent() {
       className="w-full min-h-screen bg-black"
     >
       {isMobile ? (
-        // MOBILE LAYOUT
-        <div className="relative">
-          {/* Mobile Header */}
-          <div className="sticky top-0 z-30 bg-black/95 backdrop-blur-lg border-b border-white/10">
-            <div className="p-4 flex items-center justify-between">
-              <Button size="icon" variant="ghost" onClick={handleBack} className="text-white">
+        // MOBILE LAYOUT - iOS-Optimized
+        <div className="relative z-10 min-h-screen">
+          {/* Mobile Header - iOS safe area */}
+          <div className="pt-20 px-4 mb-6">
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4"
+            >
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                onClick={handleBack}
+                className="flex items-center gap-2 text-white min-h-[44px]"
+              >
                 <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <h2 className="text-lg font-bold text-white">Create Collection</h2>
-              <div className="w-10" />
-            </div>
+                <span className="text-lg">Back</span>
+              </motion.button>
+            </motion.div>
 
-            <StepProgress currentStep={currentStep} isMobile={true} />
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <h1 className="text-3xl font-bold text-white mb-2">Create Collection</h1>
+              <p className="text-white/60 text-sm mb-4">
+                Step {currentStep} of 4
+              </p>
+            </motion.div>
+
+            {/* Progress indicator */}
+            <div className="flex gap-2 mb-6">
+              {[1, 2, 3, 4].map((step) => (
+                <div
+                  key={step}
+                  className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+                    step <= currentStep ? 'bg-[rgb(163,255,18)]' : 'bg-white/10'
+                  }`}
+                />
+              ))}
+            </div>
           </div>
 
-          {/* Mobile Content */}
-          <div className="p-4 pb-24">
+          {/* Mobile Content - iOS 16px padding, 32px bottom */}
+          <div className="px-4 pb-32">
             <AnimatePresence mode="wait">
               {renderStepContent()}
             </AnimatePresence>
           </div>
 
-          {/* Mobile Footer */}
-          <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-lg border-t border-white/10 p-4">
-            <div className="flex gap-2">
-              {currentStep > 1 && (
-                <Button
-                  variant="outline"
-                  onClick={handleBack}
-                  className="flex-1 border-white/30 text-white hover:bg-white/10"
-                >
-                  Back
-                </Button>
-              )}
-              {currentStep < 4 ? (
-                <Button
-                  onClick={handleNext}
-                  className="flex-1 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90 font-bold"
-                >
-                  Next
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleDeploy}
-                  disabled={isDeploying}
-                  className="flex-1 bg-purple-500 text-white hover:bg-purple-600 font-bold disabled:opacity-50"
-                >
-                  {isDeploying ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Deploying...
-                    </>
-                  ) : (
-                    <>
-                      <Shield className="w-4 h-4 mr-2" />
-                      Deploy Collection
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
+          {/* Mobile Action Bar */}
+          <StudioMobileActionBar
+            show={true}
+            showBack={currentStep > 1}
+            backLabel="Back"
+            primaryLabel={currentStep < 4 ? 'Next' : 'Deploy Collection'}
+            primaryAction={currentStep < 4 ? handleNext : handleDeploy}
+            secondaryAction={handleBack}
+            isPrimaryDisabled={!canProceedToNextStep(currentStep, createMode, selectedProject, projectData, collectionData)}
+            isPrimaryLoading={isDeploying}
+            variant={currentStep < 4 ? 'primary' : 'success'}
+          />
         </div>
       ) : (
         // DESKTOP LAYOUT

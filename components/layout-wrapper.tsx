@@ -894,20 +894,24 @@ function ProgressiveUIWrapperInner({
         museumData={currentRoute === 'museum' ? museumGamingData : undefined}
       />
       
-      {/* Studio Mobile Navigation */}
-      {isMobile && isStudioRoute && (
-        <StudioMobileNav
-          onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-          isMenuOpen={isMobileSidebarOpen}
-        />
-      )}
+      {/* Studio Mobile Navigation - Show on all Studio pages except create flow */}
+      {(() => {
+        const path = usePathname();
+        const showStudioNav = isMobile && isStudioRoute && !path.includes('/studio/create');
+        return showStudioNav ? (
+          <StudioMobileNav
+            onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            isMenuOpen={isMobileSidebarOpen}
+          />
+        ) : null;
+      })()}
 
       {/* Main content with padding adjustments */}
       <div className={`
         transition-all duration-300 ease-in-out
         ${uiState.showSidebar && !isMobile ? 'md:pl-80' : 'pl-0'}
         ${uiState.showRightSidebar && !isMobile ? 'md:pr-80' : 'pr-0'}
-        ${isMobile && isStudioRoute ? 'pb-20' : ''}
+        ${isMobile && isStudioRoute ? 'pb-32' : ''}
       `}>
         <StudioHeaderContext.Provider value={studioHeaderContextValue}>
           {children}

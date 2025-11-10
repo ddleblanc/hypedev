@@ -7,6 +7,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuGroup,
+} from "@/components/ui/dropdown-menu";
+import {
   Search,
   Bell,
   ShoppingCart,
@@ -38,9 +47,16 @@ import {
   Gift,
   Briefcase,
   ChevronDown,
-  History
+  History,
+  LogOut,
+  UserCircle,
+  BookmarkIcon,
+  FileText,
+  HelpCircle,
+  Shield,
+  Percent
 } from "lucide-react";
-import { ConnectButton } from "thirdweb/react";
+import { ConnectButton, useDisconnect, useActiveWallet } from "thirdweb/react";
 import { client } from "@/lib/thirdweb";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { MediaRenderer } from "@/components/media-renderer";
@@ -68,7 +84,9 @@ interface AnimatedHeaderProps {
 export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewChange, currentStudioView, p2pData }: AnimatedHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isConnected } = useWalletAuthOptimized();
+  const { user, isConnected, signOut } = useWalletAuthOptimized();
+  const { disconnect } = useDisconnect();
+  const wallet = useActiveWallet();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false);
 
@@ -93,7 +111,8 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
     // Trade methods pages (including detail pages)
     if (['/marketplace', '/launchpad', '/tokens', '/p2p', '/collection'].includes(currentPath) ||
         currentPath.startsWith('/launchpad/') ||
-        ['marketplace', 'launchpad', 'launchpad-detail', 'tokens', 'p2p', 'collection'].includes(currentRoute)) {
+        currentPath.startsWith('/collection/') ||
+        ['marketplace', 'launchpad', 'launchpad-detail', 'tokens', 'p2p', 'collection', 'collection-detail'].includes(currentRoute)) {
       return [
         { id: 'home', label: 'Home', icon: Home, type: 'route' },
         { id: 'marketplace', label: 'Marketplace', icon: Store, type: 'route' },
@@ -230,6 +249,21 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
     } catch (e) {
       if (item.type === 'studio-tab' && onStudioViewChange) onStudioViewChange(item.id);
       if (item.type === 'route' && onNavigate) onNavigate(item.id);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      // Disconnect wallet first
+      if (wallet) {
+        disconnect(wallet);
+      }
+      // Clear user session
+      signOut();
+      // Redirect to home
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
     }
   };
 
@@ -554,7 +588,7 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                   <ShoppingCart className="w-5 h-5 text-white/70" />
                 </motion.button>
 
-                {/* Wallet/Profile - Always Visible */}
+                {/* Wallet/Profile Dropdown - Always Visible */}
                 <motion.div
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -562,16 +596,180 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                   className="ml-2 pl-2 border-l border-white/10"
                 >
                   {isConnected && user ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-[rgb(163,255,18)]/30 to-[rgb(163,255,18)]/10 rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-[rgb(163,255,18)]" />
-                      </div>
-                      <div className="hidden md:block text-sm">
-                        <p className="text-white/90 font-medium">
-                          {user.username || `${user.walletAddress.slice(0, 6)}...`}
-                        </p>
-                      </div>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="flex items-center gap-2 hover:bg-white/5 rounded-lg px-2 py-1.5 transition-all group">
+                          <div className="w-8 h-8 bg-gradient-to-br from-[rgb(163,255,18)]/30 to-[rgb(163,255,18)]/10 rounded-full flex items-center justify-center group-hover:from-[rgb(163,255,18)]/40 group-hover:to-[rgb(163,255,18)]/20 transition-all">
+                            <User className="w-4 h-4 text-[rgb(163,255,18)]" />
+                          </div>
+                          <div className="hidden md:block text-sm">
+                            <p className="text-white/90 font-medium group-hover:text-white transition-colors">
+                              {user.username || `${user.walletAddress.slice(0, 6)}...`}
+                            </p>
+                          </div>
+                          <ChevronDown className="w-3.5 h-3.5 text-white/40 group-hover:text-white/60 transition-all hidden md:block" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-72 mt-2 bg-black/95 backdrop-blur-xl border-white/10 shadow-2xl shadow-black/50"
+                        sideOffset={8}
+                      >
+                        {/* Profile Header */}
+                        <div className="px-3 py-3 bg-gradient-to-br from-[rgb(163,255,18)]/10 to-transparent border-b border-white/5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-[rgb(163,255,18)] to-green-400 rounded-xl flex items-center justify-center shadow-lg shadow-[rgb(163,255,18)]/20">
+                              <User className="w-6 h-6 text-black" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white font-bold text-sm truncate">
+                                {user.username || 'Anonymous'}
+                              </p>
+                              <p className="text-white/40 text-xs font-mono truncate">
+                                {user.walletAddress.slice(0, 6)}...{user.walletAddress.slice(-4)}
+                              </p>
+                            </div>
+                            <div className="w-2 h-2 bg-[rgb(163,255,18)] rounded-full animate-pulse shadow-lg shadow-[rgb(163,255,18)]/50" />
+                          </div>
+                        </div>
+
+                        {/* Quick Stats */}
+                        <div className="px-3 py-3 grid grid-cols-3 gap-2 border-b border-white/5">
+                          <div className="text-center">
+                            <p className="text-[rgb(163,255,18)] font-bold text-lg">0</p>
+                            <p className="text-white/40 text-[10px] uppercase tracking-wider">NFTs</p>
+                          </div>
+                          <div className="text-center border-x border-white/5">
+                            <p className="text-[rgb(163,255,18)] font-bold text-lg">0</p>
+                            <p className="text-white/40 text-[10px] uppercase tracking-wider">Trades</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[rgb(163,255,18)] font-bold text-lg">0</p>
+                            <p className="text-white/40 text-[10px] uppercase tracking-wider">Wins</p>
+                          </div>
+                        </div>
+
+                        {/* Main Menu Items */}
+                        <DropdownMenuGroup className="py-1">
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                            onClick={() => router.push('/profile')}
+                          >
+                            <UserCircle className="mr-2 h-4 w-4 text-[rgb(163,255,18)]" />
+                            <span className="text-sm font-medium">My Profile</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                            onClick={() => router.push('/portfolio')}
+                          >
+                            <Briefcase className="mr-2 h-4 w-4 text-[rgb(163,255,18)]" />
+                            <span className="text-sm font-medium">Portfolio</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                            onClick={() => router.push('/collection')}
+                          >
+                            <Layers className="mr-2 h-4 w-4 text-[rgb(163,255,18)]" />
+                            <span className="text-sm font-medium">My Collection</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                            onClick={() => router.push('/achievements')}
+                          >
+                            <Trophy className="mr-2 h-4 w-4 text-[rgb(163,255,18)]" />
+                            <span className="text-sm font-medium">Achievements</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+
+                        <DropdownMenuSeparator className="bg-white/5" />
+
+                        {/* Secondary Items */}
+                        <DropdownMenuGroup className="py-1">
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                            onClick={() => router.push('/studio')}
+                          >
+                            <Palette className="mr-2 h-4 w-4 text-[rgb(255,215,0)]" />
+                            <span className="text-sm font-medium">NFT Studio</span>
+                            <Crown className="ml-auto h-3.5 w-3.5 text-[rgb(255,215,0)]" />
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                            onClick={() => router.push('/lootboxes')}
+                          >
+                            <Gift className="mr-2 h-4 w-4 text-purple-400" />
+                            <span className="text-sm font-medium">Lootboxes</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                          >
+                            <BookmarkIcon className="mr-2 h-4 w-4 text-white/60" />
+                            <span className="text-sm font-medium">Saved Items</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                          >
+                            <FileText className="mr-2 h-4 w-4 text-white/60" />
+                            <span className="text-sm font-medium">Trade History</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+
+                        <DropdownMenuSeparator className="bg-white/5" />
+
+                        {/* Utility Items */}
+                        <DropdownMenuGroup className="py-1">
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                          >
+                            <Settings className="mr-2 h-4 w-4 text-white/60" />
+                            <span className="text-sm font-medium">Settings</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                          >
+                            <HelpCircle className="mr-2 h-4 w-4 text-white/60" />
+                            <span className="text-sm font-medium">Help & Support</span>
+                          </DropdownMenuItem>
+
+                          <DropdownMenuItem
+                            className="cursor-pointer hover:bg-white/5 focus:bg-white/5 text-white/90 hover:text-white"
+                          >
+                            <Shield className="mr-2 h-4 w-4 text-white/60" />
+                            <span className="text-sm font-medium">Privacy & Security</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+
+                        <DropdownMenuSeparator className="bg-white/5" />
+
+                        {/* Wallet Section */}
+                        <div className="px-2 py-2">
+                          <div className="bg-gradient-to-br from-white/5 to-transparent rounded-lg border border-white/10 overflow-hidden [&_button]:w-full [&_button]:justify-center">
+                            <ConnectButton
+                              client={client}
+                              theme="dark"
+                            />
+                          </div>
+                        </div>
+
+                        <DropdownMenuSeparator className="bg-white/5" />
+
+                        {/* Logout */}
+                        <DropdownMenuItem
+                          className="cursor-pointer hover:bg-red-500/10 focus:bg-red-500/10 text-red-400 hover:text-red-300 my-1"
+                          onClick={handleSignOut}
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          <span className="text-sm font-medium">Sign Out</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   ) : (
                     <ConnectButton client={client} />
                   )}

@@ -9,6 +9,7 @@ import { useLists } from "@/contexts/lists-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -287,12 +288,14 @@ function ListsContent() {
 
 export default function ListsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-[rgb(163,255,18)] rounded-full animate-spin" />
-      </div>
-    }>
-      <ListsContent />
-    </Suspense>
+    <ProtectedRoute requireOnboarding>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-[rgb(163,255,18)] rounded-full animate-spin" />
+        </div>
+      }>
+        <ListsContent />
+      </Suspense>
+    </ProtectedRoute>
   );
 }

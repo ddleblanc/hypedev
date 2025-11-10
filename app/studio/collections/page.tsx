@@ -120,10 +120,10 @@ function CollectionsContent() {
   }
 
   return (
-    <div className="min-h-screen pt-16">
+    <div className="min-h-screen pt-20">
       {/* Unified Header Bar */}
       <div className="bg-black/80 backdrop-blur-xl border-b border-white/10">
-        <div className="pl-6 pr-6 lg:pl-8 lg:pr-8 py-3">
+        <div className="px-4 lg:px-8 py-3">
           {/* Compact Metrics Bar */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -184,10 +184,11 @@ function CollectionsContent() {
                     key={filter.id}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 + index * 0.05 }}
+                    transition={{ delay: 0.5 + index * 0.05, type: 'spring', stiffness: 400, damping: 17 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setActiveFilter(filter.id)}
                     className={cn(
-                      "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 border whitespace-nowrap",
+                      "px-4 min-h-[48px] rounded-xl text-sm font-medium transition-all flex items-center gap-2 border whitespace-nowrap",
                       isActive
                         ? filter.accent || "bg-white/5 text-white border-white"
                         : "bg-white/5 text-zinc-400 border-white/10 hover:text-white hover:border-white/20"
@@ -233,6 +234,37 @@ function CollectionsContent() {
                 )}
               </div>
 
+              {/* View Mode - Same height as search (h-9) */}
+              <div className="flex items-center bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 h-9 hidden sm:flex">
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  onClick={() => setViewMode('grid')}
+                  className={cn(
+                    "px-2.5 h-full rounded-l-lg transition-all flex items-center justify-center",
+                    viewMode === 'grid'
+                      ? "bg-white text-black"
+                      : "text-zinc-500 hover:text-white"
+                  )}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </motion.button>
+                <div className="w-px h-5 bg-white/10" />
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    "px-2.5 h-full rounded-r-lg transition-all flex items-center justify-center",
+                    viewMode === 'list'
+                      ? "bg-white text-black"
+                      : "text-zinc-500 hover:text-white"
+                  )}
+                >
+                  <LayoutList className="w-4 h-4" />
+                </motion.button>
+              </div>
+
               {/* Sort - Hidden on mobile */}
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-36 h-9 bg-white/5 backdrop-blur-sm border-white/10 text-white hidden sm:flex">
@@ -246,45 +278,49 @@ function CollectionsContent() {
                   <SelectItem value="items" className="text-white">Items</SelectItem>
                 </SelectContent>
               </Select>
-
-              {/* View Mode */}
-              <div className="flex items-center bg-white/5 backdrop-blur-sm rounded-lg p-1 border border-white/10">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={cn(
-                    "p-1.5 rounded transition-all",
-                    viewMode === 'grid'
-                      ? "bg-white text-black"
-                      : "text-zinc-500 hover:text-white"
-                  )}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={cn(
-                    "p-1.5 rounded transition-all",
-                    viewMode === 'list'
-                      ? "bg-white text-black"
-                      : "text-zinc-500 hover:text-white"
-                  )}
-                >
-                  <LayoutList className="w-3.5 h-3.5" />
-                </button>
-              </div>
             </div>
 
-            {/* Mobile Search Bar */}
+            {/* Mobile Search Bar with View Toggle */}
             {isMobile && (
-              <div className="lg:hidden">
-                <div className="relative">
+              <div className="lg:hidden flex items-center gap-2">
+                <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search collections..."
-                    className="pl-9 h-9 w-full bg-white/5 backdrop-blur-sm border-white/10 text-white placeholder:text-zinc-500"
+                    className="pl-9 min-h-[48px] w-full bg-white/5 backdrop-blur-sm border-white/10 text-white placeholder:text-zinc-500 rounded-xl"
                   />
+                </div>
+
+                {/* View Mode Toggle - Mobile */}
+                <div className="flex items-center bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-1">
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                    onClick={() => setViewMode('grid')}
+                    className={cn(
+                      "p-2.5 rounded-lg transition-all flex items-center justify-center min-w-[44px] min-h-[44px]",
+                      viewMode === 'grid'
+                        ? "bg-white text-black"
+                        : "text-zinc-500"
+                    )}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
+                    onClick={() => setViewMode('list')}
+                    className={cn(
+                      "p-2.5 rounded-lg transition-all flex items-center justify-center min-w-[44px] min-h-[44px]",
+                      viewMode === 'list'
+                        ? "bg-white text-black"
+                        : "text-zinc-500"
+                    )}
+                  >
+                    <LayoutList className="w-4 h-4" />
+                  </motion.button>
                 </div>
               </div>
             )}
@@ -294,7 +330,7 @@ function CollectionsContent() {
 
 
       {/* Content Area */}
-      <div className="pl-6 pr-6 lg:pl-8 lg:pr-8 py-8">
+      <div className="px-4 lg:px-8 py-8 pb-32">
         <AnimatePresence mode="wait">
           {filteredCollections.length === 0 ? (
             <motion.div

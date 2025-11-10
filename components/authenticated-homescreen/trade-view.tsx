@@ -1,7 +1,9 @@
 "use client";
 
 import React from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, TrendingUp, Gamepad2, Image as ImageIcon, User, Home } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { GameCommandCenter, type GameOption } from "@/components/ui/game-command-center";
 
@@ -17,6 +19,29 @@ const mockUserData = {
   bannerImage: "https://picsum.photos/400/200?random=51"
 };
 
+const mainNavigation = [
+  {
+    label: "TRADE",
+    href: "/trade",
+    description: "Buy & Sell"
+  },
+  {
+    label: "PLAY",
+    href: "/play",
+    description: "Gaming Hub"
+  },
+  {
+    label: "MUSEUM",
+    href: "/museum",
+    description: "Art & Culture"
+  },
+  {
+    label: "COLLECTION",
+    href: "/profile",
+    description: "Your Assets"
+  }
+];
+
 const tradeOptions: GameOption[] = [
   {
     id: "marketplace",
@@ -29,7 +54,7 @@ const tradeOptions: GameOption[] = [
   },
   {
     id: "launchpad",
-    title: "LAUNCHPAD", 
+    title: "LAUNCHPAD",
     description: "Discover and invest in new gaming projects before they launch",
     image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/ea507b10-5017-472d-8433-06c0676dee51/transcode=true,original=true,quality=90/WanVideoWrapper_I2V_00047.webm",
     href: "/launchpad",
@@ -62,6 +87,7 @@ type TradeViewProps = {
 
 export function TradeView({ setViewMode }: TradeViewProps) {
   const { user } = useWalletAuthOptimized();
+  const router = useRouter();
 
   const handleOptionClick = (option: GameOption) => {
     if (option.id === 'p2p') {
@@ -81,13 +107,65 @@ export function TradeView({ setViewMode }: TradeViewProps) {
     <>
       {/* Mobile Layout */}
       <div className="md:hidden w-full min-h-screen">
-        {/* Mobile Content - Accounts for 63px top only */}
-        <div>
-          <GameCommandCenter 
+        {/* Mobile Content */}
+        <div className="relative">
+          <GameCommandCenter
             options={tradeOptions}
             onOptionClick={handleOptionClick}
             centerLabel="TRADE"
           />
+
+          {/* Mobile Bottom Navigation Bar - Exact copy from authenticated homescreen */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-30">
+            <div className="bg-black/60 backdrop-blur-xl border-t border-white/10">
+              <div className="grid grid-cols-5">
+                {/* Home Button */}
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => {
+                    setViewMode('home');
+                  }}
+                  className="flex flex-col items-center py-3 text-white/60 active:text-[rgb(163,255,18)] transition-colors group"
+                >
+                  <Home className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />
+                </motion.button>
+
+                {/* Main Navigation Items */}
+                {mainNavigation.map((item) => (
+                  <motion.button
+                    key={item.label}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => {
+                      if (item.label === 'TRADE') {
+                        setViewMode('trade');
+                      } else if (item.label === 'PLAY') {
+                        setViewMode('play');
+                      } else if (item.label === 'MUSEUM') {
+                        setViewMode('museum');
+                      } else if (item.label === 'COLLECTION') {
+                        const addr = user?.walletAddress;
+                        if (addr) {
+                          router.push(`/${addr}/collection`);
+                        } else {
+                          router.push(`/profile`);
+                        }
+                      }
+                    }}
+                    className={`flex flex-col items-center py-3 transition-colors group ${
+                      item.label === 'TRADE'
+                        ? 'text-[rgb(163,255,18)]'
+                        : 'text-white/60 active:text-[rgb(163,255,18)]'
+                    }`}
+                  >
+                    {item.label === 'TRADE' && <TrendingUp className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />}
+                    {item.label === 'PLAY' && <Gamepad2 className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />}
+                    {item.label === 'MUSEUM' && <ImageIcon className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />}
+                    {item.label === 'COLLECTION' && <User className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

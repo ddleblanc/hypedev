@@ -14,7 +14,12 @@ import {
   Trophy,
   Dices,
   Swords,
-  Gamepad2
+  Gamepad2,
+  Sparkles,
+  Crown,
+  History,
+  Zap,
+  Coins
 } from "lucide-react";
 
 export interface GameOption {
@@ -99,127 +104,145 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
   const selected = options[selectedIndex];
   const colorClasses = selected ? accentColorClasses[selected.accentColor] : accentColorClasses.amber;
 
-  // Mobile Layout - Clean implementation
-  const MobileLayout = () => (
-    <div className="relative h-[100dvh] bg-black overflow-hidden flex flex-col">
-      {/* Background Layer - Static video background */}
-      <div className="absolute inset-0">
-        <video
-          key={selected.id} // Force remount on selection change
-          src={selected.image}
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover"
-        />
-        {/* Gradient for readability */}
-        {/* <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/95" /> */}
-      </div>
+  // Mobile Layout - iOS-native 4-card grid with global background visibility
+  const MobileLayout = () => {
+    // Get icon for each option
+    const getIcon = (optionId: string) => {
+      switch(optionId) {
+        case 'marketplace': return ShoppingCart;
+        case 'launchpad': return Rocket;
+        case 'lootboxes': return Gift;
+        case 'p2p': return Users;
+        case 'casual': return Coffee;
+        case 'competitive': return Trophy;
+        case 'casino': return Dices;
+        case '1v1': return Swords;
+        default: return Gamepad2;
+      }
+    };
 
-      {/* Content Layer */}
-      <div className="relative z-10 h-full flex flex-col pb-[72px]">
-        {/* Main Content Area - Takes remaining space */}
-        <div className="flex-1 flex flex-col justify-end p-5 pb-4">
-          {/* Category */}
-          <div className="flex items-center gap-2 mb-3">
-            <div className={`w-2 h-2 ${colorClasses.bg} rounded-full`} />
-            <span className={`${colorClasses.text} text-xs font-black tracking-[0.3em] uppercase`}>
-              {selected.category}
-            </span>
+    return (
+      <div className="relative h-[100dvh] w-full overflow-hidden">
+        {/*
+          NO local background - global background shows through
+          Global background handles zoom/blur transitions
+        */}
+
+        {/* Content Layer - 2x2 Card Grid with header/footer spacing */}
+        <div className="relative z-10 h-full w-full flex flex-col pt-20 pb-20 px-4 gap-3">
+          {/* Top Row - 2 Cards */}
+          <div className="flex-1 flex gap-3">
+            {options.slice(0, 2).map((option, index) => {
+              const optionColors = accentColorClasses[option.accentColor];
+              // Cut corner positions for top row - BOTTOM corners cut
+              const clipPath = index === 0
+                ? 'polygon(0 0, 100% 0, 100% calc(100% - 30px), calc(100% - 30px) 100%, 0 100%)'  // Bottom right cut (Marketplace)
+                : 'polygon(0 0, 100% 0, 100% 100%, 30px 100%, 0 calc(100% - 30px))';              // Bottom left cut (Launchpad)
+
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => onOptionClick(option)}
+                  className="
+                    flex-1 relative overflow-hidden
+                    bg-black/40 backdrop-blur-xl
+                    border border-white/10
+                    active:scale-[0.97] transition-transform duration-200
+                    touch-manipulation
+                  "
+                  style={{
+                    WebkitTapHighlightColor: 'transparent',
+                    clipPath: clipPath,
+                  }}
+                >
+                  {/* Static Banner Background - Subtle */}
+                  <div className="absolute inset-0 opacity-20">
+                    <img
+                      src="/assets/img/banner.webp"
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80" />
+                  </div>
+
+                  {/* Content - Clean Cinematic Style */}
+                  <div className="relative z-10 flex flex-col justify-end h-full p-4 pb-5">
+                    {/* Title + Action Label */}
+                    <div className="text-center space-y-1.5">
+                      <h2 className="text-white text-lg font-bold uppercase tracking-tight">
+                        {option.title}
+                      </h2>
+                      <p className={`${optionColors.text} text-[11px] font-bold uppercase tracking-wide`}>
+                        {option.id === 'marketplace' && 'BUY · SELL · TRADE'}
+                        {option.id === 'launchpad' && 'EARLY · INVEST'}
+                        {option.id === 'lootboxes' && 'OPEN · WIN'}
+                        {option.id === 'p2p' && 'DIRECT · SWAP'}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Title */}
-          <h1 className="text-white text-4xl sm:text-5xl font-black mb-3 leading-tight">
-            {selected.title}
-          </h1>
+          {/* Bottom Row - 2 Cards */}
+          <div className="flex-1 flex gap-3">
+            {options.slice(2, 4).map((option, index) => {
+              const optionColors = accentColorClasses[option.accentColor];
+              // Cut corner positions for bottom row - TOP corners cut
+              const clipPath = index === 0
+                ? 'polygon(0 0, calc(100% - 30px) 0, 100% 30px, 100% 100%, 0 100%)'  // Top right cut (Lootboxes)
+                : 'polygon(30px 0, 100% 0, 100% 100%, 0 100%, 0 30px)';              // Top left cut (P2P)
 
-          {/* Description */}
-          <p className="text-white/80 text-sm sm:text-base mb-5 leading-relaxed">
-            {selected.description}
-          </p>
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => onOptionClick(option)}
+                  className="
+                    flex-1 relative overflow-hidden
+                    bg-black/40 backdrop-blur-xl
+                    border border-white/10
+                    active:scale-[0.97] transition-transform duration-200
+                    touch-manipulation
+                  "
+                  style={{
+                    WebkitTapHighlightColor: 'transparent',
+                    clipPath: clipPath,
+                  }}
+                >
+                  {/* Static Banner Background - Subtle */}
+                  <div className="absolute inset-0 opacity-20">
+                    <img
+                      src="/assets/img/banner.webp"
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/80" />
+                  </div>
 
-          {/* CTA Button */}
-          <button
-            onClick={() => onOptionClick(selected)}
-            className={`
-              w-full py-3.5 rounded-xl
-              bg-white/10 backdrop-blur-md
-              border ${colorClasses.border}
-              flex items-center justify-between px-5
-              active:scale-[0.98] transition-transform duration-150
-            `}
-          >
-            <span className="text-white font-bold text-base uppercase tracking-wider">Enter</span>
-            <ChevronRight className="w-5 h-5 text-white" />
-          </button>
-        </div>
-
-        {/* Bottom Navigation - Fixed tab bar */}
-        <div className="fixed bottom-0 left-0 right-0 z-30">
-          <div className="bg-black/60 backdrop-blur-xl border-t border-white/10">
-            <div className="grid grid-cols-5">
-              {/* Home Button */}
-              <button
-                onClick={() => {
-                  // Navigate to home or back
-                  window.history.back();
-                }}
-                className="flex flex-col items-center py-3 text-white/60 active:text-[rgb(163,255,18)] transition-colors group"
-              >
-                <Home className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />
-                {/* <span className="text-[10px] font-bold uppercase tracking-wider">HOME</span> */}
-              </button>
-              
-              {/* Option Navigation Items */}
-              {options.map((option, index) => {
-                const optionColors = accentColorClasses[option.accentColor];
-                const isSelected = index === selectedIndex;
-                
-                // Icon mapping based on option id
-                const getIcon = () => {
-                  switch(option.id) {
-                    case 'marketplace': return ShoppingCart;
-                    case 'launchpad': return Rocket;
-                    case 'lootboxes': return Gift;
-                    case 'p2p': return Users;
-                    case 'casual': return Coffee;
-                    case 'competitive': return Trophy;
-                    case 'casino': return Dices;
-                    case '1v1': return Swords;
-                    default: return Gamepad2;
-                  }
-                };
-                const Icon = getIcon();
-                
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() => {
-                      if (isSelected) {
-                        onOptionClick(option);
-                      } else {
-                        setSelectedIndex(index);
-                      }
-                    }}
-                    className={`
-                      flex flex-col items-center py-3 transition-colors group
-                      ${isSelected ? 'text-[rgb(163,255,18)]' : 'text-white/60 active:text-[rgb(163,255,18)]'}
-                    `}
-                  >
-                    <Icon className="w-6 h-6 mb-1 group-active:scale-110 transition-transform" />
-                    {/* <span className="text-[9px] font-bold uppercase tracking-wider">
-                      {option.title}
-                    </span> */}
-                  </button>
-                );
-              })}
-            </div>
+                  {/* Content - Clean Cinematic Style */}
+                  <div className="relative z-10 flex flex-col justify-end h-full p-4 pb-5">
+                    {/* Title + Action Label */}
+                    <div className="text-center space-y-1.5">
+                      <h2 className="text-white text-lg font-bold uppercase tracking-tight">
+                        {option.title}
+                      </h2>
+                      <p className={`${optionColors.text} text-[11px] font-bold uppercase tracking-wide`}>
+                        {option.id === 'marketplace' && 'BUY · SELL · TRADE'}
+                        {option.id === 'launchpad' && 'EARLY · INVEST'}
+                        {option.id === 'lootboxes' && 'OPEN · WIN'}
+                        {option.id === 'p2p' && 'DIRECT · SWAP'}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Desktop Layout - Original working version
   const DesktopLayout = () => (

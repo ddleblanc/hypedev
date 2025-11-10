@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 const mockProfile = {
   username: "CyberWarrior",
@@ -445,12 +446,14 @@ function ProfileContent() {
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="text-white">Loading...</div>
-      </div>
-    }>
-      <ProfileContent />
-    </Suspense>
+    <ProtectedRoute requireOnboarding>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-black">
+          <div className="text-white">Loading...</div>
+        </div>
+      }>
+        <ProfileContent />
+      </Suspense>
+    </ProtectedRoute>
   );
 }
