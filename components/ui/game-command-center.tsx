@@ -155,10 +155,16 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
                     clipPath: clipPath,
                   }}
                 >
-                  {/* Static Banner Background - Subtle */}
-                  <div className="absolute inset-0 opacity-20">
+                  {/* Card-Specific Background Image */}
+                  <div className="absolute inset-0">
                     <img
-                      src="/assets/img/banner.webp"
+                      src={
+                        option.id === 'marketplace' ? '/assets/img/marketplace1.png' :
+                        option.id === 'launchpad' ? '/assets/img/launchpad1.png' :
+                        option.id === 'lootboxes' ? '/assets/img/lootboxes1.png' :
+                        option.id === 'p2p' ? '/assets/img/p2p1.png' :
+                        '/assets/img/banner.webp'
+                      }
                       alt=""
                       className="w-full h-full object-cover"
                     />
@@ -172,7 +178,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
                       <h2 className="text-white text-lg font-bold uppercase tracking-tight">
                         {option.title}
                       </h2>
-                      <p className={`${optionColors.text} text-[11px] font-bold uppercase tracking-wide`}>
+                      <p className="text-[rgb(163,255,18)] text-[11px] font-bold uppercase tracking-wide">
                         {option.id === 'marketplace' && 'BUY · SELL · TRADE'}
                         {option.id === 'launchpad' && 'EARLY · INVEST'}
                         {option.id === 'lootboxes' && 'OPEN · WIN'}
@@ -210,10 +216,16 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
                     clipPath: clipPath,
                   }}
                 >
-                  {/* Static Banner Background - Subtle */}
-                  <div className="absolute inset-0 opacity-20">
+                  {/* Card-Specific Background Image */}
+                  <div className="absolute inset-0">
                     <img
-                      src="/assets/img/banner.webp"
+                      src={
+                        option.id === 'marketplace' ? '/assets/img/marketplace1.png' :
+                        option.id === 'launchpad' ? '/assets/img/launchpad1.png' :
+                        option.id === 'lootboxes' ? '/assets/img/lootboxes1.png' :
+                        option.id === 'p2p' ? '/assets/img/p2p1.png' :
+                        '/assets/img/banner.webp'
+                      }
                       alt=""
                       className="w-full h-full object-cover"
                     />
@@ -227,7 +239,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
                       <h2 className="text-white text-lg font-bold uppercase tracking-tight">
                         {option.title}
                       </h2>
-                      <p className={`${optionColors.text} text-[11px] font-bold uppercase tracking-wide`}>
+                      <p className="text-[rgb(163,255,18)] text-[11px] font-bold uppercase tracking-wide">
                         {option.id === 'marketplace' && 'BUY · SELL · TRADE'}
                         {option.id === 'launchpad' && 'EARLY · INVEST'}
                         {option.id === 'lootboxes' && 'OPEN · WIN'}
