@@ -37,7 +37,7 @@ export function MobileP2PHub({
       description: 'Active offers and trade history',
       icon: <History className="w-6 h-6" />,
       action: onNavigateToHistory || (() => {}),
-      backgroundImage: '/assets/img/bg5.jpg',
+      backgroundImage: '/assets/img/mytrades.png',
     },
     {
       id: 'collections',
@@ -45,7 +45,7 @@ export function MobileP2PHub({
       description: 'Explore NFTs by collection',
       icon: <Package className="w-6 h-6" />,
       action: navigateToCollections,
-      backgroundImage: '/assets/img/tech1.png',
+      backgroundImage: '/assets/img/browsebycollection.png',
     },
     {
       id: 'users',
@@ -53,7 +53,7 @@ export function MobileP2PHub({
       description: 'Find collectors and their inventory',
       icon: <Users className="w-6 h-6" />,
       action: onNavigateToTraders || (() => {}),
-      backgroundImage: '/assets/img/gaming3.jpg',
+      backgroundImage: '/assets/img/browsebytrader.png',
     },
   ];
 
