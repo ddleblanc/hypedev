@@ -1,3 +1,147 @@
+# ==========================================
+# Marketplace Entities - Direct Listings
+# ==========================================
+
+type Listing @entity(immutable: false) {
+  id: ID!
+  listingId: BigInt!
+  listingCreator: Bytes!
+  assetContract: Bytes!
+  tokenId: BigInt!
+  quantity: BigInt!
+  currency: Bytes!
+  pricePerToken: BigInt!
+  startTimestamp: BigInt!
+  endTimestamp: BigInt!
+  tokenType: Int!
+  status: String! # CREATED, COMPLETED, CANCELLED
+  reserved: Boolean!
+  buyer: Bytes
+  quantitySold: BigInt
+  totalPricePaid: BigInt
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  updatedAt: BigInt!
+  soldAt: BigInt
+  cancelledAt: BigInt
+  transactionHash: Bytes!
+}
+
+type Sale @entity(immutable: true) {
+  id: Bytes!
+  listing: Listing!
+  listingId: BigInt!
+  listingCreator: Bytes!
+  buyer: Bytes!
+  assetContract: Bytes!
+  tokenId: BigInt!
+  quantity: BigInt!
+  totalPrice: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# ==========================================
+# Marketplace Entities - English Auctions
+# ==========================================
+
+type Auction @entity(immutable: false) {
+  id: ID!
+  auctionId: BigInt!
+  auctionCreator: Bytes!
+  assetContract: Bytes!
+  tokenId: BigInt!
+  quantity: BigInt!
+  currency: Bytes!
+  minimumBidAmount: BigInt!
+  buyoutBidAmount: BigInt!
+  timeBufferInSeconds: BigInt!
+  bidBufferBps: BigInt!
+  startTimestamp: BigInt!
+  endTimestamp: BigInt!
+  tokenType: Int!
+  status: String! # CREATED, COMPLETED, CANCELLED
+  winningBidder: Bytes
+  winningBid: BigInt
+  bids: [Bid!]! @derivedFrom(field: "auction")
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  updatedAt: BigInt!
+  closedAt: BigInt
+  cancelledAt: BigInt
+  transactionHash: Bytes!
+}
+
+type Bid @entity(immutable: true) {
+  id: Bytes!
+  auction: Auction!
+  auctionId: BigInt!
+  bidder: Bytes!
+  assetContract: Bytes!
+  bidAmount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+# ==========================================
+# Marketplace Entities - Offers
+# ==========================================
+
+type Offer @entity(immutable: false) {
+  id: ID!
+  offerId: BigInt!
+  offeror: Bytes!
+  assetContract: Bytes!
+  tokenId: BigInt!
+  quantity: BigInt!
+  currency: Bytes!
+  totalPrice: BigInt!
+  expirationTimestamp: BigInt!
+  tokenType: Int!
+  status: String! # CREATED, COMPLETED, CANCELLED
+  seller: Bytes
+  quantitySold: BigInt
+  totalPricePaid: BigInt
+  createdAt: BigInt!
+  createdAtBlock: BigInt!
+  acceptedAt: BigInt
+  cancelledAt: BigInt
+  transactionHash: Bytes!
+}
+
+# ==========================================
+# Aggregated Statistics
+# ==========================================
+
+type MarketplaceStats @entity(immutable: false) {
+  id: ID! # "global"
+  totalListings: BigInt!
+  totalSales: BigInt!
+  totalAuctions: BigInt!
+  totalOffers: BigInt!
+  totalVolumeETH: BigInt!
+  lastUpdated: BigInt!
+}
+
+type CollectionStats @entity(immutable: false) {
+  id: ID! # assetContract address
+  assetContract: Bytes!
+  totalListings: BigInt!
+  totalSales: BigInt!
+  totalAuctions: BigInt!
+  totalOffers: BigInt!
+  totalVolumeETH: BigInt!
+  floorPrice: BigInt
+  lastSalePrice: BigInt
+  lastUpdated: BigInt!
+}
+
+# ==========================================
+# Admin Events (existing)
+# ==========================================
+
 type ContractURIUpdated @entity(immutable: true) {
   id: Bytes!
   prevURI: String! # string

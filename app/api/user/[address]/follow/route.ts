@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { logFollow } from '@/lib/activity'
 
 export async function POST(
   request: NextRequest,
@@ -67,6 +68,9 @@ export async function POST(
         followingId: targetUser.id
       }
     })
+
+    // Log the follow activity for both users
+    await logFollow(followerUser.id, targetUser.id)
 
     // Get updated counts
     const [followersCount, followingCount] = await Promise.all([

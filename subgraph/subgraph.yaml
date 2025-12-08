@@ -66,6 +66,93 @@ dataSources:
         - event: RoyaltyEngineUpdated(indexed address,indexed address)
           handler: handleRoyaltyEngineUpdated
       file: ./src/marketplace-v-3.ts
+  # Direct Listings Extension - handles listing creation, sales, updates, cancellations
+  - kind: ethereum
+    name: DirectListings
+    network: sepolia
+    source:
+      address: "0xB30af61443eeD475e07226169aFC0753eeE8BBc0"
+      abi: DirectListingsLogic
+      startBlock: 8656507
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Listing
+        - Sale
+        - MarketplaceStats
+        - CollectionStats
+      abis:
+        - name: DirectListingsLogic
+          file: ./abis/DirectListingsLogic.json
+      eventHandlers:
+        - event: NewListing(indexed address,indexed uint256,indexed address,(uint256,uint256,uint256,uint256,uint128,uint128,address,address,address,uint8,uint8,bool))
+          handler: handleNewListing
+        - event: NewSale(indexed address,indexed uint256,indexed address,uint256,address,uint256,uint256)
+          handler: handleNewSale
+        - event: UpdatedListing(indexed address,indexed uint256,indexed address,(uint256,uint256,uint256,uint256,uint128,uint128,address,address,address,uint8,uint8,bool))
+          handler: handleUpdatedListing
+        - event: CancelledListing(indexed address,indexed uint256)
+          handler: handleCancelledListing
+      file: ./src/direct-listings.ts
+  # English Auctions Extension - handles auction creation, bids, closing, cancellations
+  - kind: ethereum
+    name: EnglishAuctions
+    network: sepolia
+    source:
+      address: "0xB30af61443eeD475e07226169aFC0753eeE8BBc0"
+      abi: EnglishAuctionsLogic
+      startBlock: 8656507
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Auction
+        - Bid
+        - MarketplaceStats
+        - CollectionStats
+      abis:
+        - name: EnglishAuctionsLogic
+          file: ./abis/EnglishAuctionsLogic.json
+      eventHandlers:
+        - event: NewAuction(indexed address,indexed uint256,indexed address,(uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint64,uint64,address,address,address,uint8,uint8))
+          handler: handleNewAuction
+        - event: NewBid(indexed uint256,indexed address,indexed address,uint256,(uint256,uint256,uint256,uint256,uint256,uint64,uint64,uint64,uint64,address,address,address,uint8,uint8))
+          handler: handleNewBid
+        - event: CancelledAuction(indexed address,indexed uint256)
+          handler: handleCancelledAuction
+        - event: AuctionClosed(indexed uint256,indexed address,indexed address,uint256,address,address)
+          handler: handleAuctionClosed
+      file: ./src/english-auctions.ts
+  # Offers Extension - handles offer creation, acceptance, cancellations
+  - kind: ethereum
+    name: Offers
+    network: sepolia
+    source:
+      address: "0xB30af61443eeD475e07226169aFC0753eeE8BBc0"
+      abi: OffersLogic
+      startBlock: 8656507
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      entities:
+        - Offer
+        - MarketplaceStats
+        - CollectionStats
+      abis:
+        - name: OffersLogic
+          file: ./abis/OffersLogic.json
+      eventHandlers:
+        - event: NewOffer(indexed address,indexed uint256,indexed address,(uint256,uint256,uint256,uint256,uint256,address,address,address,uint8,uint8))
+          handler: handleNewOffer
+        - event: AcceptedOffer(indexed address,indexed uint256,indexed address,uint256,address,uint256,uint256)
+          handler: handleAcceptedOffer
+        - event: CancelledOffer(indexed address,indexed uint256)
+          handler: handleCancelledOffer
+      file: ./src/offers.ts
   - kind: ethereum
     name: OpenEditionERC721
     network: sepolia

@@ -197,6 +197,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Authorization: only approved creators can register deployed contracts
+    // This prevents unauthorized users from claiming ownership of contracts
+    const canDeploy = await auth.canUserDeployContracts(address);
+    if (!canDeploy) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Your creator application is pending approval. You cannot deploy contracts until approved.',
+          code: 'CREATOR_NOT_APPROVED'
+        },
+        { status: 403 }
+      );
+    }
+
     // Check if contract address already exists
     const existingCollection = await prisma.collection.findUnique({
       where: {
@@ -302,12 +316,51 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { collectionId, sharedMetadata } = body;
+    const { collectionId, sharedMetadata, walletAddress } = body;
 
     if (!collectionId) {
       return NextResponse.json(
         { success: false, error: 'Collection ID is required' },
         { status: 400 }
+      );
+    }
+
+    // Authentication: require wallet address
+    if (!walletAddress) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet address is required' },
+        { status: 401 }
+      );
+    }
+
+    // Verify user exists
+    const user = await auth.getUserByWallet(walletAddress);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 401 }
+      );
+    }
+
+    // Authorization: check if user owns this collection
+    const ownsCollection = await auth.doesUserOwnCollection(walletAddress, collectionId);
+    if (!ownsCollection) {
+      return NextResponse.json(
+        { success: false, error: 'You do not own this collection' },
+        { status: 403 }
+      );
+    }
+
+    // For setting on-chain metadata, require approved creator status
+    const canDeploy = await auth.canUserDeployContracts(walletAddress);
+    if (!canDeploy) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Your creator application is pending approval. You cannot modify on-chain metadata until approved.',
+          code: 'CREATOR_NOT_APPROVED'
+        },
+        { status: 403 }
       );
     }
 

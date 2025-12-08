@@ -18,7 +18,6 @@ import {
 import {
   Search,
   Bell,
-  ShoppingCart,
   User,
   ChevronLeft,
   Home,
@@ -56,10 +55,13 @@ import {
   Shield,
   Percent
 } from "lucide-react";
-import { ConnectButton, useDisconnect, useActiveWallet } from "thirdweb/react";
+import { useDisconnect, useActiveWallet } from "thirdweb/react";
 import { client } from "@/lib/thirdweb";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { AuthenticatedConnectButton } from "@/components/auth/authenticated-connect-button";
 import { MediaRenderer } from "@/components/media-renderer";
+import { Compass } from "lucide-react";
+import { CartButton } from "@/components/marketplace/cart-button";
 
 interface AnimatedHeaderProps {
   show: boolean;
@@ -181,7 +183,27 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
       ];
     }
     
-    // Default/fallback - should not show header for home
+    // Discover page - show Home, Discover, Trade, Play
+    if (currentPath === '/discover' || currentRoute === 'discover') {
+      return [
+        { id: 'home', label: 'Home', icon: Home, type: 'route' },
+        { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
+        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
+        { id: 'play', label: 'Play', icon: Play, type: 'route' }
+      ];
+    }
+
+    // Home (HUD) page - show Home, Discover, Trade, Play
+    if (currentPath === '/home' || currentRoute === 'home') {
+      return [
+        { id: 'home', label: 'Home', icon: Home, type: 'route' },
+        { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
+        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
+        { id: 'play', label: 'Play', icon: Play, type: 'route' }
+      ];
+    }
+
+    // Default/fallback
     return [];
   };
 
@@ -242,7 +264,8 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
         await router.push(`/studio/${item.id}`);
         if (onStudioViewChange) onStudioViewChange(item.id);
       } else if (item.type === 'route') {
-        const target = item.id === 'home' ? '/' : `/${item.id}`;
+        // Navigate to route - discover and home have their own paths
+        const target = `/${item.id}`;
         await router.push(target);
         if (onNavigate) onNavigate(item.id);
       }
@@ -529,11 +552,16 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
               <nav className="hidden lg:flex items-center gap-1">
                 {navItems.map((item, index) => {
                   const Icon = item.icon;
-                  const isActive = item.type === 'studio-tab'
-                    ? (currentStudioView === item.id || (pathname && pathname.startsWith(`/studio/${item.id}`)))
-                     : item.id.includes('/')
-                       ? currentRoute === item.id.replace('/', '-')
-                       : currentRoute === item.id;
+                  let isActive = false;
+
+                  if (item.type === 'studio-tab') {
+                    isActive = currentStudioView === item.id || Boolean(pathname && pathname.startsWith(`/studio/${item.id}`));
+                  } else {
+                    // For route type, check if current route matches
+                    isActive = item.id.includes('/')
+                      ? currentRoute === item.id.replace('/', '-')
+                      : currentRoute === item.id;
+                  }
 
                   return (
                     <motion.button
@@ -579,14 +607,14 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[rgb(163,255,18)] rounded-full" />
                 </motion.button>
 
-                <motion.button
+                <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.4 }}
-                  className="hidden md:flex p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  className="hidden md:flex"
                 >
-                  <ShoppingCart className="w-5 h-5 text-white/70" />
-                </motion.button>
+                  <CartButton className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/70" />
+                </motion.div>
 
                 {/* Wallet/Profile Dropdown - Always Visible */}
                 <motion.div
@@ -751,10 +779,7 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                         {/* Wallet Section */}
                         <div className="px-2 py-2">
                           <div className="bg-gradient-to-br from-white/5 to-transparent rounded-lg border border-white/10 overflow-hidden [&_button]:w-full [&_button]:justify-center">
-                            <ConnectButton
-                              client={client}
-                              theme="dark"
-                            />
+                            <AuthenticatedConnectButton theme="dark" />
                           </div>
                         </div>
 
@@ -771,7 +796,7 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                       </DropdownMenuContent>
                     </DropdownMenu>
                   ) : (
-                    <ConnectButton client={client} />
+                    <AuthenticatedConnectButton />
                   )}
                 </motion.div>
 

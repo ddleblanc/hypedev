@@ -54,7 +54,8 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
   const isProfileRoute = pathname.startsWith('/profile');
   const isCollectionRoute = pathname.startsWith('/collection');
   const isPublicProgressiveRoute = [
-    '/',
+    '/discover',
+    '/home',
     '/trade',
     '/play',
     '/p2p',
@@ -99,7 +100,9 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     const segments = pathname.split('/').filter(Boolean);
     let currentRoute = 'home';
     
-    if (pathname === '/') {
+    if (pathname === '/discover') {
+      currentRoute = 'discover';
+    } else if (pathname === '/home') {
       currentRoute = 'home';
     } else if (segments[0] === 'p2p') {
       if (segments[1] === 'collections' && segments[2]) {
@@ -133,7 +136,11 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     const isPlaySubRoute = currentRoute.startsWith('play-');
     
-    if (currentRoute === 'home') {
+    if (currentRoute === 'discover') {
+      // Discover page shows header
+      return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: null };
+    } else if (currentRoute === 'home') {
+      // Home (HUD) page - no header (full immersion)
       return { showHeader: false, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: null };
     } else if (currentRoute === 'trade') {
       return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 1, previousRoute: 'home' };
@@ -181,6 +188,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'home'
+      };
+    } else if (currentRoute === 'profile-public') {
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'profile'
       };
     } else if (currentRoute === 'p2p') {
       return {
@@ -450,7 +466,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
 
   // Convert pathname to route for UI state management
   const getCurrentRoute = () => {
-    if (pathname === '/') return 'home';
+    if (pathname === '/discover') return 'discover';
+    if (pathname === '/home') return 'home';
     const segments = pathname.split('/').filter(Boolean);
 
     if (segments[0] === 'p2p') {
@@ -484,6 +501,13 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
 
     if (segments[0] === 'launchpad' && segments[1]) {
       return 'launchpad-detail';
+    }
+
+    if (segments[0] === 'profile') {
+      if (segments[1]) {
+        return 'profile-public';
+      }
+      return 'profile';
     }
 
     return segments[0] || 'home';
@@ -534,14 +558,25 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   useEffect(() => {
     let newState: Partial<ProgressiveUIState> = {};
 
-    if (currentRoute === 'home') {
+    if (currentRoute === 'discover') {
+      // Discover page shows header
+      newState = {
+        showHeader: true,
+        showFooter: false,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 0,
+        previousRoute: null
+      };
+    } else if (currentRoute === 'home') {
+      // Home (HUD) page - no header (full immersion)
       newState = {
         showHeader: false,
         showFooter: false,
         showSidebar: false,
         showRightSidebar: false,
         navigationDepth: 0,
-        previousRoute: 'home'
+        previousRoute: null
       };
     } else if (['trade', 'play'].includes(currentRoute)) {
       newState = {
@@ -579,6 +614,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'home'
+      };
+    } else if (currentRoute === 'profile-public') {
+      newState = {
+        showHeader: true,
+        showFooter: false, // Similar to profile layout
+        showSidebar: !isMobile || isMobileSidebarOpen,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'profile'
       };
     } else if (currentRoute === 'p2p') {
       newState = {
@@ -754,8 +798,10 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   }), [p2pSearchQuery, p2pGridViewMode]);
 
   const handleNavigate = (route: string) => {
-    if (route === 'home') {
-      router.push('/');
+    if (route === 'discover') {
+      router.push('/discover');
+    } else if (route === 'home') {
+      router.push('/home');
     } else if (route.startsWith('lootbox-')) {
       const lootboxId = route.replace('lootbox-', '');
       router.push(`/lootboxes/${lootboxId}`);

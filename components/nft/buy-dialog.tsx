@@ -3,29 +3,32 @@
 import { useState } from "react";
 import { MediaRenderer } from "@/components/MediaRenderer";
 import { Button } from "@/components/ui/button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Zap, 
-  ShoppingCart, 
-  Wallet, 
-  Shield, 
-  Check, 
+import {
+  Zap,
+  Wallet,
+  Shield,
+  Check,
   Loader2,
   AlertTriangle,
   ExternalLink,
   Crown
 } from "lucide-react";
-import { ConnectButton } from "thirdweb/react";
+import { useActiveAccount, useSendTransaction } from "thirdweb/react";
+import { buyFromListing, getListing } from "thirdweb/extensions/marketplace";
+import { getContract } from "thirdweb";
 import { client } from "@/lib/thirdweb";
+import { defineChain } from "thirdweb/chains";
+import { MARKETPLACE_ADDRESS, MARKETPLACE_CHAIN_ID } from "@/lib/marketplace";
 
 export interface NFTBuyDialogProps {
   open: boolean;
@@ -37,45 +40,139 @@ export interface NFTBuyDialogProps {
     price: number;
     rarity: string;
     collection: string;
+    collectionName?: string;
     contractAddress?: string;
+    listingId?: string;
+    tokenId?: string;
+    royaltyPercentage?: number;
   } | null;
+  onPurchaseComplete?: () => void;
 }
 
 type TransactionStep = "review" | "approve" | "confirm" | "pending" | "success" | "error";
 
-export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
+export function NFTBuyDialog({ open, onOpenChange, nft, onPurchaseComplete }: NFTBuyDialogProps) {
   const [currentStep, setCurrentStep] = useState<TransactionStep>("review");
   const [transactionHash, setTransactionHash] = useState<string>("");
   const [error, setError] = useState<string>("");
-  
+
+  const account = useActiveAccount();
+  const { mutateAsync: sendTx, isPending } = useSendTransaction();
+
   if (!nft) return null;
 
+  const royaltyPercent = nft.royaltyPercentage || 5;
   const fees = {
     marketplaceFee: nft.price * 0.025, // 2.5%
-    creatorRoyalty: nft.price * 0.05,  // 5%
-    gasEstimate: 0.008,                // ~$20 at current gas prices
+    creatorRoyalty: nft.price * (royaltyPercent / 100),
+    gasEstimate: 0.008, // ~$20 at current gas prices (estimate)
   };
 
-  const total = nft.price + fees.marketplaceFee + fees.creatorRoyalty + fees.gasEstimate;
+  const total = nft.price + fees.gasEstimate; // Fees are included in price on Thirdweb marketplace
 
   const handleBuy = async () => {
+    if (!account) {
+      setError("Please connect your wallet first");
+      setCurrentStep("error");
+      return;
+    }
+
+    if (!nft.listingId) {
+      setError("This NFT is not listed for sale");
+      setCurrentStep("error");
+      return;
+    }
+
     try {
       setCurrentStep("approve");
-      
-      // Simulate approval step
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      setError("");
+
+      // Get the marketplace contract
+      const marketplace = getContract({
+        client,
+        chain: defineChain(MARKETPLACE_CHAIN_ID),
+        address: MARKETPLACE_ADDRESS,
+      });
+
+      // Verify listing exists
+      console.log("Fetching listing:", nft.listingId);
+      const listing = await getListing({
+        contract: marketplace,
+        listingId: BigInt(nft.listingId),
+      });
+
+      if (!listing) {
+        throw new Error("Listing not found");
+      }
+
+      console.log("Listing found:", listing);
+
+      // Create buy transaction
+      const transaction = buyFromListing({
+        contract: marketplace,
+        listingId: BigInt(nft.listingId),
+        quantity: BigInt(1),
+        recipient: account.address,
+      });
+
       setCurrentStep("confirm");
-      
-      // Simulate transaction confirmation
-      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // Send transaction
+      const result = await sendTx(transaction);
+
       setCurrentStep("pending");
-      setTransactionHash("0x1234567890abcdef1234567890abcdef12345678");
-      
-      // Simulate blockchain confirmation
-      await new Promise(resolve => setTimeout(resolve, 4000));
+      setTransactionHash(result.transactionHash);
+
+      console.log("Transaction submitted:", result.transactionHash);
+
+      // Record the purchase in our database
+      try {
+        const response = await fetch('/api/marketplace/purchase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            listingId: nft.listingId,
+            buyerAddress: account.address,
+            transactionHash: result.transactionHash,
+            quantity: 1,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Failed to record purchase:', errorData);
+          // Don't fail the UI - the blockchain tx succeeded
+        } else {
+          console.log('Purchase recorded in database');
+        }
+      } catch (dbError) {
+        console.error('Error recording purchase:', dbError);
+        // Don't fail the UI - the blockchain tx succeeded
+      }
+
       setCurrentStep("success");
-    } catch (err) {
-      setError("Transaction failed. Please try again.");
+
+      // Notify parent component
+      if (onPurchaseComplete) {
+        onPurchaseComplete();
+      }
+    } catch (err: any) {
+      console.error("Purchase error:", err);
+
+      // Parse error message
+      let errorMessage = "Transaction failed. Please try again.";
+
+      if (err.message?.includes("user rejected") || err.message?.includes("User denied")) {
+        errorMessage = "Transaction was cancelled";
+      } else if (err.message?.includes("insufficient funds")) {
+        errorMessage = "Insufficient funds in your wallet";
+      } else if (err.message?.includes("Listing not found")) {
+        errorMessage = "This listing is no longer available";
+      } else if (err.message) {
+        errorMessage = err.message.slice(0, 100); // Truncate long messages
+      }
+
+      setError(errorMessage);
       setCurrentStep("error");
     }
   };
@@ -97,6 +194,12 @@ export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
     setError("");
     setTransactionHash("");
     onOpenChange(false);
+  };
+
+  const getExplorerUrl = () => {
+    if (!transactionHash) return "#";
+    // Sepolia explorer
+    return `https://sepolia.etherscan.io/tx/${transactionHash}`;
   };
 
   return (
@@ -134,7 +237,7 @@ export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold">{nft.name}</h3>
-              <p className="text-sm text-muted-foreground">{nft.collection}</p>
+              <p className="text-sm text-muted-foreground">{nft.collectionName || nft.collection}</p>
               <Badge variant="outline" className="mt-1 text-xs">
                 {nft.rarity}
               </Badge>
@@ -154,20 +257,20 @@ export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Marketplace fee (2.5%)</span>
-                  <span>{fees.marketplaceFee.toFixed(4)} ETH</span>
+                  <span className="text-muted-foreground">Included</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Creator royalty (5%)</span>
-                  <span>{fees.creatorRoyalty.toFixed(4)} ETH</span>
+                  <span className="text-muted-foreground">Creator royalty ({royaltyPercent}%)</span>
+                  <span className="text-muted-foreground">Included</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Gas estimate</span>
-                  <span>{fees.gasEstimate} ETH</span>
+                  <span>~{fees.gasEstimate} ETH</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-semibold">
                   <span>Total</span>
-                  <span>{total.toFixed(4)} ETH</span>
+                  <span>~{total.toFixed(4)} ETH</span>
                 </div>
               </div>
 
@@ -178,10 +281,29 @@ export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
                 </span>
               </div>
 
-              <Button onClick={handleBuy} className="w-full" size="lg">
-                <Wallet className="h-4 w-4 mr-2" />
-                Complete Purchase
-              </Button>
+              {!account ? (
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Connect your wallet to purchase
+                  </p>
+                </div>
+              ) : !nft.listingId ? (
+                <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                    This NFT is not currently listed for sale
+                  </p>
+                </div>
+              ) : (
+                <Button
+                  onClick={handleBuy}
+                  className="w-full"
+                  size="lg"
+                  disabled={isPending}
+                >
+                  <Wallet className="h-4 w-4 mr-2" />
+                  Complete Purchase
+                </Button>
+              )}
             </div>
           )}
 
@@ -191,9 +313,9 @@ export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
                 <Loader2 className="h-8 w-8 text-primary animate-spin" />
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Approve Transaction</h3>
+                <h3 className="font-semibold mb-2">Preparing Transaction</h3>
                 <p className="text-sm text-muted-foreground">
-                  Please approve the transaction in your wallet
+                  Verifying listing and preparing your purchase...
                 </p>
               </div>
             </div>
@@ -205,9 +327,9 @@ export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
                 <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Confirming Transaction</h3>
+                <h3 className="font-semibold mb-2">Confirm in Wallet</h3>
                 <p className="text-sm text-muted-foreground">
-                  Your transaction is being processed...
+                  Please confirm the transaction in your wallet
                 </p>
               </div>
             </div>
@@ -224,10 +346,16 @@ export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
                   Waiting for blockchain confirmation
                 </p>
                 {transactionHash && (
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <ExternalLink className="h-3 w-3" />
-                    View on Etherscan
-                  </Button>
+                  <a
+                    href={getExplorerUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <ExternalLink className="h-3 w-3" />
+                      View on Etherscan
+                    </Button>
+                  </a>
                 )}
               </div>
             </div>
@@ -244,9 +372,19 @@ export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
                   Congratulations! You now own {nft.name}
                 </p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1">
-                    View in Wallet
-                  </Button>
+                  {transactionHash && (
+                    <a
+                      href={getExplorerUrl()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1"
+                    >
+                      <Button variant="outline" size="sm" className="w-full gap-2">
+                        <ExternalLink className="h-3 w-3" />
+                        View Transaction
+                      </Button>
+                    </a>
+                  )}
                   <Button size="sm" className="flex-1" onClick={resetDialog}>
                     Done
                   </Button>
@@ -267,7 +405,7 @@ export function NFTBuyDialog({ open, onOpenChange, nft }: NFTBuyDialogProps) {
                   <Button variant="outline" onClick={resetDialog} className="flex-1">
                     Cancel
                   </Button>
-                  <Button onClick={handleBuy} className="flex-1">
+                  <Button onClick={handleBuy} className="flex-1" disabled={isPending}>
                     Try Again
                   </Button>
                 </div>

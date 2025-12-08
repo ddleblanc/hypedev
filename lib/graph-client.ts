@@ -4,7 +4,7 @@ import { GraphQLClient } from 'graphql-request';
 const GRAPH_ENDPOINTS = {
   // Sepolia testnet - your deployed hyperchain-x subgraph
   11155111: process.env.NEXT_PUBLIC_GRAPH_SEPOLIA_ENDPOINT ||
-    'https://api.studio.thegraph.com/query/118938/hyperchain-x/v0.0.1',
+    'https://api.studio.thegraph.com/query/118938/hyperchain-x/v0.2.0',
 
   // Mainnet - using popular NFT subgraph
   1: 'https://api.thegraph.com/subgraphs/name/messari/nft-marketplace',
@@ -22,6 +22,181 @@ export function getGraphClient(chainId: number): GraphQLClient | null {
   }
   return new GraphQLClient(endpoint);
 }
+
+// ==========================================
+// Marketplace Queries (DirectListings, Auctions, Offers)
+// ==========================================
+
+// Get active listings for a collection
+export const LISTINGS_QUERY = `
+  query GetListings($assetContract: Bytes, $status: String, $first: Int, $skip: Int) {
+    listings(
+      where: { assetContract: $assetContract, status: $status }
+      first: $first
+      skip: $skip
+      orderBy: createdAt
+      orderDirection: desc
+    ) {
+      id
+      listingId
+      listingCreator
+      assetContract
+      tokenId
+      quantity
+      currency
+      pricePerToken
+      startTimestamp
+      endTimestamp
+      tokenType
+      status
+      reserved
+      buyer
+      quantitySold
+      totalPricePaid
+      createdAt
+      soldAt
+      transactionHash
+    }
+  }
+`;
+
+// Get active auctions for a collection
+export const AUCTIONS_QUERY = `
+  query GetAuctions($assetContract: Bytes, $status: String, $first: Int, $skip: Int) {
+    auctions(
+      where: { assetContract: $assetContract, status: $status }
+      first: $first
+      skip: $skip
+      orderBy: createdAt
+      orderDirection: desc
+    ) {
+      id
+      auctionId
+      auctionCreator
+      assetContract
+      tokenId
+      quantity
+      currency
+      minimumBidAmount
+      buyoutBidAmount
+      timeBufferInSeconds
+      bidBufferBps
+      startTimestamp
+      endTimestamp
+      tokenType
+      status
+      winningBidder
+      winningBid
+      createdAt
+      closedAt
+      transactionHash
+    }
+  }
+`;
+
+// Get offers for a token
+export const OFFERS_QUERY = `
+  query GetOffers($assetContract: Bytes, $tokenId: BigInt, $status: String, $first: Int) {
+    offers(
+      where: { assetContract: $assetContract, tokenId: $tokenId, status: $status }
+      first: $first
+      orderBy: totalPrice
+      orderDirection: desc
+    ) {
+      id
+      offerId
+      offeror
+      assetContract
+      tokenId
+      quantity
+      currency
+      totalPrice
+      expirationTimestamp
+      tokenType
+      status
+      seller
+      createdAt
+      acceptedAt
+      transactionHash
+    }
+  }
+`;
+
+// Get marketplace stats
+export const MARKETPLACE_STATS_QUERY = `
+  query GetMarketplaceStats {
+    marketplaceStats(id: "global") {
+      id
+      totalListings
+      totalSales
+      totalAuctions
+      totalOffers
+      totalVolumeETH
+      lastUpdated
+    }
+  }
+`;
+
+// Get collection stats from subgraph
+export const COLLECTION_STATS_GRAPH_QUERY = `
+  query GetCollectionStats($assetContract: ID!) {
+    collectionStats(id: $assetContract) {
+      id
+      assetContract
+      totalListings
+      totalSales
+      totalAuctions
+      totalOffers
+      totalVolumeETH
+      floorPrice
+      lastSalePrice
+      lastUpdated
+    }
+  }
+`;
+
+// Get recent sales
+export const RECENT_SALES_QUERY = `
+  query GetRecentSales($assetContract: Bytes, $first: Int) {
+    sales(
+      where: { assetContract: $assetContract }
+      first: $first
+      orderBy: blockTimestamp
+      orderDirection: desc
+    ) {
+      id
+      listingId
+      listingCreator
+      buyer
+      assetContract
+      tokenId
+      quantity
+      totalPrice
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
+
+// Get bids for an auction
+export const AUCTION_BIDS_QUERY = `
+  query GetAuctionBids($auctionId: BigInt, $first: Int) {
+    bids(
+      where: { auctionId: $auctionId }
+      first: $first
+      orderBy: bidAmount
+      orderDirection: desc
+    ) {
+      id
+      auctionId
+      bidder
+      assetContract
+      bidAmount
+      blockTimestamp
+      transactionHash
+    }
+  }
+`;
 
 // Query for Transfer events and TokensClaimed events
 export const COLLECTION_STATS_QUERY = `
@@ -279,5 +454,165 @@ export async function getRealtimeFloorPrice(
   } catch (error) {
     console.error('Error getting realtime floor price:', error);
     return 0;
+  }
+}
+
+// ==========================================
+// Marketplace Data Fetching Functions
+// ==========================================
+
+// Fetch active listings from subgraph
+export async function fetchListings(
+  chainId: number,
+  assetContract?: string,
+  status: string = 'CREATED',
+  first: number = 100,
+  skip: number = 0
+) {
+  try {
+    const client = getGraphClient(chainId);
+    if (!client) return [];
+
+    const data = await client.request(LISTINGS_QUERY, {
+      assetContract: assetContract?.toLowerCase(),
+      status,
+      first,
+      skip
+    }) as any;
+
+    return data.listings || [];
+  } catch (error) {
+    console.error('Error fetching listings from subgraph:', error);
+    return [];
+  }
+}
+
+// Fetch active auctions from subgraph
+export async function fetchAuctions(
+  chainId: number,
+  assetContract?: string,
+  status: string = 'CREATED',
+  first: number = 100,
+  skip: number = 0
+) {
+  try {
+    const client = getGraphClient(chainId);
+    if (!client) return [];
+
+    const data = await client.request(AUCTIONS_QUERY, {
+      assetContract: assetContract?.toLowerCase(),
+      status,
+      first,
+      skip
+    }) as any;
+
+    return data.auctions || [];
+  } catch (error) {
+    console.error('Error fetching auctions from subgraph:', error);
+    return [];
+  }
+}
+
+// Fetch offers for a token from subgraph
+export async function fetchOffers(
+  chainId: number,
+  assetContract: string,
+  tokenId: string,
+  status: string = 'CREATED',
+  first: number = 50
+) {
+  try {
+    const client = getGraphClient(chainId);
+    if (!client) return [];
+
+    const data = await client.request(OFFERS_QUERY, {
+      assetContract: assetContract.toLowerCase(),
+      tokenId,
+      status,
+      first
+    }) as any;
+
+    return data.offers || [];
+  } catch (error) {
+    console.error('Error fetching offers from subgraph:', error);
+    return [];
+  }
+}
+
+// Fetch global marketplace stats
+export async function fetchMarketplaceStats(chainId: number) {
+  try {
+    const client = getGraphClient(chainId);
+    if (!client) return null;
+
+    const data = await client.request(MARKETPLACE_STATS_QUERY) as any;
+    return data.marketplaceStats || null;
+  } catch (error) {
+    console.error('Error fetching marketplace stats:', error);
+    return null;
+  }
+}
+
+// Fetch collection-specific marketplace stats
+export async function fetchCollectionMarketplaceStats(
+  chainId: number,
+  assetContract: string
+) {
+  try {
+    const client = getGraphClient(chainId);
+    if (!client) return null;
+
+    const data = await client.request(COLLECTION_STATS_GRAPH_QUERY, {
+      assetContract: assetContract.toLowerCase()
+    }) as any;
+
+    return data.collectionStats || null;
+  } catch (error) {
+    console.error('Error fetching collection marketplace stats:', error);
+    return null;
+  }
+}
+
+// Fetch recent sales for a collection
+export async function fetchRecentSales(
+  chainId: number,
+  assetContract: string,
+  first: number = 50
+) {
+  try {
+    const client = getGraphClient(chainId);
+    if (!client) return [];
+
+    const data = await client.request(RECENT_SALES_QUERY, {
+      assetContract: assetContract.toLowerCase(),
+      first
+    }) as any;
+
+    return data.sales || [];
+  } catch (error) {
+    console.error('Error fetching recent sales:', error);
+    return [];
+  }
+}
+
+// Fetch bids for an auction
+export async function fetchAuctionBids(
+  chainId: number,
+  auctionId: string,
+  first: number = 50
+) {
+  try {
+    const client = getGraphClient(chainId);
+    if (!client) return [];
+
+    const data = await client.request(AUCTION_BIDS_QUERY, {
+      auctionId,
+      first
+    }) as any;
+
+    return data.bids || [];
+  } catch (error) {
+    console.error('Error fetching auction bids:', error);
+    return [];
   }
 }

@@ -3,6 +3,7 @@ import { Collection } from "./types";
 export const mockCollection: Collection = {
   id: "cyber-legends",
   title: "Cyber Legends",
+  name: "Cyber Legends", // Alias for title
   subtitle: "Futuristic warriors collection",
   description: "Step into the neon-lit streets of Neo Tokyo where cyber-enhanced warriors battle for supremacy.",
   longDescription: "The Cyber Legends collection brings together the most elite warriors from across the digital frontier. Born from the convergence of advanced cybernetics and ancient martial arts, these legendary fighters have transcended the boundaries between the physical and virtual worlds. Each warrior possesses unique abilities, backstories, and visual traits that make them valuable assets in the metaverse.",
@@ -44,6 +45,8 @@ export const mockCollection: Collection = {
     royalty: 5,
     bestOffer: "1.95"
   },
+  floorPrice: 2.1, // Derived from stats.floorPrice
+  totalSupply: 10000, // Derived from stats.totalSupply
   priceHistory: [
     { date: "Jan 1", price: 1.8 },
     { date: "Jan 5", price: 2.1 },

@@ -21,10 +21,20 @@ export interface UserWithSocials {
   }[]
 }
 
+export interface FindOrCreateUserResult extends UserWithSocials {
+  /** Whether the user was newly created (vs existing) */
+  isNewUser: boolean
+  /** Warning message if email couldn't be saved */
+  emailWarning?: string
+}
+
 export class AuthService {
-  static async findOrCreateUser(walletAddress: string, email?: string): Promise<UserWithSocials> {
+  static async findOrCreateUser(walletAddress: string, email?: string): Promise<FindOrCreateUserResult> {
     // Normalize wallet address to lowercase for consistency
     const normalizedAddress = walletAddress.toLowerCase()
+
+    let isNewUser = false
+    let emailWarning: string | undefined
 
     // First, try to find existing user
     let user = await prisma.user.findUnique({
@@ -33,6 +43,7 @@ export class AuthService {
     })
 
     if (!user) {
+      isNewUser = true
       // Use a transaction to create user and watchlist atomically
       try {
         user = await prisma.$transaction(async (tx) => {
@@ -61,6 +72,7 @@ export class AuthService {
         // If we hit a unique constraint error, the user was created by another request
         // Fetch the user that was created
         if (error.code === 'P2002') {
+          isNewUser = false // Actually not new, race condition
           user = await prisma.user.findUnique({
             where: { walletAddress: normalizedAddress },
             include: { socials: true }
@@ -84,14 +96,20 @@ export class AuthService {
           include: { socials: true }
         })
       } catch (error: any) {
-        // If email is already taken by another user, ignore the error
-        if (error.code !== 'P2002') {
+        // If email is already taken by another user, set warning instead of silently failing
+        if (error.code === 'P2002') {
+          emailWarning = 'Email address is already associated with another account'
+        } else {
           throw error
         }
       }
     }
 
-    return user
+    return {
+      ...user,
+      isNewUser,
+      emailWarning,
+    }
   }
 
   static async getUserById(id: string): Promise<UserWithSocials | null> {
@@ -167,7 +185,8 @@ export class AuthService {
       where: { id: userId },
       data: {
         creatorAppliedAt: new Date(),
-        isCreator: true // Grant instant access, but not approved yet
+        // Note: isCreator stays false until admin approves
+        // User can access Studio UI but cannot deploy contracts or mint
       },
       include: { socials: true }
     })
@@ -224,6 +243,33 @@ export class AuthService {
 
     // Users can access studio if they've applied (instant access) or are approved
     return user?.creatorAppliedAt !== null || user?.isCreator === true
+  }
+
+  /**
+   * Check if user can perform contract operations (deploy collections, mint NFTs)
+   * This requires admin approval (isCreator: true AND creatorApprovedAt set)
+   */
+  static async canUserDeployContracts(walletAddress: string): Promise<boolean> {
+    const normalizedAddress = walletAddress.toLowerCase()
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: normalizedAddress }
+    })
+
+    // Only admin-approved creators can deploy contracts and mint
+    return user?.isCreator === true && user?.creatorApprovedAt !== null
+  }
+
+  /**
+   * Check if user owns a specific collection (by being the creator)
+   */
+  static async doesUserOwnCollection(walletAddress: string, collectionId: string): Promise<boolean> {
+    const normalizedAddress = walletAddress.toLowerCase()
+
+    const collection = await prisma.collection.findUnique({
+      where: { id: collectionId }
+    })
+
+    return collection?.creatorAddress === normalizedAddress
   }
 }
 

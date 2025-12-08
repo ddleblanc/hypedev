@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MediaRenderer } from "@/components/MediaRenderer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -23,106 +23,92 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { 
+import {
   TrendingDown,
-  Zap, 
   Crown,
   AlertTriangle,
   Info,
   Check,
   Loader2,
-  Settings,
   Target,
-  Filter,
   Sparkles
 } from "lucide-react";
+import { useActiveAccount } from "thirdweb/react";
+import { sweepFloor } from "@/lib/marketplace";
 
 interface FloorNFT {
   id: string;
+  listingId: string;
+  tokenId: string;
   name: string;
   image: string;
   price: number;
+  priceWei: string;
   rarity: string;
   rank?: number;
   lastSale?: number;
   selected: boolean;
+  sellerAddress: string;
 }
 
 export interface SweepFloorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   collection: {
+    id: string;
     name: string;
+    contractAddress: string;
     floorPrice: number;
     totalSupply: number;
   };
+  onSuccess?: () => void;
 }
 
 type SweepStep = "configure" | "review" | "approve" | "confirm" | "pending" | "success" | "error";
 
-const MOCK_FLOOR_NFTS: FloorNFT[] = [
-  {
-    id: "1",
-    name: "Cosmic Dragon #1234",
-    image: "https://images.unsplash.com/photo-1578662996442-48f60103fc96",
-    price: 2.45,
-    rarity: "Common",
-    rank: 1234,
-    lastSale: 2.8,
-    selected: true
-  },
-  {
-    id: "2",
-    name: "Cosmic Dragon #5678",
-    image: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43",
-    price: 2.47,
-    rarity: "Common",
-    rank: 2341,
-    lastSale: 2.6,
-    selected: true
-  },
-  {
-    id: "3",
-    name: "Cosmic Dragon #9999",
-    image: "https://images.unsplash.com/photo-1614732414444-096e5f1122d5",
-    price: 2.48,
-    rarity: "Rare",
-    rank: 567,
-    lastSale: 3.1,
-    selected: true
-  },
-  {
-    id: "4",
-    name: "Cosmic Dragon #0001",
-    image: "https://images.unsplash.com/photo-1581833971358-2c8b550f87b3",
-    price: 2.52,
-    rarity: "Common",
-    rank: 8901,
-    lastSale: 2.4,
-    selected: false
-  },
-  {
-    id: "5",
-    name: "Cosmic Dragon #7777",
-    image: "https://images.unsplash.com/photo-1557672172-298e090bd0f1",
-    price: 2.55,
-    rarity: "Epic",
-    rank: 123,
-    lastSale: 4.2,
-    selected: false
-  },
-];
+interface SweepPreviewResponse {
+  success: boolean;
+  listings: Array<{
+    listingId: string;
+    tokenId: string;
+    priceWei: string;
+    priceEth: string;
+    sellerAddress: string;
+    nft: {
+      id: string;
+      name: string;
+      image: string;
+      collection: {
+        id: string;
+        name: string;
+        image: string;
+      };
+    } | null;
+  }>;
+  summary: {
+    totalAvailable: number;
+    floorPrice: string | null;
+    selectedCount: number;
+    totalPrice: string;
+    totalPriceWei: string;
+  };
+  error?: string;
+}
 
-export function SweepFloorDialog({ open, onOpenChange, collection }: SweepFloorDialogProps) {
+export function SweepFloorDialog({ open, onOpenChange, collection, onSuccess }: SweepFloorDialogProps) {
+  const account = useActiveAccount();
   const [currentStep, setCurrentStep] = useState<SweepStep>("configure");
   const [maxBudget, setMaxBudget] = useState("");
   const [maxItems, setMaxItems] = useState("10");
   const [rarityFilter, setRarityFilter] = useState("all");
   const [priceBuffer, setPriceBuffer] = useState("5");
   const [autoSelect, setAutoSelect] = useState(true);
-  const [floorNFTs, setFloorNFTs] = useState(MOCK_FLOOR_NFTS);
+  const [floorNFTs, setFloorNFTs] = useState<FloorNFT[]>([]);
   const [error, setError] = useState("");
   const [processedCount, setProcessedCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [successfulPurchases, setSuccessfulPurchases] = useState<string[]>([]);
+  const [failedPurchases, setFailedPurchases] = useState<string[]>([]);
 
   const selectedNFTs = floorNFTs.filter(nft => nft.selected);
   const totalPrice = selectedNFTs.reduce((sum, nft) => sum + nft.price, 0);
@@ -132,11 +118,64 @@ export function SweepFloorDialog({ open, onOpenChange, collection }: SweepFloorD
   };
   const grandTotal = totalPrice + fees.marketplaceFee + fees.gasEstimate;
 
+  // Fetch floor NFTs from API when dialog opens
+  const fetchFloorNFTs = useCallback(async () => {
+    if (!collection.contractAddress) return;
+
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        collection: collection.contractAddress,
+        maxItems: maxItems,
+      });
+      if (maxBudget) {
+        params.append('maxTotalPrice', maxBudget);
+      }
+
+      const response = await fetch(`/api/marketplace/sweep?${params}`);
+      const data: SweepPreviewResponse = await response.json();
+
+      if (data.success && data.listings) {
+        const nfts: FloorNFT[] = data.listings.map((listing, index) => ({
+          id: listing.nft?.id || listing.listingId,
+          listingId: listing.listingId,
+          tokenId: listing.tokenId,
+          name: listing.nft?.name || `#${listing.tokenId}`,
+          image: listing.nft?.image || '/placeholder-nft.png',
+          price: parseFloat(listing.priceEth),
+          priceWei: listing.priceWei,
+          rarity: 'Common', // TODO: Get from NFT metadata when available
+          sellerAddress: listing.sellerAddress,
+          selected: index < parseInt(maxItems),
+        }));
+        setFloorNFTs(nfts);
+      } else {
+        setFloorNFTs([]);
+        if (data.error) {
+          console.error('Sweep preview error:', data.error);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching floor NFTs:', err);
+      setFloorNFTs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [collection.contractAddress, maxItems, maxBudget]);
+
+  // Fetch floor NFTs when dialog opens or params change
   useEffect(() => {
-    if (autoSelect && maxItems) {
+    if (open && collection.contractAddress) {
+      fetchFloorNFTs();
+    }
+  }, [open, collection.contractAddress, fetchFloorNFTs]);
+
+  // Auto-select logic
+  useEffect(() => {
+    if (autoSelect && maxItems && floorNFTs.length > 0) {
       const maxCount = parseInt(maxItems);
       const budget = maxBudget ? parseFloat(maxBudget) : Infinity;
-      
+
       let runningTotal = 0;
       const updated = floorNFTs.map((nft, index) => {
         if (index < maxCount && runningTotal + nft.price <= budget) {
@@ -147,31 +186,83 @@ export function SweepFloorDialog({ open, onOpenChange, collection }: SweepFloorD
         }
         return { ...nft, selected: false };
       });
-      
+
       setFloorNFTs(updated);
     }
-  }, [maxBudget, maxItems, rarityFilter, autoSelect]);
+  }, [maxBudget, maxItems, rarityFilter, autoSelect, floorNFTs.length]);
 
   const handleSweep = async () => {
+    if (!account) {
+      setError("Please connect your wallet to sweep floor");
+      setCurrentStep("error");
+      return;
+    }
+
+    if (selectedNFTs.length === 0) {
+      setError("No NFTs selected for sweep");
+      setCurrentStep("error");
+      return;
+    }
+
     try {
       setCurrentStep("approve");
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setCurrentStep("confirm");
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
+      setSuccessfulPurchases([]);
+      setFailedPurchases([]);
+      setProcessedCount(0);
+
+      // Execute sweep using lib/marketplace.ts
       setCurrentStep("pending");
-      
-      // Simulate processing each NFT
-      for (let i = 0; i < selectedNFTs.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        setProcessedCount(i + 1);
+
+      const result = await sweepFloor(
+        collection.contractAddress,
+        selectedNFTs.length,
+        grandTotal.toString(),
+        account.address,
+        account
+      );
+
+      // Track successful purchases
+      const successListings = result.transactions.map(tx => tx.listingId);
+      setSuccessfulPurchases(successListings);
+      setProcessedCount(result.transactions.length);
+
+      // Record purchases in database
+      if (result.transactions.length > 0) {
+        try {
+          await fetch('/api/marketplace/sweep', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              collectionAddress: collection.contractAddress,
+              transactions: result.transactions,
+              buyerAddress: account.address,
+            }),
+          });
+        } catch (recordError) {
+          console.error('Failed to record sweep in database:', recordError);
+          // Don't fail the whole operation if recording fails
+        }
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Check for partial success
+      const failedCount = selectedNFTs.length - result.transactions.length;
+      if (failedCount > 0) {
+        const successIds = new Set(successListings);
+        const failed = selectedNFTs
+          .filter(nft => !successIds.has(nft.listingId))
+          .map(nft => nft.listingId);
+        setFailedPurchases(failed);
+      }
+
       setCurrentStep("success");
-    } catch (err) {
-      setError("Floor sweep failed. Some items may have been processed.");
+
+      // Notify parent of success
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err: any) {
+      console.error('Sweep error:', err);
+      setError(err.message || "Floor sweep failed. Some items may have been processed.");
       setCurrentStep("error");
     }
   };
@@ -200,6 +291,8 @@ export function SweepFloorDialog({ open, onOpenChange, collection }: SweepFloorD
     setCurrentStep("configure");
     setError("");
     setProcessedCount(0);
+    setSuccessfulPurchases([]);
+    setFailedPurchases([]);
     onOpenChange(false);
   };
 
@@ -313,11 +406,25 @@ export function SweepFloorDialog({ open, onOpenChange, collection }: SweepFloorD
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Floor NFTs Preview</h4>
-                  <Badge variant="outline">
-                    Floor: {collection.floorPrice} ETH
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                    <Badge variant="outline">
+                      Floor: {collection.floorPrice} ETH
+                    </Badge>
+                  </div>
                 </div>
 
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Loading floor listings...</span>
+                  </div>
+                ) : floorNFTs.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>No floor listings available for this collection</p>
+                  </div>
+                ) : (
                 <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
                   {floorNFTs.slice(0, 10).map((nft, index) => (
                     <div 
@@ -368,6 +475,7 @@ export function SweepFloorDialog({ open, onOpenChange, collection }: SweepFloorD
                     </div>
                   ))}
                 </div>
+                )}
               </div>
 
               {/* Summary */}
@@ -496,24 +604,37 @@ export function SweepFloorDialog({ open, onOpenChange, collection }: SweepFloorD
                 <Check className="h-8 w-8 text-green-600" />
               </div>
               <div>
-                <h3 className="font-semibold mb-2">Floor Sweep Successful!</h3>
+                <h3 className="font-semibold mb-2">
+                  {failedPurchases.length > 0 ? "Partial Sweep Complete" : "Floor Sweep Successful!"}
+                </h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Successfully purchased {selectedNFTs.length} NFTs for {grandTotal.toFixed(4)} ETH
+                  Successfully purchased {successfulPurchases.length} of {selectedNFTs.length} NFTs
                 </p>
+                {failedPurchases.length > 0 && (
+                  <div className="flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg mb-4">
+                    <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                    <div className="text-sm text-yellow-600 dark:text-yellow-400 text-left">
+                      {failedPurchases.length} items could not be purchased (may have been sold)
+                    </div>
+                  </div>
+                )}
                 <div className="bg-muted/50 p-4 rounded-lg mb-4">
                   <div className="text-sm">
                     <div className="font-medium">Sweep Summary</div>
                     <div className="text-muted-foreground mt-1">
-                      Average price: {(totalPrice / selectedNFTs.length).toFixed(4)} ETH per NFT
-                    </div>
-                    <div className="text-muted-foreground">
-                      Floor discount: ~{((collection.floorPrice - (totalPrice / selectedNFTs.length)) / collection.floorPrice * 100).toFixed(1)}%
+                      {successfulPurchases.length > 0 ? (
+                        <>
+                          Average price: {(totalPrice / successfulPurchases.length).toFixed(4)} ETH per NFT
+                        </>
+                      ) : (
+                        "No NFTs purchased"
+                      )}
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1">
-                    View Collection
+                  <Button variant="outline" size="sm" className="flex-1" onClick={resetDialog}>
+                    Close
                   </Button>
                   <Button size="sm" className="flex-1" onClick={resetDialog}>
                     Done

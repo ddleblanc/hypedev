@@ -1,8 +1,6 @@
 import { createThirdwebClient, getContract, defineChain } from 'thirdweb';
 import { getAllValidListings } from 'thirdweb/extensions/marketplace';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // Create Thirdweb client
 const client = createThirdwebClient({
@@ -120,8 +118,6 @@ export async function syncFloorPrices(): Promise<void> {
     console.log('Floor price sync completed');
   } catch (error) {
     console.error('Error syncing floor prices:', error);
-  } finally {
-    await prisma.$disconnect();
   }
 }
 
@@ -173,7 +169,5 @@ export async function getCachedFloorPrice(
   } catch (error) {
     console.error('Error getting cached floor price:', error);
     return null;
-  } finally {
-    await prisma.$disconnect();
   }
 }

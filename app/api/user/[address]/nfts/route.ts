@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 
 // Helper function to convert chainId to chain name
 function getChainName(chainId: number): string {
@@ -74,18 +75,41 @@ export async function GET(
           include: {
             nft: false // Don't include circular reference
           }
+        },
+        // Include active marketplace listings for auction/offer data
+        marketplaceListings: {
+          where: {
+            status: 'ACTIVE'
+          },
+          select: {
+            id: true,
+            listingId: true,
+            listingType: true,
+            pricePerToken: true,
+            highestBid: true,
+            highestBidder: true,
+            minimumBidAmount: true,
+            buyoutBidAmount: true,
+            endTimestamp: true
+          },
+          take: 1,
+          orderBy: {
+            createdAt: 'desc'
+          }
         }
       }
     }
 
     // Apply ownership/creation filter
+    // Note: isOnChain = true means the NFT actually exists on blockchain (can be listed)
+    // isMinted = true but isOnChain = false means lazy-minted only (drafts)
     if (filter === 'owned') {
       baseQuery.where = {
         ownerAddress: {
           equals: normalizedAddress,
           mode: 'insensitive'
         },
-        isMinted: true
+        isOnChain: true  // Only show NFTs that exist on-chain (listable)
       }
     } else if (filter === 'created') {
       baseQuery.where = {
@@ -95,10 +119,22 @@ export async function GET(
             mode: 'insensitive'
           }
         },
-        isMinted: true
+        isOnChain: true  // Only show NFTs that exist on-chain
+      }
+    } else if (filter === 'drafts') {
+      // Draft NFTs - in database but not on-chain yet (cannot be listed)
+      baseQuery.where = {
+        collection: {
+          creatorAddress: {
+            equals: normalizedAddress,
+            mode: 'insensitive'
+          }
+        },
+        isMinted: true,
+        isOnChain: false  // In DB but not on blockchain
       }
     } else {
-      // 'all' - both owned and created
+      // 'all' - both owned and created (on-chain only)
       baseQuery.where = {
         OR: [
           {
@@ -106,7 +142,7 @@ export async function GET(
               equals: normalizedAddress,
               mode: 'insensitive'
             },
-            isMinted: true
+            isOnChain: true
           },
           {
             collection: {
@@ -115,7 +151,7 @@ export async function GET(
                 mode: 'insensitive'
               }
             },
-            isMinted: true
+            isOnChain: true
           }
         ]
       }
@@ -127,6 +163,12 @@ export async function GET(
     // Transform database NFTs to frontend format
     let transformedNFTs = allNFTs.map(nft => {
       const nftWithCollection = nft as any; // Type assertion for collection relation
+
+      // Get active listing data if exists
+      const activeListing = nftWithCollection.marketplaceListings?.[0] || null;
+      const isAuction = nftWithCollection.listingType === 'auction' || activeListing?.listingType === 'auction';
+      const hasOffer = activeListing?.highestBid != null && activeListing.highestBid > 0;
+
       return {
         id: nftWithCollection.id,
         tokenId: nftWithCollection.tokenId,
@@ -156,9 +198,18 @@ export async function GET(
         floorPrice: nftWithCollection.collection.floorPrice || 0,
         listed: nftWithCollection.isListed,
         isListed: nftWithCollection.isListed,
-        auction: false, // TODO: Integrate auction data
+        listingType: nftWithCollection.listingType,
+        // Auction status - check both NFT listingType and active marketplace listing
+        auction: isAuction && nftWithCollection.isListed,
         new: (Date.now() - new Date(nftWithCollection.createdAt).getTime()) < (7 * 24 * 60 * 60 * 1000),
-        topBid: null, // TODO: Integrate offer data
+        // Offer/bid data from marketplace listing
+        topBid: hasOffer ? {
+          amount: activeListing.highestBid,
+          bidder: activeListing.highestBidder,
+          minimumBid: activeListing.minimumBidAmount,
+          buyoutPrice: activeListing.buyoutBidAmount
+        } : null,
+        hasOffers: hasOffer,
         // Social metrics (would come from separate service)
         likes: Math.floor(Math.random() * 500) + 10,
         views: Math.floor(Math.random() * 2000) + 100,
@@ -167,13 +218,22 @@ export async function GET(
         royalty: 5.0,
         createdAt: nftWithCollection.createdAt,
         updatedAt: nftWithCollection.updatedAt,
+        // On-chain status - critical for listing eligibility
+        isOnChain: nftWithCollection.isOnChain || false,
+        onChainTokenId: nftWithCollection.onChainTokenId,
         // Include collection for P2P context
         collection: {
           name: nftWithCollection.collection.name,
           symbol: nftWithCollection.collection.symbol,
           image: nftWithCollection.collection.image,
+          address: nftWithCollection.collection.address,
           floorPrice: nftWithCollection.collection.floorPrice
-        }
+        },
+        // Listing details for auctions
+        listingDetails: activeListing ? {
+          listingId: activeListing.listingId,
+          endTimestamp: activeListing.endTimestamp
+        } : null
       };
     })
 
@@ -209,13 +269,19 @@ export async function GET(
 
     // Status filter
     if (status === 'listed') {
+      // Listed but not on auction (direct listings only)
       filteredNFTs = filteredNFTs.filter(nft => nft.listed && !nft.auction)
-    } else if (status === 'auction') {
+    } else if (status === 'unlisted') {
+      // Not currently listed for sale
+      filteredNFTs = filteredNFTs.filter(nft => !nft.listed)
+    } else if (status === 'on_auction' || status === 'auction') {
+      // On auction - listed as auction type
       filteredNFTs = filteredNFTs.filter(nft => nft.auction)
+    } else if (status === 'has_offers' || status === 'hasOffers') {
+      // Has offers/bids - has a topBid with amount > 0
+      filteredNFTs = filteredNFTs.filter(nft => nft.hasOffers || nft.topBid)
     } else if (status === 'new') {
       filteredNFTs = filteredNFTs.filter(nft => nft.new)
-    } else if (status === 'hasOffers') {
-      filteredNFTs = filteredNFTs.filter(nft => nft.topBid)
     }
 
     // Sorting
@@ -253,6 +319,37 @@ export async function GET(
     const availableCollections = [...new Set(transformedNFTs.map(nft => nft.collectionName))]
     const availableChains = [...new Set(transformedNFTs.map(nft => nft.chain))]
 
+    // Count draft NFTs (in DB but not on-chain) - separate query for accuracy
+    const totalDrafts = await prisma.nft.count({
+      where: {
+        collection: {
+          creatorAddress: {
+            equals: normalizedAddress,
+            mode: 'insensitive'
+          }
+        },
+        isMinted: true,
+        isOnChain: false
+      }
+    })
+
+    // Count on-chain owned and created separately for accurate tab counts
+    const totalOwned = await prisma.nft.count({
+      where: {
+        ownerAddress: { equals: normalizedAddress, mode: 'insensitive' },
+        isOnChain: true
+      }
+    })
+
+    const totalCreated = await prisma.nft.count({
+      where: {
+        collection: {
+          creatorAddress: { equals: normalizedAddress, mode: 'insensitive' }
+        },
+        isOnChain: true
+      }
+    })
+
     return NextResponse.json({
       success: true,
       data: {
@@ -268,9 +365,13 @@ export async function GET(
         filters: {
           availableCollections,
           availableChains,
-          totalOwned: transformedNFTs.filter(nft => nft.owned).length,
-          totalCreated: transformedNFTs.filter(nft => nft.created).length,
-          totalListed: transformedNFTs.filter(nft => nft.listed).length
+          totalOwned,
+          totalCreated,
+          totalDrafts,
+          totalListed: transformedNFTs.filter(nft => nft.listed).length,
+          totalOnAuction: transformedNFTs.filter(nft => nft.auction).length,
+          totalWithOffers: transformedNFTs.filter(nft => nft.hasOffers || nft.topBid).length,
+          totalUnlisted: transformedNFTs.filter(nft => !nft.listed).length
         }
       }
     })

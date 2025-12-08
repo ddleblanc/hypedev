@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
   Play, Pause, Volume2, VolumeX, ArrowLeft, ShoppingCart, Check, Plus,
@@ -23,16 +22,19 @@ interface CollectionHeroProps {
   onShare: () => void;
 }
 
+// Format large numbers compactly
+function formatCompact(num: number): string {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
+  if (num >= 1000) return (num / 1000).toFixed(1) + "K";
+  return num.toLocaleString();
+}
+
 export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, onShare }: CollectionHeroProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
 
   const router = useRouter();
-  const heroRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
-  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   const togglePlayPause = () => {
     if (videoRef.current) {
@@ -53,11 +55,8 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
   };
 
   return (
-    <motion.div
-      ref={heroRef}
-      className="relative h-[75vh] md:h-[85vh] overflow-hidden"
-      style={{ scale: heroScale }}
-    >
+    <div className="relative h-[50vh] md:h-[55vh] overflow-hidden">
+      {/* Background - static, clean */}
       <div className="absolute inset-0">
         {collection.videoUrl ? (
           <video
@@ -77,317 +76,236 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
             className="w-full h-full object-cover"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/10" />
       </div>
 
-      {/* Back Button & Controls */}
-      <motion.div
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-        className="absolute top-4 left-4 right-4 flex items-center justify-between z-10"
-      >
+      {/* Top Bar */}
+      <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
         <Button
           size="icon"
           variant="ghost"
-          className="bg-black/40 backdrop-blur text-white hover:bg-black/60"
+          className="bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors duration-150"
           onClick={() => router.back()}
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
 
-        <div className="flex gap-2">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="bg-black/40 backdrop-blur text-white hover:bg-black/60"
-            onClick={togglePlayPause}
-          >
-            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="bg-black/40 backdrop-blur text-white hover:bg-black/60"
-            onClick={toggleMute}
-          >
-            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-          </Button>
-        </div>
-      </motion.div>
+        {collection.videoUrl && (
+          <div className="flex gap-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors duration-150"
+              onClick={togglePlayPause}
+            >
+              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-colors duration-150"
+              onClick={toggleMute}
+            >
+              {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+            </Button>
+          </div>
+        )}
+      </div>
 
       {/* Hero Content - Desktop */}
-      <motion.div
-        style={{ opacity: heroOpacity }}
-        className="hidden md:block absolute bottom-0 left-0 right-0 p-12"
-      >
-        <div>
-          {/* Creator Info */}
-          <motion.div
-            initial={{ x: -30, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
-            className="flex items-center gap-3 mb-4"
-          >
-            <img
-              src={collection.creator.avatar}
-              alt={collection.creator.name}
-              className="w-10 h-10 rounded-full border-2 border-white/20"
-            />
-            <div className="flex items-center gap-2">
-              <p className="text-white/80">Created by</p>
-              <p className="text-white font-bold">{collection.creator.name}</p>
-              {collection.creator.verified && (
-                <Verified className="w-4 h-4 text-blue-400 fill-current" />
-              )}
-            </div>
-          </motion.div>
-
-          {/* Title & Description */}
-          <motion.h1
-            initial={{ x: -30, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.5, duration: 0.6 }}
-            className="text-6xl font-black text-white mb-3"
-          >
-            {collection.title}
-          </motion.h1>
-          <motion.p
-            initial={{ x: -30, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
-            className="text-lg text-white/90 mb-6"
-          >
-            {collection.description}
-          </motion.p>
-
-          {/* Quick Stats */}
-          <motion.div
-            initial={{ x: -30, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.7, duration: 0.6 }}
-            className="flex flex-wrap items-center gap-6 mb-6"
-          >
-            <div>
-              <p className="text-sm text-white/60">Floor Price</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-[rgb(163,255,18)]">
-                  {collection.stats.floorPrice} ETH
-                </p>
-                <p className="text-sm text-white/60">
-                  ${collection.stats.floorPriceUSD.toLocaleString()}
-                </p>
-              </div>
-            </div>
-            <Separator orientation="vertical" className="h-12 bg-white/20" />
-            <div>
-              <p className="text-sm text-white/60">Total Volume</p>
-              <p className="text-2xl font-bold text-white">
-                {collection.stats.volumeAll} ETH
-              </p>
-            </div>
-            <Separator orientation="vertical" className="h-12 bg-white/20" />
-            <div>
-              <p className="text-sm text-white/60">Items</p>
-              <p className="text-2xl font-bold text-white">
-                {collection.stats.totalSupply.toLocaleString()}
-              </p>
-            </div>
-            <Separator orientation="vertical" className="h-12 bg-white/20" />
-            <div>
-              <p className="text-sm text-white/60">Owners</p>
-              <p className="text-2xl font-bold text-white">
-                {collection.stats.owners.toLocaleString()}
-              </p>
-            </div>
-          </motion.div>
-
-          {/* Action Buttons */}
-          <motion.div
-            initial={{ x: -30, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.6 }}
-            className="flex flex-wrap items-center gap-3"
-          >
-            <Button
-              size="lg"
-              className="bg-black/80 text-white hover:bg-black/90 border border-white/20 font-bold"
-            >
-              <ShoppingCart className="w-5 h-5 mr-2" />
-              Buy Now
-            </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white/30 text-white hover:bg-white/10"
-              onClick={onWatchlistToggle}
-            >
-              {isWatchlisted ? (
-                <>
-                  <Check className="w-5 h-5 mr-2" />
-                  Watching
-                </>
-              ) : (
-                <>
-                  <Plus className="w-5 h-5 mr-2" />
-                  Add to Watchlist
-                </>
-              )}
-            </Button>
-            <Button
-              size="lg"
-              variant="ghost"
-              className="text-white hover:bg-white/10"
-              onClick={onShare}
-            >
-              <Share2 className="w-5 h-5 mr-2" />
-              Share
-            </Button>
-
-            {/* Social Links */}
-            <div className="flex items-center gap-2 ml-auto">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="icon" variant="ghost" className="text-white hover:bg-white/10">
-                    <Globe className="w-5 h-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Website</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="icon" variant="ghost" className="text-white hover:bg-white/10">
-                    <Twitter className="w-5 h-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Twitter</TooltipContent>
-              </Tooltip>
-            </div>
-          </motion.div>
-        </div>
-      </motion.div>
-
-      {/* Hero Content - Mobile (Social Media Profile Style) */}
-      <motion.div
-        style={{ opacity: heroOpacity }}
-        className="md:hidden absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/95 to-transparent p-4 pb-6"
-      >
-        <div className="space-y-3">
-          {/* Creator Info - Compact */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-            className="flex items-center gap-2"
-          >
-            <img
-              src={collection.creator.avatar}
-              alt={collection.creator.name}
-              className="w-8 h-8 rounded-full border border-white/20"
-            />
-            <p className="text-white/80 text-sm">by</p>
-            <p className="text-white font-bold text-sm">{collection.creator.name}</p>
+      <div className="hidden md:block absolute bottom-0 left-0 right-0 p-8">
+        {/* Creator Info */}
+        <div className="flex items-center gap-3 mb-3">
+          <img
+            src={collection.creator.avatar}
+            alt={collection.creator.name}
+            className="w-9 h-9 rounded-full border border-white/20"
+          />
+          <div className="flex items-center gap-2">
+            <span className="text-white/70 text-sm">by</span>
+            <span className="text-white font-medium">{collection.creator.name}</span>
             {collection.creator.verified && (
-              <Verified className="w-3 h-3 text-blue-400 fill-current" />
+              <Verified className="w-4 h-4 text-blue-400 fill-current" />
             )}
-          </motion.div>
-
-          {/* Title & Description - Compact */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5, duration: 0.5 }}
-          >
-            <h1 className="text-2xl font-black text-white mb-1">
-              {collection.title}
-            </h1>
-            <p className="text-sm text-white/80 line-clamp-2">
-              {collection.description}
-            </p>
-          </motion.div>
-
-          {/* Quick Stats - Compact Grid */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.5 }}
-            className="grid grid-cols-4 gap-2"
-          >
-            <div className="bg-black/40 backdrop-blur rounded-lg p-2">
-              <p className="text-[10px] text-white/60 mb-0.5">Floor</p>
-              <p className="text-sm font-bold text-[rgb(163,255,18)]">
-                {collection.stats.floorPrice}
-              </p>
-            </div>
-            <div className="bg-black/40 backdrop-blur rounded-lg p-2">
-              <p className="text-[10px] text-white/60 mb-0.5">Volume</p>
-              <p className="text-sm font-bold text-white">
-                {collection.stats.volumeAll}
-              </p>
-            </div>
-            <div className="bg-black/40 backdrop-blur rounded-lg p-2">
-              <p className="text-[10px] text-white/60 mb-0.5">Items</p>
-              <p className="text-sm font-bold text-white">
-                {collection.stats.totalSupply > 1000
-                  ? `${(collection.stats.totalSupply / 1000).toFixed(1)}K`
-                  : collection.stats.totalSupply}
-              </p>
-            </div>
-            <div className="bg-black/40 backdrop-blur rounded-lg p-2">
-              <p className="text-[10px] text-white/60 mb-0.5">Owners</p>
-              <p className="text-sm font-bold text-white">
-                {collection.stats.owners > 1000
-                  ? `${(collection.stats.owners / 1000).toFixed(1)}K`
-                  : collection.stats.owners}
-              </p>
-            </div>
-          </motion.div>
-
-          {/* Action Buttons - Compact */}
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.7, duration: 0.5 }}
-            className="flex items-center gap-2"
-          >
-            <Button
-              size="sm"
-              className="flex-1 bg-black/80 text-white hover:bg-black/90 border border-white/20 font-bold h-9"
-            >
-              <ShoppingCart className="w-4 h-4 mr-1" />
-              Buy
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              className="border-white/30 text-white hover:bg-white/10 h-9 w-9 shrink-0"
-              onClick={onWatchlistToggle}
-            >
-              {isWatchlisted ? (
-                <Check className="w-4 h-4" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              className="border-white/30 text-white hover:bg-white/10 h-9 w-9 shrink-0"
-              onClick={onShare}
-            >
-              <Share2 className="w-4 h-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              className="border-white/30 text-white hover:bg-white/10 h-9 w-9 shrink-0"
-            >
-              <Globe className="w-4 h-4" />
-            </Button>
-          </motion.div>
+          </div>
         </div>
-      </motion.div>
-    </motion.div>
+
+        {/* Title & Description */}
+        <h1 className="text-4xl font-bold text-white mb-2">
+          {collection.title}
+        </h1>
+        <p className="text-base text-white/80 mb-5 max-w-2xl line-clamp-2">
+          {collection.description}
+        </p>
+
+        {/* Stats Row */}
+        <div className="flex items-center gap-6 mb-5">
+          <div>
+            <p className="text-xs text-white/50 mb-0.5">Floor</p>
+            <p className="text-xl font-semibold text-white">
+              {parseFloat(collection.stats.floorPrice || 0).toFixed(2)} ETH
+            </p>
+          </div>
+          <Separator orientation="vertical" className="h-10 bg-white/20" />
+          <div>
+            <p className="text-xs text-white/50 mb-0.5">Volume</p>
+            <p className="text-xl font-semibold text-white">
+              {formatCompact(parseFloat(collection.stats.volumeAll || 0))} ETH
+            </p>
+          </div>
+          <Separator orientation="vertical" className="h-10 bg-white/20" />
+          <div>
+            <p className="text-xs text-white/50 mb-0.5">Items</p>
+            <p className="text-xl font-semibold text-white">
+              {formatCompact(collection.stats.totalSupply || 0)}
+            </p>
+          </div>
+          <Separator orientation="vertical" className="h-10 bg-white/20" />
+          <div>
+            <p className="text-xs text-white/50 mb-0.5">Owners</p>
+            <p className="text-xl font-semibold text-white">
+              {formatCompact(collection.stats.owners || 0)}
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          <Button
+            size="default"
+            className="bg-white text-black hover:bg-white/90 font-medium transition-colors duration-150"
+          >
+            <ShoppingCart className="w-4 h-4 mr-2" />
+            Buy Now
+          </Button>
+          <Button
+            size="default"
+            variant="outline"
+            className="border-white/30 text-white hover:bg-white/10 transition-colors duration-150"
+            onClick={onWatchlistToggle}
+          >
+            {isWatchlisted ? (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Watching
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4 mr-2" />
+                Watchlist
+              </>
+            )}
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-150"
+            onClick={onShare}
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
+
+          {/* Social Links */}
+          <div className="flex items-center gap-1 ml-auto">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10">
+                  <Globe className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Website</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10">
+                  <Twitter className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Twitter</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+      </div>
+
+      {/* Hero Content - Mobile */}
+      <div className="md:hidden absolute bottom-0 left-0 right-0 p-4 pb-5">
+        {/* Creator */}
+        <div className="flex items-center gap-2 mb-2">
+          <img
+            src={collection.creator.avatar}
+            alt={collection.creator.name}
+            className="w-7 h-7 rounded-full border border-white/20"
+          />
+          <span className="text-white/70 text-sm">by</span>
+          <span className="text-white font-medium text-sm">{collection.creator.name}</span>
+          {collection.creator.verified && (
+            <Verified className="w-3 h-3 text-blue-400 fill-current" />
+          )}
+        </div>
+
+        {/* Title */}
+        <h1 className="text-2xl font-bold text-white mb-1">
+          {collection.title}
+        </h1>
+        <p className="text-sm text-white/70 line-clamp-2 mb-3">
+          {collection.description}
+        </p>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-4 gap-2 mb-3">
+          <div className="bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1.5">
+            <p className="text-[10px] text-white/50">Floor</p>
+            <p className="text-sm font-semibold text-white">
+              {parseFloat(collection.stats.floorPrice || 0).toFixed(2)}
+            </p>
+          </div>
+          <div className="bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1.5">
+            <p className="text-[10px] text-white/50">Volume</p>
+            <p className="text-sm font-semibold text-white">
+              {formatCompact(parseFloat(collection.stats.volumeAll || 0))}
+            </p>
+          </div>
+          <div className="bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1.5">
+            <p className="text-[10px] text-white/50">Items</p>
+            <p className="text-sm font-semibold text-white">
+              {formatCompact(collection.stats.totalSupply || 0)}
+            </p>
+          </div>
+          <div className="bg-black/50 backdrop-blur-sm rounded-lg px-2 py-1.5">
+            <p className="text-[10px] text-white/50">Owners</p>
+            <p className="text-sm font-semibold text-white">
+              {formatCompact(collection.stats.owners || 0)}
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            className="flex-1 bg-white text-black hover:bg-white/90 font-medium h-9"
+          >
+            <ShoppingCart className="w-4 h-4 mr-1" />
+            Buy
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            className="border-white/30 text-white hover:bg-white/10 h-9 w-9"
+            onClick={onWatchlistToggle}
+          >
+            {isWatchlisted ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            className="border-white/30 text-white hover:bg-white/10 h-9 w-9"
+            onClick={onShare}
+          >
+            <Share2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

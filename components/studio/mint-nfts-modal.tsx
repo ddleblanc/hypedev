@@ -416,14 +416,22 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
 
           // Save the shared metadata to our database for reference
           // We don't create individual NFT records yet - they're created when users claim
-          await fetch('/api/studio/collections', {
+          const patchResponse = await fetch('/api/studio/collections', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               collectionId: collection.id,
-              sharedMetadata: sharedMetadata
+              sharedMetadata: sharedMetadata,
+              walletAddress: account.address
             })
           });
+
+          if (!patchResponse.ok) {
+            const patchData = await patchResponse.json();
+            if (patchData.code === 'CREATOR_NOT_APPROVED') {
+              throw new Error('Your creator application is pending approval. You cannot modify on-chain metadata until approved.');
+            }
+          }
 
           setUploadProgress(100);
           completeTransaction();
@@ -478,12 +486,30 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
         // Mint based on contract type
         const mintMethod = getMintMethod();
 
+        // Track the actual minted token ID from blockchain
+        let mintedTokenId: string | null = null;
+
         try {
           updateStep("pending", mintProgress);
 
           if (mintMethod === 'lazy') {
             // Lazy mint ERC721 (NFTDrop)
             console.log('Using lazy mint ERC721 for contract type:', collection.contractType);
+
+            // Try to get the next token ID BEFORE minting
+            try {
+              const { readContract } = await import('thirdweb');
+              const nextTokenId = await readContract({
+                contract,
+                method: "function nextTokenIdToMint() view returns (uint256)",
+                params: []
+              });
+              mintedTokenId = nextTokenId.toString();
+              console.log('Next token ID to be lazy minted:', mintedTokenId);
+            } catch (e) {
+              console.log('Could not get nextTokenIdToMint for lazy mint');
+            }
+
             const result = await lazyMintNFT({
               contractAddress: collection.address,
               chainId: collection.chainId,
@@ -506,6 +532,10 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
             if (result.transactionHash) {
               setTxHash(result.transactionHash);
             }
+            // Capture the token ID
+            if (result.tokenId !== undefined) {
+              mintedTokenId = result.tokenId.toString();
+            }
           } else if (mintMethod === 'edition') {
             // Direct mint ERC1155 (Edition)
             console.log('Using direct mint ERC1155 for contract type:', collection.contractType);
@@ -522,6 +552,10 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
             if (result.transactionHash) {
               setTxHash(result.transactionHash);
             }
+            // Capture the token ID - this is on-chain
+            if (result.tokenId !== undefined) {
+              mintedTokenId = result.tokenId.toString();
+            }
           } else if (mintMethod === 'open') {
             // OpenEdition - should not mint individual NFTs
             console.warn('OpenEdition contracts cannot mint individual NFTs - skipping');
@@ -529,6 +563,20 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
           } else {
             // Direct mint ERC721 (NFTCollection)
             console.log('Attempting direct mint ERC721 for contract type:', collection.contractType);
+
+            // Try to get current totalSupply before minting to determine token ID
+            let preSupply: bigint | null = null;
+            try {
+              const { readContract } = await import('thirdweb');
+              preSupply = await readContract({
+                contract,
+                method: "function totalSupply() view returns (uint256)",
+                params: []
+              });
+              console.log('Current totalSupply before mint:', preSupply?.toString());
+            } catch (supplyError) {
+              console.log('Could not read totalSupply (will use fallback ID):', supplyError);
+            }
 
             try {
               // Try mintTo (common for TokenERC721)
@@ -538,6 +586,12 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
                 params: [account.address, BigInt(1)]
               });
               await sendTransaction({ transaction, account });
+
+              // Token ID is typically the totalSupply before minting (0-indexed)
+              if (preSupply !== null) {
+                mintedTokenId = preSupply.toString();
+                console.log('Direct minted ERC721, token ID:', mintedTokenId);
+              }
             } catch (mintToError) {
               console.log('mintTo failed, trying mint...');
 
@@ -549,6 +603,11 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
                   params: [account.address]
                 });
                 await sendTransaction({ transaction, account });
+
+                if (preSupply !== null) {
+                  mintedTokenId = preSupply.toString();
+                  console.log('Direct minted ERC721 (mint), token ID:', mintedTokenId);
+                }
               } catch (mintError) {
                 console.log('mint failed, trying safeMint...');
 
@@ -560,6 +619,11 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
                     params: [account.address]
                   });
                   await sendTransaction({ transaction, account });
+
+                  if (preSupply !== null) {
+                    mintedTokenId = preSupply.toString();
+                    console.log('Direct minted ERC721 (safeMint), token ID:', mintedTokenId);
+                  }
                 } catch (safeMintError) {
                   console.error('All mint methods failed. Contract might require special setup or different method.');
                   console.error('Contract address:', collection.address);
@@ -575,14 +639,26 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
         }
 
         // Store processed NFT data for database
+        // Determine if this NFT is actually on-chain based on mint method
+        // - 'lazy' and 'lazy-edition': NOT on-chain (users must claim them)
+        // - 'edition' and 'direct': ARE on-chain (directly minted)
+        const isDirectMint = mintMethod === 'edition' || mintMethod === 'direct';
+
+        // Use the actual minted token ID if available, otherwise use a fallback
+        const dbTokenId = mintedTokenId || `${Date.now()}-${i}`;
+
         processedNfts.push({
           name: nft.name,
           description: nft.description,
           image: imageUrl || '',
           attributes: nft.attributes,
-          tokenId: `${Date.now()}-${i}`,
+          tokenId: dbTokenId,
           ownerAddress: account.address,
-          metadataUri: imageUrl // Store the IPFS URI
+          metadataUri: imageUrl, // Store the IPFS URI
+          // On-chain status: direct mints are immediately on-chain, lazy mints are not
+          isOnChain: isDirectMint,
+          // Store the actual on-chain token ID for marketplace operations
+          onChainTokenId: isDirectMint ? mintedTokenId : null
         });
 
         setUploadProgress(80 + (i / nftsToMint.length) * 20);
@@ -611,21 +687,33 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
 
   // Save NFTs to database
   const saveNFTsToDatabase = async (nftsData: any[]) => {
+    if (!account?.address) {
+      console.error('No wallet connected');
+      return;
+    }
+
     try {
       const response = await fetch('/api/studio/collections/nfts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           collectionId: collection.id,
-          nfts: nftsData
+          nfts: nftsData,
+          walletAddress: account.address
         })
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to save NFTs to database');
+        // Handle specific error codes
+        if (data.code === 'CREATOR_NOT_APPROVED') {
+          setError('Your creator application is pending approval. You can draft NFTs but cannot mint to blockchain until approved.');
+          return;
+        }
+        throw new Error(data.error || 'Failed to save NFTs to database');
       }
 
-      const data = await response.json();
       console.log('NFTs saved to database:', data);
       return data.nfts;
     } catch (error) {

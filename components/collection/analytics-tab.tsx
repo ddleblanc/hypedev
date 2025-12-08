@@ -1,31 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Sparkles, TrendingUp, Users, Diamond } from "lucide-react";
 import { TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
+import {
+  AreaChart,
+  Area,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { TimeframeToggle, type Timeframe } from "@/components/shared/timeframe-toggle";
+
+// Generate mock data for charts based on timeframe
+function generateMockData(timeframe: Timeframe) {
+  const dataPoints = timeframe === "24h" ? 24 : timeframe === "7d" ? 7 : 30;
+  const basePrice = 1.5;
+  const baseVolume = 50;
+
+  return Array.from({ length: dataPoints }, (_, i) => {
+    const variation = Math.sin(i * 0.5) * 0.3 + Math.random() * 0.2;
+    return {
+      date: timeframe === "24h" ? `${i}h` : timeframe === "7d" ? `Day ${i + 1}` : `${i + 1}`,
+      price: Number((basePrice + variation).toFixed(2)),
+      volume: Number((baseVolume + Math.random() * 40 - 20).toFixed(1)),
+      sales: Math.floor(Math.random() * 20 + 5),
+    };
+  });
+}
+
+// Custom tooltip component
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload || !payload.length) return null;
+
+  return (
+    <div className="bg-black/90 border border-white/20 rounded-lg p-3 backdrop-blur-sm">
+      <p className="text-white/60 text-xs mb-1">{label}</p>
+      {payload.map((item: any, index: number) => (
+        <p key={index} className="text-white font-medium text-sm">
+          {item.name}: {item.value} {item.name === "volume" || item.name === "price" ? "ETH" : ""}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+// Holder distribution data
+const holderDistribution = [
+  { range: "1 item", count: 4250, percentage: 65 },
+  { range: "2-5 items", count: 1625, percentage: 25 },
+  { range: "6-10 items", count: 455, percentage: 7 },
+  { range: "10+ items", count: 195, percentage: 3 },
+];
 
 export function AnalyticsTab() {
-  const [selectedTimeframe, setSelectedTimeframe] = useState('7d');
+  const [selectedTimeframe, setSelectedTimeframe] = useState<Timeframe>("7d");
+
+  // Memoize chart data to prevent recalculation
+  const chartData = useMemo(() => generateMockData(selectedTimeframe), [selectedTimeframe]);
 
   return (
     <TabsContent value="analytics" className="mt-0 space-y-6">
       {/* Time Range Selector */}
       <div className="flex items-center justify-between">
         <h3 className="text-xl font-bold text-white">Performance Analytics</h3>
-        <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
-          <SelectTrigger className="w-32 bg-black/40 border-white/20 text-white">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="24h">24 Hours</SelectItem>
-            <SelectItem value="7d">7 Days</SelectItem>
-            <SelectItem value="30d">30 Days</SelectItem>
-            <SelectItem value="all">All Time</SelectItem>
-          </SelectContent>
-        </Select>
+        <TimeframeToggle
+          value={selectedTimeframe}
+          onChange={setSelectedTimeframe}
+        />
       </div>
 
       {/* Charts Grid */}
@@ -39,9 +87,40 @@ export function AnalyticsTab() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center text-white/40">
-              [Price Chart Visualization]
-            </div>
+            <ResponsiveContainer width="100%" height={256}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="rgb(163,255,18)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="rgb(163,255,18)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="date"
+                  stroke="#ffffff40"
+                  tick={{ fill: "#ffffff60", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#ffffff40"
+                  tick={{ fill: "#ffffff60", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value} ETH`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="price"
+                  stroke="rgb(163,255,18)"
+                  strokeWidth={2}
+                  fill="url(#priceGradient)"
+                  isAnimationActive={true}
+                  animationDuration={500}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
@@ -54,24 +133,78 @@ export function AnalyticsTab() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center text-white/40">
-              [Volume Chart Visualization]
-            </div>
+            <ResponsiveContainer width="100%" height={256}>
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.3} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="date"
+                  stroke="#ffffff40"
+                  tick={{ fill: "#ffffff60", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#ffffff40"
+                  tick={{ fill: "#ffffff60", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${value}`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar
+                  dataKey="volume"
+                  fill="url(#volumeGradient)"
+                  radius={[4, 4, 0, 0]}
+                  isAnimationActive={true}
+                  animationDuration={500}
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
         {/* Sales Distribution */}
         <Card className="bg-black/40 border-white/10">
           <CardHeader>
-            <CardTitle className="text-white">Sales Distribution</CardTitle>
+            <CardTitle className="text-white">Sales Activity</CardTitle>
             <CardDescription className="text-white/60">
-              Price distribution of recent sales
+              Number of sales over time
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-64 flex items-center justify-center text-white/40">
-              [Distribution Chart]
-            </div>
+            <ResponsiveContainer width="100%" height={256}>
+              <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <XAxis
+                  dataKey="date"
+                  stroke="#ffffff40"
+                  tick={{ fill: "#ffffff60", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#ffffff40"
+                  tick={{ fill: "#ffffff60", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="sales"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  dot={{ fill: "#a855f7", strokeWidth: 0, r: 3 }}
+                  activeDot={{ r: 5, fill: "#a855f7" }}
+                  isAnimationActive={true}
+                  animationDuration={500}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
@@ -84,35 +217,21 @@ export function AnalyticsTab() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-white/80">1 item</span>
-                <div className="flex items-center gap-2">
-                  <Progress value={65} className="w-32 h-2 bg-white/10" />
-                  <span className="text-xs text-white/60 w-12 text-right">65%</span>
+            <div className="space-y-4">
+              {holderDistribution.map((item) => (
+                <div key={item.range} className="space-y-1">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-white/80">{item.range}</span>
+                    <span className="text-white/60">{item.count.toLocaleString()} ({item.percentage}%)</span>
+                  </div>
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-[rgb(163,255,18)] to-green-400 transition-all duration-500"
+                      style={{ width: `${item.percentage}%` }}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-white/80">2-5 items</span>
-                <div className="flex items-center gap-2">
-                  <Progress value={25} className="w-32 h-2 bg-white/10" />
-                  <span className="text-xs text-white/60 w-12 text-right">25%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-white/80">6-10 items</span>
-                <div className="flex items-center gap-2">
-                  <Progress value={7} className="w-32 h-2 bg-white/10" />
-                  <span className="text-xs text-white/60 w-12 text-right">7%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-white/80">10+ items</span>
-                <div className="flex items-center gap-2">
-                  <Progress value={3} className="w-32 h-2 bg-white/10" />
-                  <span className="text-xs text-white/60 w-12 text-right">3%</span>
-                </div>
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>

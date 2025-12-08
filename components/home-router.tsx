@@ -1,23 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { HomepageContainer, PublicHomepageContainer } from "@/components/homepage/homepage-container";
 import Lottie from "lottie-react";
 import loadingAnimation from "@/public/assets/anim/loading.json";
 
-interface HomeRouterProps {
-  publicContent: React.ReactNode;
-  authenticatedContent: React.ReactNode;
-}
-
-export function HomeRouter({ publicContent, authenticatedContent }: HomeRouterProps) {
+export function HomeRouter() {
   const { user, isLoading, isConnected } = useWalletAuthOptimized();
 
-  // Show loading state
+  // Show loading state while checking authentication
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center space-y-4">
           <Lottie
             animationData={loadingAnimation}
@@ -29,11 +23,11 @@ export function HomeRouter({ publicContent, authenticatedContent }: HomeRouterPr
     );
   }
 
-  // If user is connected and authenticated, show authenticated content
+  // Authenticated users get the full dual-homepage experience with portal switch
   if (user && isConnected) {
-    return <>{authenticatedContent}</>;
+    return <HomepageContainer isAuthenticated={true} />;
   }
 
-  // Otherwise show public content
-  return <>{publicContent}</>;
+  // Unauthenticated users see Traditional homepage only (no portal switch)
+  return <PublicHomepageContainer />;
 }

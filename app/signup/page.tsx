@@ -6,8 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ConnectButton } from 'thirdweb/react'
 import { client } from '@/lib/thirdweb'
+import { AuthenticatedConnectButton } from '@/components/auth/authenticated-connect-button'
 import { Wallet, ArrowLeft, Crown, Sparkles, Shield, Users, Star, TrendingUp, Zap } from 'lucide-react'
 
 interface User {
@@ -260,8 +260,7 @@ function SignupContent() {
               
               {/* Connect Button */}
               <div className="space-y-4">
-                <ConnectButton
-                  client={client}
+                <AuthenticatedConnectButton
                   theme="dark"
                   connectButton={{
                     label: "Connect Wallet to Start",

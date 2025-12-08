@@ -1,17 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { requireAuthMatch, AuthError } from '@/lib/thirdweb-auth'
+
+// Helper function to format ETH values for display
+function formatEthValue(value: number): string | undefined {
+  if (value === 0) return undefined // Don't display zero values
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(1)}K ETH`
+  }
+  if (value >= 1) {
+    return `${value.toFixed(2)} ETH`
+  }
+  return `${value.toFixed(4)} ETH`
+}
+
+// Helper function to get default stats
+function getDefaultStats(isCreator: boolean) {
+  return {
+    nftsOwned: 0,
+    collectionsOwned: 0,
+    volumeTraded: undefined,
+    totalSales: 0,
+    totalPurchases: 0,
+    created: isCreator ? 0 : undefined,
+    followers: 0,
+    following: 0,
+    avgSalePrice: 0,
+    topSale: 0,
+    salesCount: 0,
+    purchasesCount: 0,
+    joinedDays: 1,
+  }
+}
 
 // Helper function to calculate user stats from database
 async function calculateUserStats(walletAddress: string, isCreator: boolean) {
   const normalizedAddress = walletAddress.toLowerCase()
-  
+
   try {
-    // Get user's NFTs from database
+    // Get user record to get userId for Activity queries
+    const user = await prisma.user.findUnique({
+      where: { walletAddress: normalizedAddress },
+      include: {
+        _count: {
+          select: {
+            followers: true,
+            following: true
+          }
+        }
+      }
+    })
+
+    if (!user) {
+      return getDefaultStats(isCreator)
+    }
+
+    // Run all queries in parallel for performance
     const [
       ownedNFTs,
-      createdCollections,
-      userFollowStats,
+      collectionsOwned,
+      createdNFTs,
+      salesData,
+      purchasesData,
     ] = await Promise.all([
       // Count NFTs owned by this user
       prisma.nft.count({
@@ -20,99 +71,79 @@ async function calculateUserStats(walletAddress: string, isCreator: boolean) {
           isMinted: true
         }
       }),
-      
-      // Count collections created by this user (if creator)
-      isCreator ? prisma.collection.count({
+
+      // Count collections created by this user
+      prisma.collection.count({
+        where: { creatorAddress: normalizedAddress }
+      }),
+
+      // Count NFTs created (if creator)
+      isCreator ? prisma.nft.count({
         where: {
-          creatorAddress: normalizedAddress,
-          isDeployed: true
+          collection: {
+            creatorAddress: normalizedAddress,
+            isDeployed: true
+          },
+          isMinted: true
         }
-      }) : 0,
-      
-      // Get follow statistics
-      prisma.user.findUnique({
-        where: { walletAddress: normalizedAddress },
-        include: {
-          _count: {
-            select: {
-              followers: true,
-              following: true
-            }
-          }
-        }
-      })
+      }) : Promise.resolve(0),
+
+      // Get sales statistics from Activity table
+      prisma.activity.aggregate({
+        where: {
+          userId: user.id,
+          type: 'listing_sold',
+          amount: { not: null }
+        },
+        _sum: { amount: true },
+        _count: { id: true },
+        _max: { amount: true }
+      }),
+
+      // Get purchases statistics from Activity table
+      prisma.activity.aggregate({
+        where: {
+          userId: user.id,
+          type: { in: ['purchase', 'auction_won'] },
+          amount: { not: null }
+        },
+        _sum: { amount: true },
+        _count: { id: true }
+      }),
     ])
 
-    // Get collection statistics for creators
-    let createdNFTs = 0
-    let portfolioValue = 0
-    let volumeTraded = 0
-    let avgSalePrice = 0
-    let topSale = 0
+    // Calculate real volume stats
+    const totalSales = salesData._sum.amount || 0
+    const totalPurchases = purchasesData._sum.amount || 0
+    const volumeTraded = totalSales + totalPurchases
+    const salesCount = salesData._count.id
+    const purchasesCount = purchasesData._count.id
+    const avgSalePrice = salesCount > 0 ? totalSales / salesCount : 0
+    const topSale = salesData._max.amount || 0
 
-    if (isCreator) {
-      // Get NFTs from collections created by this user
-      const creatorCollections = await prisma.collection.findMany({
-        where: {
-          creatorAddress: normalizedAddress,
-          isDeployed: true
-        },
-        include: {
-          nfts: {
-            where: {
-              isMinted: true
-            }
-          }
-        }
-      })
-
-      createdNFTs = creatorCollections.reduce((total, collection) => 
-        total + collection.nfts.length, 0
-      )
-    }
-
-    // TODO: Integrate with blockchain/marketplace APIs for real trading data
-    // For now, we'll use calculated values based on NFT ownership
-    portfolioValue = ownedNFTs * 0.5 + Math.random() * ownedNFTs * 2
-    volumeTraded = portfolioValue * 1.5 + Math.random() * portfolioValue
-    avgSalePrice = ownedNFTs > 0 ? portfolioValue / ownedNFTs : 0
-    topSale = avgSalePrice * 2 + Math.random() * avgSalePrice * 3
-
-    const joinedDays = userFollowStats?.createdAt 
-      ? Math.floor((Date.now() - new Date(userFollowStats.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+    // Calculate days since joined
+    const joinedDays = user.createdAt
+      ? Math.floor((Date.now() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24))
       : 0
 
     return {
       nftsOwned: ownedNFTs,
-      collectionsOwned: await prisma.collection.count({
-        where: { creatorAddress: normalizedAddress }
-      }),
-      totalValue: +portfolioValue.toFixed(2),
-      volumeTraded: +volumeTraded.toFixed(2),
+      collectionsOwned: collectionsOwned,
+      volumeTraded: formatEthValue(volumeTraded),
+      totalSales: +totalSales.toFixed(4),
+      totalPurchases: +totalPurchases.toFixed(4),
       created: isCreator ? createdNFTs : undefined,
-      followers: userFollowStats?._count?.followers || 0,
-      following: userFollowStats?._count?.following || 0,
-      avgSalePrice: +avgSalePrice.toFixed(2),
-      topSale: +topSale.toFixed(2),
-      rank: Math.max(1, Math.floor(Math.random() * 10000)),
+      followers: user._count?.followers || 0,
+      following: user._count?.following || 0,
+      avgSalePrice: +avgSalePrice.toFixed(4),
+      topSale: +topSale.toFixed(4),
+      salesCount,
+      purchasesCount,
       joinedDays: Math.max(1, joinedDays),
     }
   } catch (error) {
     console.error('Error calculating user stats:', error)
-    // Return default stats if calculation fails
-    return {
-      nftsOwned: 0,
-      collectionsOwned: 0,
-      totalValue: 0,
-      volumeTraded: 0,
-      created: isCreator ? 0 : undefined,
-      followers: 0,
-      following: 0,
-      avgSalePrice: 0,
-      topSale: 0,
-      rank: Math.floor(Math.random() * 10000) + 1,
-      joinedDays: 1,
-    }
+    return getDefaultStats(isCreator)
   }
 }
 
@@ -184,6 +215,19 @@ export async function PUT(
       )
     }
 
+    // Verify that the authenticated user is the same as the address being updated
+    try {
+      await requireAuthMatch(address)
+    } catch (authError) {
+      if (authError instanceof AuthError) {
+        return NextResponse.json(
+          { success: false, error: authError.message },
+          { status: authError.status }
+        )
+      }
+      throw authError
+    }
+
     // Find existing user
     const existingUser = await auth.getUserByWallet(address)
 
@@ -229,50 +273,6 @@ export async function PUT(
   }
 }
 
-// Follow/Unfollow functionality (placeholder for future implementation)
-export async function POST(
-  request: NextRequest,
-  context: { params: Promise<{ address: string }> }
-) {
-  const params = await context.params;
-  try {
-    const { address } = params
-    const { action, currentUserAddress } = await request.json()
-
-    if (!address || !currentUserAddress) {
-      return NextResponse.json(
-        { success: false, error: 'Both addresses are required' },
-        { status: 400 }
-      )
-    }
-
-    if (action === 'follow') {
-      // Implement follow logic here
-      // This would typically involve creating a Follow record in the database
-      return NextResponse.json({
-        success: true,
-        message: 'User followed successfully',
-        following: true
-      })
-    } else if (action === 'unfollow') {
-      // Implement unfollow logic here
-      return NextResponse.json({
-        success: true,
-        message: 'User unfollowed successfully',
-        following: false
-      })
-    }
-
-    return NextResponse.json(
-      { success: false, error: 'Invalid action' },
-      { status: 400 }
-    )
-
-  } catch (error) {
-    console.error('Error processing follow action:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to process follow action' },
-      { status: 500 }
-    )
-  }
-}
+// Note: Follow/Unfollow functionality is implemented at /api/user/[address]/follow
+// Use POST /api/user/[address]/follow with { followerAddress } to follow
+// Use DELETE /api/user/[address]/follow with { followerAddress } to unfollow

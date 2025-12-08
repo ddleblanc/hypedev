@@ -1,5 +1,6 @@
 export interface CollectionItem {
   id: number;
+  dbId?: string; // Database UUID
   name: string;
   price: string;
   lastSale: string;
@@ -9,8 +10,11 @@ export interface CollectionItem {
   likes: number;
   owner: string;
   listed: boolean;
+  listingId?: string | null; // Marketplace listing ID
   hasOffer: boolean;
   offerPrice: string;
+  onAuction?: boolean;
+  auctionId?: string | null; // Marketplace auction ID
   traits: Array<{ trait_type: string; value: string }>;
 }
 
@@ -69,6 +73,7 @@ export interface CollectionStats {
 export interface Collection {
   id: string;
   title: string;
+  name: string; // Alias for title - used by sweep dialog
   subtitle: string;
   description: string;
   longDescription: string;
@@ -88,6 +93,8 @@ export interface Collection {
     description: string;
   };
   stats: CollectionStats;
+  floorPrice: number; // Derived from stats.floorPrice
+  totalSupply: number; // Derived from stats.totalSupply
   priceHistory: Array<{ date: string; price: number }>;
   traits: Trait[];
   items: CollectionItem[];

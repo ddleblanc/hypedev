@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import type { ActivityType } from '@/lib/activity';
 
 export async function GET(
   request: NextRequest,
@@ -7,165 +8,204 @@ export async function GET(
 ) {
   const params = await context.params;
   try {
-    const { address } = params
-    const { searchParams } = new URL(request.url)
-    
+    const { address } = params;
+    const { searchParams } = new URL(request.url);
+
     // Parse query parameters
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const type = searchParams.get('type') // sale, list, offer, transfer, mint, burn
-    const days = parseInt(searchParams.get('days') || '30') // last N days
-    
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const type = searchParams.get('type'); // Activity type filter
+    const days = parseInt(searchParams.get('days') || '90'); // last N days
+
     if (!address) {
       return NextResponse.json(
         { success: false, error: 'Wallet address is required' },
         { status: 400 }
-      )
+      );
     }
 
     // Normalize the address
-    const normalizedAddress = address.toLowerCase()
+    const normalizedAddress = address.toLowerCase();
 
     // Find user first
     const user = await prisma.user.findUnique({
       where: {
-        walletAddress: normalizedAddress
-      }
-    })
+        walletAddress: normalizedAddress,
+      },
+    });
 
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
         { status: 404 }
-      )
+      );
     }
 
-    // Mock activity data generation (in real app, this would query blockchain/database activity)
-    const activityTypes = ['sale', 'list', 'offer', 'transfer', 'mint', 'burn', 'bid']
-    const generateMockActivity = (count: number) => {
-      const collections = ['CyberPunks', 'Digital Arts', 'Meta Worlds', 'Future Tokens', 'Crypto Gems']
-      const chains = ['ethereum', 'polygon', 'arbitrum', 'optimism', 'base']
-      
-      return Array.from({ length: count }, (_, i) => {
-        const activityType = type || activityTypes[Math.floor(Math.random() * activityTypes.length)]
-        const collection = collections[Math.floor(Math.random() * collections.length)]
-        const chain = chains[Math.floor(Math.random() * chains.length)]
-        
-        const activity = {
-          id: `activity-${user.id}-${i}`,
-          type: activityType,
+    // Build the where clause
+    const dateFilter = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const where: {
+      userId: string;
+      type?: string;
+      createdAt?: { gte: Date };
+    } = {
+      userId: user.id,
+      createdAt: { gte: dateFilter },
+    };
+
+    if (type && type !== 'all') {
+      where.type = type;
+    }
+
+    // Fetch activities with related data
+    const [activities, total] = await Promise.all([
+      prisma.activity.findMany({
+        where,
+        include: {
           nft: {
-            id: `nft-${i}`,
-            name: `${collection} #${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`,
-            image: `https://picsum.photos/100/100?random=${i}`,
-            collectionName: collection,
-            collectionSlug: collection.toLowerCase().replace(' ', '-'),
-            tokenId: Math.floor(Math.random() * 9999).toString(),
-            contractAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
-            chain
+            select: {
+              id: true,
+              name: true,
+              image: true,
+              tokenId: true,
+              collection: {
+                select: {
+                  id: true,
+                  name: true,
+                  address: true,
+                  image: true,
+                },
+              },
+            },
           },
-          // Price data (if applicable)
-          price: ['sale', 'list', 'offer', 'bid'].includes(activityType) 
-            ? +(Math.random() * 10 + 0.1).toFixed(3) 
-            : null,
-          priceUsd: ['sale', 'list', 'offer', 'bid'].includes(activityType) 
-            ? +(Math.random() * 20000 + 200).toFixed(2) 
-            : null,
-          // Addresses
-          fromAddress: activityType === 'mint' 
-            ? '0x0000000000000000000000000000000000000000'
-            : `0x${Math.random().toString(16).slice(2, 42)}`,
-          toAddress: activityType === 'burn' 
-            ? '0x0000000000000000000000000000000000000000'
-            : user.walletAddress,
-          // Transaction data
-          txHash: `0x${Math.random().toString(16).slice(2, 66)}`,
-          blockNumber: Math.floor(Math.random() * 1000000) + 18000000,
-          gasUsed: Math.floor(Math.random() * 200000) + 21000,
-          gasPrice: +(Math.random() * 50 + 10).toFixed(2),
-          // Timing
-          timestamp: new Date(Date.now() - Math.random() * days * 24 * 60 * 60 * 1000),
-          // Marketplace data (if applicable)
-          marketplace: ['sale', 'list', 'offer'].includes(activityType) 
-            ? ['OpenSea', 'Blur', 'X2Y2', 'LooksRare', 'Foundation'][Math.floor(Math.random() * 5)]
-            : null,
-          // Royalties (if applicable)
-          royaltyFee: ['sale'].includes(activityType) ? 5.0 : null,
-          marketplaceFee: ['sale', 'offer'].includes(activityType) ? 2.5 : null,
-        }
-        
-        return activity
-      })
-    }
+          collection: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              image: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.activity.count({ where }),
+    ]);
 
-    // Generate mock activity
-    const totalActivity = Math.floor(Math.random() * 200) + 50
-    const allActivity = generateMockActivity(totalActivity)
+    // Get activity stats grouped by type
+    const statsRaw = await prisma.activity.groupBy({
+      by: ['type'],
+      where: { userId: user.id },
+      _count: true,
+    });
 
-    // Filter by type if specified
-    let filteredActivity = allActivity
-    if (type) {
-      filteredActivity = allActivity.filter(activity => activity.type === type)
-    }
+    const stats = Object.fromEntries(
+      statsRaw.map((s) => [s.type, s._count])
+    ) as Record<ActivityType, number>;
 
-    // Sort by timestamp (most recent first)
-    filteredActivity.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    // Calculate volume stats for sale activities
+    const volumeStats = await prisma.activity.aggregate({
+      where: {
+        userId: user.id,
+        type: { in: ['listing_sold', 'purchase'] },
+      },
+      _sum: { amount: true },
+      _avg: { amount: true },
+      _count: true,
+    });
 
-    // Pagination
-    const skip = (page - 1) * limit
-    const paginatedActivity = filteredActivity.slice(skip, skip + limit)
-    const totalPages = Math.ceil(filteredActivity.length / limit)
+    // Get unique collections count
+    const uniqueCollections = await prisma.activity.groupBy({
+      by: ['collectionId'],
+      where: {
+        userId: user.id,
+        collectionId: { not: null },
+      },
+    });
 
-    // Calculate activity stats
-    const stats = {
-      total: filteredActivity.length,
-      byType: activityTypes.reduce((acc, type) => {
-        acc[type] = filteredActivity.filter(a => a.type === type).length
-        return acc
-      }, {} as Record<string, number>),
-      totalVolume: filteredActivity
-        .filter(a => a.type === 'sale' && a.price)
-        .reduce((sum, a) => sum + (a.price || 0), 0),
-      totalSales: filteredActivity.filter(a => a.type === 'sale').length,
-      averagePrice: (() => {
-        const sales = filteredActivity.filter(a => a.type === 'sale' && a.price)
-        return sales.length > 0 
-          ? +(sales.reduce((sum, a) => sum + (a.price || 0), 0) / sales.length).toFixed(3)
-          : 0
-      })(),
-      uniqueCollections: new Set(filteredActivity.map(a => a.nft.collectionName)).size,
-      lastActivity: filteredActivity.length > 0 ? filteredActivity[0].timestamp : null
-    }
+    // Get last activity timestamp
+    const lastActivity = await prisma.activity.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    // Get available activity types for this user
+    const availableTypes = await prisma.activity.groupBy({
+      by: ['type'],
+      where: { userId: user.id },
+    });
+
+    // Transform activities to match expected format
+    const transformedActivities = activities.map((activity) => ({
+      id: activity.id,
+      type: activity.type,
+      nft: activity.nft
+        ? {
+            id: activity.nft.id,
+            name: activity.nft.name,
+            image: activity.nft.image,
+            tokenId: activity.nft.tokenId,
+            collectionName: activity.nft.collection?.name || null,
+            collectionSlug: activity.nft.collection?.address || null,
+            contractAddress: activity.nft.collection?.address || null,
+          }
+        : null,
+      collection: activity.collection
+        ? {
+            id: activity.collection.id,
+            name: activity.collection.name,
+            address: activity.collection.address,
+            image: activity.collection.image,
+          }
+        : null,
+      price: activity.amount,
+      currency: activity.currency,
+      txHash: activity.transactionHash,
+      relatedUserId: activity.relatedUserId,
+      relatedAddress: activity.relatedAddress,
+      listingId: activity.listingId,
+      tradeId: activity.tradeId,
+      metadata: activity.metadata,
+      timestamp: activity.createdAt,
+    }));
+
+    const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
       success: true,
       data: {
-        activity: paginatedActivity,
+        activity: transformedActivities,
         pagination: {
           page,
           limit,
-          total: filteredActivity.length,
+          total,
           totalPages,
           hasNext: page < totalPages,
-          hasPrev: page > 1
+          hasPrev: page > 1,
         },
-        stats,
+        stats: {
+          total,
+          byType: stats,
+          totalVolume: volumeStats._sum.amount || 0,
+          totalSales: volumeStats._count || 0,
+          averagePrice: volumeStats._avg.amount
+            ? +volumeStats._avg.amount.toFixed(4)
+            : 0,
+          uniqueCollections: uniqueCollections.length,
+          lastActivity: lastActivity?.createdAt || null,
+        },
         filters: {
-          availableTypes: [...new Set(allActivity.map(a => a.type))],
-          availableCollections: [...new Set(allActivity.map(a => a.nft.collectionName))],
-          dateRange: {
-            oldest: Math.min(...allActivity.map(a => a.timestamp.getTime())),
-            newest: Math.max(...allActivity.map(a => a.timestamp.getTime()))
-          }
-        }
-      }
-    })
-
+          availableTypes: availableTypes.map((t) => t.type),
+        },
+      },
+    });
   } catch (error) {
-    console.error('Error fetching user activity:', error)
+    console.error('Error fetching user activity:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch user activity' },
       { status: 500 }
-    )
+    );
   }
 }

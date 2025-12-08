@@ -1,10 +1,11 @@
 "use client";
 
-import { Search, Grid3x3, List, SlidersHorizontal } from "lucide-react";
+import { Search, Grid3x3, List, SlidersHorizontal, TrendingDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface ItemsFiltersBarProps {
   itemsCount: number;
@@ -14,11 +15,15 @@ interface ItemsFiltersBarProps {
   onSortChange: (value: string) => void;
   filterRarity: string;
   onRarityChange: (value: string) => void;
+  filterStatus: string;
+  onStatusChange: (value: string) => void;
   viewMode: 'grid' | 'list';
   onViewModeChange: (mode: 'grid' | 'list') => void;
   showFilters: boolean;
   onToggleFilters: () => void;
   selectedTraitsCount: number;
+  onSweepClick?: () => void;
+  hasListings?: boolean;
 }
 
 export function ItemsFiltersBar({
@@ -29,11 +34,15 @@ export function ItemsFiltersBar({
   onSortChange,
   filterRarity,
   onRarityChange,
+  filterStatus,
+  onStatusChange,
   viewMode,
   onViewModeChange,
   showFilters,
   onToggleFilters,
-  selectedTraitsCount
+  selectedTraitsCount,
+  onSweepClick,
+  hasListings = false,
 }: ItemsFiltersBarProps) {
   return (
     <div className="space-y-3">
@@ -92,9 +101,14 @@ export function ItemsFiltersBar({
           <SelectContent>
             <SelectItem value="price-low">Price: Low to High</SelectItem>
             <SelectItem value="price-high">Price: High to Low</SelectItem>
-            <SelectItem value="rarity">Rarity</SelectItem>
-            <SelectItem value="rank">Rank</SelectItem>
+            <SelectItem value="rarity">Rarity: Rare First</SelectItem>
+            <SelectItem value="rarity-common">Rarity: Common First</SelectItem>
+            <SelectItem value="rank">Rank: Best First</SelectItem>
+            <SelectItem value="rank-worst">Rank: Worst First</SelectItem>
             <SelectItem value="recent">Recently Listed</SelectItem>
+            <SelectItem value="oldest">Oldest Listed</SelectItem>
+            <SelectItem value="name-az">Name: A-Z</SelectItem>
+            <SelectItem value="name-za">Name: Z-A</SelectItem>
           </SelectContent>
         </Select>
 
@@ -112,6 +126,38 @@ export function ItemsFiltersBar({
             <SelectItem value="mythic">Mythic</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Status Filter */}
+        <Select value={filterStatus} onValueChange={onStatusChange}>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-[130px] h-11 bg-black/40 border-white/20 text-white">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Items</SelectItem>
+            <SelectItem value="listed">Listed</SelectItem>
+            <SelectItem value="not-listed">Not Listed</SelectItem>
+            <SelectItem value="has-offers">Has Offers</SelectItem>
+            <SelectItem value="on-auction">On Auction</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Sweep Floor Button - always visible, disabled when no listings */}
+        {onSweepClick && (
+          <Button
+            onClick={onSweepClick}
+            disabled={!hasListings}
+            className={cn(
+              "h-11 font-medium",
+              hasListings
+                ? "bg-[rgb(163,255,18)] text-black hover:bg-[rgb(143,235,0)]"
+                : "bg-white/10 text-white/40 cursor-not-allowed"
+            )}
+          >
+            <TrendingDown className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Sweep Floor</span>
+            <span className="sm:hidden">Sweep</span>
+          </Button>
+        )}
 
         {/* Advanced Filters Button */}
         <Button

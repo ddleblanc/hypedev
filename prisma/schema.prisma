@@ -35,6 +35,10 @@ model User {
   receivedTrades     Trade[]             @relation("TradeCounterparty")
   tradeMessages      TradeMessage[]
   tradeHistory       TradeHistory[]
+  // Activity tracking
+  activities         Activity[]
+  // Search history
+  searchHistory      SearchHistory[]
 }
 
 model CreatorApplication {
@@ -121,6 +125,8 @@ model Collection {
   project           Project?          @relation(fields: [projectId], references: [id])
   collectionTraits  CollectionTrait[]
   nfts              Nft[]
+  // Activity tracking
+  activities        Activity[]
 }
 
 model Nft {
@@ -135,26 +141,45 @@ model Nft {
   ownerAddress String?
   isMinted     Boolean    @default(false)
   mintedAt     DateTime?
+  // On-chain status tracking (distinguishes lazy-minted from actually on-chain)
+  isOnChain      Boolean    @default(false)  // Actually exists on blockchain
+  onChainAt      DateTime?                    // When claimed/minted on-chain
+  onChainTokenId String?                      // Actual on-chain token ID
   rarityScore  Float?
   rarityRank   Int?
   percentile   Float?
   rarityTier   String?
   searchVector String?
   traitCount   Int        @default(0)
-  listingPrice Float?     // User's asking price on marketplace
-  isListed     Boolean    @default(false)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  traits       NftTrait[]
+  // Marketplace listing fields
+  listingPrice  Float?                // User's asking price on marketplace (in ETH)
+  isListed      Boolean               @default(false)
+  listingId     String?               // On-chain listing/auction ID
+  listingType   String?               // "direct" | "auction"
+  listingExpiry DateTime?             // When listing expires
+  listedAt      DateTime?             // When listing was created
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  collection    Collection            @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  traits        NftTrait[]
   // P2P Trading relation
-  tradeItems   TradeItem[]
+  tradeItems    TradeItem[]
+  // Marketplace listing relation
+  marketplaceListings MarketplaceListing[]
+  // Marketplace offers relation
+  marketplaceOffers   MarketplaceOffer[]
+  // Activity tracking
+  activities          Activity[]
 
   @@unique([collectionId, tokenId])
   @@index([collectionId, rarityRank])
   @@index([collectionId, rarityScore])
   @@index([rarityTier])
   @@index([traitCount])
+  @@index([ownerAddress, isListed])
+  @@index([collectionId, isListed])
+  @@index([ownerAddress, isOnChain])
+  @@index([collectionId, isOnChain])
 }
 
 model NftTrait {
@@ -444,4 +469,135 @@ enum TradeAction {
   DEPOSITED
   FINALIZED
   CANCELED
+}
+
+// Marketplace Listing Models
+
+model MarketplaceListing {
+  id                   String        @id @default(uuid())
+  listingId            String        @unique  // On-chain listing ID
+  nftId                String
+  sellerAddress        String
+  assetContractAddress String
+  tokenId              String
+  quantity             Int           @default(1)
+  pricePerToken        Float         // In ETH
+  listingType          String        @default("direct") // "direct" | "auction"
+  currency             String        @default("0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
+  startTimestamp       DateTime
+  endTimestamp         DateTime
+  status               ListingStatus @default(ACTIVE)
+  transactionHash      String?
+  // Auction-specific fields
+  minimumBidAmount     Float?        // Starting bid for auctions
+  buyoutBidAmount      Float?        // Instant buy price for auctions
+  highestBid           Float?        // Current highest bid
+  highestBidder        String?       // Current highest bidder address
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  nft                  Nft           @relation(fields: [nftId], references: [id], onDelete: Cascade)
+
+  @@index([sellerAddress, status])
+  @@index([assetContractAddress, tokenId])
+  @@index([status, listingType])
+  @@index([endTimestamp])
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
+  EXPIRED
+}
+
+// Marketplace Offer Model (for tracking on-chain offers)
+model MarketplaceOffer {
+  id                   String       @id @default(uuid())
+  offerId              String       @unique  // On-chain offer ID
+  nftId                String?      // Optional - offers can be made on NFTs we don't have in DB
+  offerorAddress       String
+  assetContractAddress String
+  tokenId              String
+  quantity             Int          @default(1)
+  offerAmount          Float        // In ETH or native currency
+  currency             String       @default("0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
+  expirationTimestamp  DateTime
+  status               OfferStatus  @default(ACTIVE)
+  transactionHash      String?
+  acceptedAt           DateTime?
+  cancelledAt          DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  nft                  Nft?         @relation(fields: [nftId], references: [id], onDelete: SetNull)
+
+  @@index([offerorAddress, status])
+  @@index([assetContractAddress, tokenId])
+  @@index([status])
+  @@index([expirationTimestamp])
+}
+
+enum OfferStatus {
+  ACTIVE
+  ACCEPTED
+  CANCELLED
+  EXPIRED
+}
+
+// Activity Tracking Model
+model Activity {
+  id              String      @id @default(uuid())
+  userId          String      // User this activity belongs to
+  type            String      // Activity type (listing_created, purchase, trade_completed, etc.)
+
+  // Related entities (nullable - depends on activity type)
+  nftId           String?
+  collectionId    String?
+  tradeId         String?
+  listingId       String?
+
+  // Counterparty info
+  relatedUserId   String?     // Other user involved (buyer, seller, trader)
+  relatedAddress  String?     // Wallet address if user not in system
+
+  // Activity data
+  amount          Float?      // Price/value in ETH
+  tokenAmount     Float?      // For token transfers
+  currency        String?     // ETH, USDC, etc.
+  transactionHash String?     // On-chain tx hash
+
+  // Flexible metadata for type-specific data
+  metadata        Json?       // { rarityTier, fairnessScore, gameId, etc. }
+
+  // Timestamps
+  createdAt       DateTime    @default(now())
+
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nft             Nft?        @relation(fields: [nftId], references: [id], onDelete: SetNull)
+  collection      Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, type])
+  @@index([nftId])
+  @@index([collectionId])
+  @@index([type, createdAt])
+}
+
+// Search History Model - tracks user search queries for recent searches feature
+model SearchHistory {
+  id         String   @id @default(uuid())
+  userId     String
+  query      String
+  category   String   @default("all") // 'all', 'collection', 'nft', 'user'
+  resultId   String?  // The ID of the item they clicked on
+  resultType String?  // 'collection', 'nft', 'user'
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([query])
+  @@index([createdAt])
 }

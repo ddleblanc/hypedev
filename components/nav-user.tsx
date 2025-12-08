@@ -34,10 +34,10 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { CaretSortIcon } from "@radix-ui/react-icons"
-import { ConnectButton } from "thirdweb/react"
 import { sepolia } from "thirdweb/chains"
 import { useAuth } from "@/contexts/auth-context"
 import { client } from "@/lib/thirdweb"
+import { AuthenticatedConnectButton } from "@/components/auth/authenticated-connect-button"
 import Link from "next/link"
 import { useActiveAccount, useWalletBalance } from "thirdweb/react"
 import { Badge } from "@/components/ui/badge"
@@ -86,8 +86,7 @@ export function NavUser() {
       <SidebarMenu>
         <SidebarMenuItem>
           <div className="px-2 py-1">
-            <ConnectButton
-              client={client}
+            <AuthenticatedConnectButton
               chain={sepolia}
               connectButton={{
                 label: 'Connect Wallet',
@@ -298,8 +297,7 @@ export function NavUser() {
 
         {/* Hidden ConnectButton for wallet management */}
         <div ref={connectButtonRef} className="hidden">
-          <ConnectButton
-            client={client}
+          <AuthenticatedConnectButton
             chain={sepolia}
           />
         </div>

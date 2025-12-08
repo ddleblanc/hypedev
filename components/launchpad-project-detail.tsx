@@ -518,6 +518,7 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
       const isDropContract = ['DropERC721', 'ERC721Drop', 'OpenEditionERC721'].includes(collection.contractType || '');
 
       // Prepare NFT data for database with real token IDs
+      // These NFTs are now on-chain (claimed/minted), so mark them as such
       const nftsToSave = [];
       for (let i = 0; i < mintQuantity; i++) {
         const tokenId = (result.startTokenId + BigInt(i)).toString();
@@ -538,7 +539,10 @@ export function LaunchpadProjectDetail({ projectId }: LaunchpadProjectDetailProp
           tokenId: tokenId, // Real token ID from blockchain
           metadataUri: isDropContract && collection.sharedMetadata?.image
             ? collection.sharedMetadata.image
-            : collection.image
+            : collection.image,
+          // On-chain status - these NFTs were just claimed/minted, so they exist on-chain
+          isOnChain: true,
+          onChainTokenId: tokenId // Same as tokenId for claimed NFTs
         };
         nftsToSave.push(nftData);
       }

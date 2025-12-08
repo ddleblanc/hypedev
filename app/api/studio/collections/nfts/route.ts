@@ -1,16 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
+import { logNftMinted } from '@/lib/activity';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { collectionId, nfts } = body;
+    const { collectionId, nfts, walletAddress } = body;
 
     if (!collectionId || !nfts || !Array.isArray(nfts)) {
       return NextResponse.json(
         { success: false, error: 'Invalid request data' },
         { status: 400 }
       );
+    }
+
+    // Authentication: require wallet address
+    if (!walletAddress) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet address is required' },
+        { status: 401 }
+      );
+    }
+
+    // Verify user exists
+    const user = await auth.getUserByWallet(walletAddress);
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found. Please connect your wallet first.' },
+        { status: 401 }
+      );
+    }
+
+    // Authorization: check if user owns this collection
+    const ownsCollection = await auth.doesUserOwnCollection(walletAddress, collectionId);
+    if (!ownsCollection) {
+      return NextResponse.json(
+        { success: false, error: 'You do not own this collection' },
+        { status: 403 }
+      );
+    }
+
+    // Check if any NFTs are being minted on-chain (not just lazy-minted)
+    const hasOnChainMints = nfts.some((nft: any) => nft.isOnChain === true);
+
+    // For on-chain minting, require approved creator status
+    if (hasOnChainMints) {
+      const canDeploy = await auth.canUserDeployContracts(walletAddress);
+      if (!canDeploy) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Your creator application is pending approval. You can draft NFTs but cannot mint to blockchain until approved.',
+            code: 'CREATOR_NOT_APPROVED'
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Process each NFT
@@ -20,6 +66,7 @@ export async function POST(request: NextRequest) {
       const tokenId = nftData.tokenId || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       // Create the NFT record
+      // isOnChain indicates if the NFT actually exists on the blockchain (vs just lazy-minted in DB)
       const nft = await prisma.nft.create({
         data: {
           tokenId,
@@ -31,6 +78,10 @@ export async function POST(request: NextRequest) {
           ownerAddress: nftData.ownerAddress || null,
           isMinted: true,
           mintedAt: new Date(),
+          // On-chain status tracking - critical for listing eligibility
+          isOnChain: nftData.isOnChain ?? false, // Default to false for lazy-minted NFTs
+          onChainAt: nftData.isOnChain ? new Date() : null,
+          onChainTokenId: nftData.onChainTokenId || null,
           attributes: nftData.attributes || null,
           traitCount: nftData.attributes?.length || 0,
         },
@@ -143,6 +194,33 @@ export async function POST(request: NextRequest) {
         mintedSupply: { increment: createdNfts.length }
       }
     });
+
+    // Log mint activity for on-chain NFTs
+    // Only log for NFTs that are actually minted on-chain (not lazy-minted)
+    const onChainNfts = createdNfts.filter(nft => nft.isOnChain);
+    if (onChainNfts.length > 0 && onChainNfts[0].ownerAddress) {
+      try {
+        // Find the user who minted
+        const minter = await auth.getUserByWallet(onChainNfts[0].ownerAddress);
+        if (minter) {
+          // Log activity for each minted NFT
+          await Promise.all(
+            onChainNfts.map(nft =>
+              logNftMinted(
+                minter.id,
+                nft.id,
+                collectionId,
+                undefined, // Transaction hash is not available here, would need to pass from client
+                { tokenId: nft.tokenId, name: nft.name }
+              )
+            )
+          );
+        }
+      } catch (activityError) {
+        // Don't fail the request if activity logging fails
+        console.error('Failed to log mint activity:', activityError);
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -150,7 +150,7 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4, duration: 0.5 }}
             >
-              <CollectionTabs />
+              <CollectionTabs activeTab={activeTab} />
             </motion.div>
 
             {/* Tab Contents */}
