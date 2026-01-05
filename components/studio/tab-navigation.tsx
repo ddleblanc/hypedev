@@ -1,6 +1,6 @@
 "use client";
 
-import { Upload, Settings } from "lucide-react";
+import { Upload, Settings, Send, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface TabNavigationProps {
@@ -17,8 +17,19 @@ export function TabNavigation({
   onTabChange
 }: TabNavigationProps) {
   const tabs = showUploadInterface
-    ? ['upload', 'about', 'items', 'offers', 'holders', 'traits', 'activity', 'settings']
-    : ['about', 'items', 'offers', 'holders', 'traits', 'activity', 'settings'];
+    ? ['upload', 'about', 'items', 'offers', 'holders', 'traits', 'activity', 'airdrop', 'claim', 'settings']
+    : ['about', 'items', 'offers', 'holders', 'traits', 'activity', 'airdrop', 'claim', 'settings'];
+
+  const getTabLabel = (tab: string) => {
+    switch (tab) {
+      case 'claim':
+        return 'Claim Phases';
+      case 'airdrop':
+        return 'Airdrop';
+      default:
+        return tab.charAt(0).toUpperCase() + tab.slice(1);
+    }
+  };
 
   return (
     <div className="flex items-center gap-3 mb-6 overflow-x-auto">
@@ -45,10 +56,20 @@ export function TabNavigation({
           ) : tab === 'settings' ? (
             <div className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {getTabLabel(tab)}
+            </div>
+          ) : tab === 'airdrop' ? (
+            <div className="flex items-center gap-2">
+              <Send className="w-4 h-4" />
+              {getTabLabel(tab)}
+            </div>
+          ) : tab === 'claim' ? (
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              {getTabLabel(tab)}
             </div>
           ) : (
-            tab.charAt(0).toUpperCase() + tab.slice(1)
+            getTabLabel(tab)
           )}
         </button>
       ))}

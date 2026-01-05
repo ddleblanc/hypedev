@@ -122,6 +122,34 @@ export const OFFERS_QUERY = `
   }
 `;
 
+// Batch get offers for multiple tokens
+export const OFFERS_BATCH_QUERY = `
+  query GetOffersBatch($assetContract: Bytes, $tokenIds: [BigInt!], $status: String, $first: Int) {
+    offers(
+      where: { assetContract: $assetContract, tokenId_in: $tokenIds, status: $status }
+      first: $first
+      orderBy: totalPrice
+      orderDirection: desc
+    ) {
+      id
+      offerId
+      offeror
+      assetContract
+      tokenId
+      quantity
+      currency
+      totalPrice
+      expirationTimestamp
+      tokenType
+      status
+      seller
+      createdAt
+      acceptedAt
+      transactionHash
+    }
+  }
+`;
+
 // Get marketplace stats
 export const MARKETPLACE_STATS_QUERY = `
   query GetMarketplaceStats {
@@ -536,6 +564,43 @@ export async function fetchOffers(
   } catch (error) {
     console.error('Error fetching offers from subgraph:', error);
     return [];
+  }
+}
+
+// Batch fetch offers for multiple tokens from subgraph
+// Returns a Map of tokenId -> highest offer
+export async function fetchOffersBatch(
+  chainId: number,
+  assetContract: string,
+  tokenIds: string[],
+  status: string = 'CREATED',
+  first: number = 100
+): Promise<Map<string, any>> {
+  try {
+    const client = getGraphClient(chainId);
+    if (!client || tokenIds.length === 0) return new Map();
+
+    const data = await client.request(OFFERS_BATCH_QUERY, {
+      assetContract: assetContract.toLowerCase(),
+      tokenIds,
+      status,
+      first
+    }) as any;
+
+    // Group offers by tokenId and get highest offer for each
+    const offersMap = new Map<string, any>();
+    for (const offer of (data.offers || [])) {
+      const tokenId = offer.tokenId.toString();
+      // Since results are sorted by totalPrice desc, first one for each tokenId is highest
+      if (!offersMap.has(tokenId)) {
+        offersMap.set(tokenId, offer);
+      }
+    }
+
+    return offersMap;
+  } catch (error) {
+    console.error('Error batch fetching offers from subgraph:', error);
+    return new Map();
   }
 }
 

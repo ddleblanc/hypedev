@@ -18,7 +18,7 @@ import { CollectionCarousel } from "@/components/shared/collection-carousel";
 import {
   CollectionCard,
   NFTSaleCard,
-  LaunchpadCard,
+  DropCard,
   LootboxCard
 } from "@/components/shared/homepage-cards";
 
@@ -36,7 +36,7 @@ import {
 import type {
   CollectionCardData,
   NFTSaleData,
-  LaunchpadProjectData,
+  DropData,
   LootboxData
 } from "@/types/homepage";
 
@@ -96,8 +96,8 @@ export function TraditionalHomepage() {
   const [featuredCollections, setFeaturedCollections] = useState<CollectionCardData[]>([]);
   const [trendingCollections, setTrendingCollections] = useState<CollectionCardData[]>([]);
   const [topSales, setTopSales] = useState<NFTSaleData[]>([]);
-  const [currentLaunches, setCurrentLaunches] = useState<LaunchpadProjectData[]>([]);
-  const [upcomingLaunches, setUpcomingLaunches] = useState<LaunchpadProjectData[]>([]);
+  const [currentLaunches, setCurrentLaunches] = useState<DropData[]>([]);
+  const [upcomingLaunches, setUpcomingLaunches] = useState<DropData[]>([]);
   const [trendingLootboxes, setTrendingLootboxes] = useState<LootboxData[]>([]);
 
   // Loading states
@@ -171,11 +171,11 @@ export function TraditionalHomepage() {
     fetchTopSales();
   }, []);
 
-  // Fetch Launchpad Projects
+  // Fetch Drops Projects
   useEffect(() => {
     async function fetchLaunches() {
       try {
-        const response = await fetch('/api/launchpad/projects');
+        const response = await fetch('/api/drops/projects');
         const data = await response.json();
         if (data.success && data.projects?.length > 0) {
           const current = data.projects.filter((p: any) => p.status === 'live');
@@ -184,7 +184,7 @@ export function TraditionalHomepage() {
           setUpcomingLaunches(upcoming);
         }
       } catch (error) {
-        console.error('Error fetching launchpad projects:', error);
+        console.error('Error fetching drops projects:', error);
       } finally {
         setIsLoadingLaunches(false);
       }
@@ -333,13 +333,13 @@ export function TraditionalHomepage() {
               title="Live Now"
               subtitle="Currently minting"
               icon={<Rocket className="w-5 h-5" />}
-              viewAllHref="/launchpad?status=live"
+              viewAllHref="/drops?status=live"
             />
             {currentLaunches.length > 0 ? (
               <CollectionCarousel
                 items={currentLaunches}
                 renderItem={(project) => (
-                  <LaunchpadCard project={project} variant="featured" />
+                  <DropCard project={project} variant="featured" />
                 )}
                 isLoading={isLoadingLaunches}
                 loadingCount={4}
@@ -351,7 +351,7 @@ export function TraditionalHomepage() {
                 <Rocket className="w-12 h-12 text-white/20 mx-auto mb-3" />
                 <p className="text-white/60">No live launches right now</p>
                 <Button variant="outline" className="mt-4" asChild>
-                  <Link href="/launchpad">View Upcoming</Link>
+                  <Link href="/drops">View Upcoming</Link>
                 </Button>
               </div>
             )}
@@ -365,13 +365,13 @@ export function TraditionalHomepage() {
               title="Upcoming Launches"
               subtitle="Don't miss these drops"
               icon={<Calendar className="w-5 h-5" />}
-              viewAllHref="/launchpad?status=upcoming"
+              viewAllHref="/drops?status=upcoming"
             />
             {upcomingLaunches.length > 0 ? (
               <CollectionCarousel
                 items={upcomingLaunches}
                 renderItem={(project) => (
-                  <LaunchpadCard project={project} />
+                  <DropCard project={project} />
                 )}
                 isLoading={isLoadingLaunches}
                 loadingCount={4}

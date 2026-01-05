@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ address: string }> }
 ) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   const params = await context.params;
   try {
     const { address } = params;

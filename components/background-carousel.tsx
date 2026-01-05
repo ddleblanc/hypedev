@@ -11,7 +11,7 @@ const BACKGROUND_OPTIONS = [
   { id: 'bg1', src: '/assets/img/bg1.jpg', name: 'Original', type: 'image' },
   { id: 'bg2', src: '/assets/img/bg2.jpg', name: 'Alternative', type: 'image' },
   { id: 'bg5', src: '/assets/img/bg5.jpg', name: 'Variant 5', type: 'image' },
-  { id: 'bgv3', src: '/assets/img/bgv3.mp4', name: 'Video 3', type: 'video' },
+    { id: 'hpx', src: '/assets/img/hpx1.mp4', name: 'Video 3', type: 'video' },
   { id: 'bgvurl1', src: 'https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/21018676-5eb7-4306-9099-992a9c99f37a/transcode=true,original=true,quality=90/96694329.webm', name: 'Web Video', type: 'video' },
   { id: 'bgvurl2', src: 'https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/39561bcd-8a10-4e56-826c-6f3f7c813414/transcode=true,original=true,quality=90/ChicVideo.webm', name: 'Chic Video', type: 'video' },
   { id: 'bgvurl3', src: 'https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1ad84358-5802-4eae-b74b-f6c880d38ea5/transcode=true,original=true,quality=90/vid_00005.webm', name: 'Video 5', type: 'video' },

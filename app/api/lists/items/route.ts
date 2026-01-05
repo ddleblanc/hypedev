@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { rateLimit } from '@/lib/rate-limit';
 
 const addItemSchema = z.object({
   listId: z.string(),
-  itemType: z.enum(['collection', 'nft', 'launchpad', 'user', 'game']),
+  itemType: z.enum(['collection', 'nft', 'drop', 'user', 'game']),
   itemId: z.string(),
   collectionId: z.string().optional(),
   metadata: z.any().optional(),
@@ -18,6 +19,9 @@ const removeItemSchema = z.object({
 
 // POST - Add item to list
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'apiWrite');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const body = await request.json();
     const validatedData = addItemSchema.parse(body);
@@ -73,6 +77,9 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Remove item from list
 export async function DELETE(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'apiWrite');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const listId = searchParams.get('listId');
@@ -134,6 +141,9 @@ export async function DELETE(request: NextRequest) {
 
 // GET - Get items in a list with optional filtering
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const listId = searchParams.get('listId');

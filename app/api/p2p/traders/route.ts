@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { rateLimit } from '@/lib/rate-limit';
 
 // POST /api/p2p/traders - Get traders by wallet addresses (for specific NFT owners)
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const body = await request.json();
     const { addresses, nftId } = body;
@@ -148,6 +150,9 @@ export async function POST(request: NextRequest) {
 
 // GET /api/p2p/traders - List available traders (users with NFTs)
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');

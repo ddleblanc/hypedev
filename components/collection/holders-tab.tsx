@@ -29,7 +29,7 @@ export function HoldersTab({ collection }: HoldersTabProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {collection.topHolders.map((holder, index) => (
+                {(collection.topHolders || []).map((holder, index) => (
                   <motion.div
                     key={holder.address}
                     initial={{ opacity: 0, x: -20 }}

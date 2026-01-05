@@ -9,7 +9,7 @@ import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MediaRenderer } from 'thirdweb/react'
 import { client } from '@/lib/thirdweb'
-import { 
+import {
   Upload,
   Image as ImageIcon,
   Video,
@@ -41,6 +41,7 @@ import { Switch } from '@/components/ui/switch'
 import { useActiveAccount } from 'thirdweb/react'
 import { uploadToThirdWeb, lazyMintNFT, generateOptimizedMetadata, setupClaimConditions, type ClaimCondition } from '@/lib/nft-minting'
 import { useTransaction } from '@/contexts/transaction-context'
+import { trpc } from '@/lib/trpc/client'
 
 // Schema for NFT creation form
 const nftSchema = z.object({
@@ -102,7 +103,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
   const [isSuccess, setIsSuccess] = useState(false)
   const [createdNFT, setCreatedNFT] = useState<any>(null)
   const [isUploading, setIsUploading] = useState(false)
-  
+
   // Pro Mode States
   const [isProMode, setIsProMode] = useState(false)
   const [showProModeHint, setShowProModeHint] = useState(false)
@@ -112,10 +113,13 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, status: '' })
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [showCsvPreview, setShowCsvPreview] = useState(false)
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const account = useActiveAccount()
   const { startTransaction, updateStep, setTxHash, setError, completeTransaction } = useTransaction()
+
+  // tRPC mutation
+  const createNftMutation = trpc.studio.nfts.create.useMutation()
 
   // CSV Template Generation
   const downloadCsvTemplate = useCallback(() => {
@@ -333,26 +337,23 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
           metadata,
         }, account)
         
-        // Save to database
-        const response = await fetch(`/api/studio/nfts?address=${account.address}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        // Save to database via tRPC
+        try {
+          const result = await createNftMutation.mutateAsync({
             collectionId: collection.id,
             name: metadata.name,
-            description: metadata.description,
+            description: metadata.description || '',
             image: imageUri,
+            address: collection.address!,
             metadataUri: mintResult.metadataUri,
             attributes: attributes,
             transactionHash: mintResult.transactionHash,
             ownerAddress: account.address,
-          }),
-        })
-        
-        if (response.ok) {
-          const result = await response.json()
+          })
           createdNFTs.push(result.nft)
           successCount++
+        } catch (dbError) {
+          console.error('Failed to save NFT to database:', dbError)
         }
         
         // Small delay to prevent rate limiting
@@ -454,7 +455,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
 
       updateStep('approve', 40)
 
-      // Lazy mint the NFT for launchpad use
+      // Lazy mint the NFT for drops
       const mintResult = await lazyMintNFT({
         contractAddress: collection.address,
         chainId: collection.chainId,
@@ -464,7 +465,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
       setTxHash(mintResult.transactionHash)
       updateStep('confirm', 60)
 
-      // Set up basic claim conditions for launchpad
+      // Set up basic claim conditions for drops
       const claimConditions: ClaimCondition[] = [{
         startTimestamp: new Date(),
         quantityLimitPerWallet: 1,
@@ -499,20 +500,19 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
       
       console.log('Sending NFT data to API:', requestBody)
       console.log('Collection object:', collection)
-      
-      const response = await fetch(`/api/studio/nfts?address=${account.address}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
+
+      // Save to database via tRPC
+      const result = await createNftMutation.mutateAsync({
+        collectionId: collection.id,
+        name: data.name,
+        description: data.description || '',
+        image: imageUri,
+        address: collection.address!,
+        metadataUri: mintResult.metadataUri,
+        attributes: data.attributes || [],
+        transactionHash: mintResult.transactionHash,
+        ownerAddress: data.recipient,
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to save NFT to database')
-      }
-
-      const result = await response.json()
       
       completeTransaction()
       setIsSuccess(true)
@@ -1333,12 +1333,12 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
                     {isUploading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Creating for Launchpad...
+                        Creating for Drop...
                       </>
                     ) : (
                       <>
                         <Zap className="w-4 h-4" />
-                        Create for Launchpad
+                        Create for Drop
                       </>
                     )}
                   </Button>
@@ -1374,14 +1374,14 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
                           NFT Created Successfully! 🎉
                         </h3>
                         <p className="text-muted-foreground">
-                          Your NFT &quot;{createdNFT.name}&quot; is now ready for the launchpad
+                          Your NFT &quot;{createdNFT.name}&quot; is now ready for your drop
                         </p>
                       </div>
 
                       <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Sparkles className="w-4 h-4 text-yellow-400" />
-                          <span>Launchpad Ready</span>
+                          <span>Drop Ready</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Tag className="w-4 h-4 text-blue-400" />
@@ -1418,7 +1418,7 @@ export function NFTCreator({ collection, onSuccess, onCancel, onCreateAnother }:
 
                       <div className="pt-4 border-t border-green-500/20">
                         <p className="text-xs text-green-400/80">
-                          Your NFT has been lazy minted and is ready for users to claim on the launchpad
+                          Your NFT has been lazy minted and is ready for users to claim on your drop
                         </p>
                       </div>
                     </div>

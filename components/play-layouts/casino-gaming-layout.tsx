@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { 
+import {
   Play,
   Info,
   Plus,
@@ -18,11 +18,26 @@ import {
   Crown,
   Coins,
   Dices,
-  DollarSign
+  DollarSign,
+  Loader2,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Leaderboard } from "@/components/gaming/leaderboard";
+import { useActiveAccount } from "thirdweb/react";
+import { trpc } from "@/lib/trpc/client";
+
+interface Game {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  image: string;
+  category: string;
+  subcategory?: string;
+}
 
 const mockCasinoGames = {
   hero: {
@@ -88,13 +103,25 @@ const mockCasinoGames = {
 };
 
 export function CasinoGamingLayout() {
+  const account = useActiveAccount();
   const [searchQuery, setSearchQuery] = useState("");
   const [isMuted, setIsMuted] = useState(true);
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
-  
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Only use target-based scroll tracking after mount to avoid hydration errors
+  const { scrollYProgress } = useScroll(isMounted ? { target: heroRef } : undefined);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+
+  // Fetch casino games via tRPC
+  const gamesQuery = trpc.gaming.games.list.useQuery({ category: "casino" });
+  const games = gamesQuery.data?.games || [];
+  const isLoading = gamesQuery.isLoading;
 
   const scrollCarousel = (direction: 'left' | 'right', containerId: string) => {
     const container = document.getElementById(containerId);
@@ -110,7 +137,7 @@ export function CasinoGamingLayout() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full overflow-hidden bg-black"
+      className="w-full overflow-hidden"
     >
       <div className="relative">
         {/* Hero Banner - Casino themed */}
@@ -282,7 +309,7 @@ export function CasinoGamingLayout() {
               <ArrowUpRight className="h-4 w-4" />
             </Button>
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
             {mockCasinoGames.categories.map((category, index) => (
               <motion.div
@@ -295,8 +322,8 @@ export function CasinoGamingLayout() {
               >
                 <div className="relative overflow-hidden rounded-xl">
                   <div className="aspect-[3/4] bg-gradient-to-br from-purple-800 to-pink-900">
-                    <img 
-                      src={category.image} 
+                    <img
+                      src={category.image}
                       alt={category.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -311,6 +338,111 @@ export function CasinoGamingLayout() {
             ))}
           </div>
         </motion.section>
+
+        {/* Featured Casino Games from API */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.8 }}
+          className="px-4 md:px-8 py-8 md:py-16 bg-zinc-900/50"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Sparkles className="h-8 w-8 text-purple-400" />
+              Hot Tables
+            </h2>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-purple-400 animate-spin" />
+            </div>
+          ) : games.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {games.slice(0, 8).map((game, index) => (
+                <motion.div
+                  key={game.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index, duration: 0.5 }}
+                  whileHover={{ scale: 1.02, y: -5 }}
+                  className="group cursor-pointer bg-gradient-to-br from-purple-900/50 to-pink-900/50 rounded-xl overflow-hidden border border-purple-500/20 hover:border-purple-400/50 transition-all"
+                >
+                  <div className="aspect-[4/3] bg-zinc-800 relative overflow-hidden">
+                    {game.image ? (
+                      <img
+                        src={game.image}
+                        alt={game.name}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-800 to-pink-800">
+                        <Dices className="w-16 h-16 text-white/30" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    <Badge className="absolute top-3 right-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                      {game.subcategory || "Casino"}
+                    </Badge>
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <h3 className="text-lg font-bold text-white mb-1">{game.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <Coins className="w-4 h-4 text-yellow-400" />
+                        <span className="text-sm text-yellow-400">High Stakes</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                      <span className="text-sm text-white/60">
+                        {Math.floor(Math.random() * 100) + 20} playing
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+                    >
+                      <Play className="w-4 h-4 mr-1" />
+                      Play
+                    </Button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Crown className="w-12 h-12 text-white/20 mx-auto mb-4" />
+              <p className="text-white/60">No casino games available yet</p>
+              <p className="text-sm text-white/40">Check back soon for high stakes action</p>
+            </div>
+          )}
+        </motion.section>
+
+        {/* Top Winners Leaderboard */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.8 }}
+          className="px-4 md:px-8 py-8 md:py-16 bg-black"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Crown className="h-8 w-8 text-yellow-400" />
+              Top Winners
+            </h2>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 rounded-xl border border-purple-500/20">
+            <Leaderboard
+              limit={10}
+              showEarnings={true}
+              currentUserId={account?.address}
+              className="p-4"
+            />
+          </div>
+        </motion.section>
+
       </div>
     </motion.div>
   );

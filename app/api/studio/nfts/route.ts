@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
+  // Rate limit: blockchain operations (20 req/min with 60s block)
+  const rateCheck = await rateLimitCheck(request, "blockchain");
+  if (rateCheck.blocked) return rateCheck.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get('address');
-    
+
     console.log('NFT Creation API called with address:', address);
     
     if (!address) {
@@ -215,7 +220,7 @@ export async function POST(request: NextRequest) {
           address: nft.collection.address,
         },
         transactionHash,
-        launchpadReady: true,
+        dropReady: true,
       },
     });
 

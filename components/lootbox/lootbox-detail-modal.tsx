@@ -520,7 +520,7 @@ export function LootboxDetailModal({ open, onOpenChange, lootbox }: LootboxDetai
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <Link
-                        href={`/collection/${lootbox.collection}`}
+                        href={`/collection/${lootbox.contractAddress || lootbox.collection}`}
                         className="hover:text-foreground flex items-center gap-1"
                       >
                         {lootbox.collection}
@@ -896,7 +896,7 @@ export function LootboxDetailModal({ open, onOpenChange, lootbox }: LootboxDetai
               
               <div className="flex items-center gap-6 mb-6">
                 <Link
-                  href={`/collection/${lootbox.collection}`}
+                  href={`/collection/${lootbox.contractAddress || lootbox.collection}`}
                   className="text-lg text-muted-foreground hover:text-foreground flex items-center gap-2 transition-colors"
                 >
                   {lootbox.collection}

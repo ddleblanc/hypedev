@@ -21,26 +21,26 @@ interface NFT {
   name: string;
   description?: string;
   image?: string;
-  metadataUri: string;
+  metadataUri?: string;
   collectionId: string;
   collection: {
     name: string;
     symbol: string;
     address?: string;
   };
-  attributes: any;
-  ownerAddress: string;
+  attributes: unknown;
+  ownerAddress?: string | null;
   isMinted: boolean;
-  mintedAt?: string;
+  mintedAt?: Date | string | null;
   traitCount: number;
-  rarityScore?: number;
-  rarityRank?: number;
-  rarityTier?: string;
-  createdAt: string;
+  rarityScore?: number | null;
+  rarityRank?: number | null;
+  rarityTier?: string | null;
+  createdAt: Date | string;
   traits?: Array<{
     traitType: string;
     value: string;
-    displayType?: string;
+    displayType?: string | null;
   }>;
 }
 
@@ -50,8 +50,9 @@ interface StudioNFTsProps {
 }
 
 export function StudioNFTs({ nfts, viewMode }: StudioNFTsProps) {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+  const formatDate = (dateInput: Date | string) => {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
@@ -68,7 +69,7 @@ export function StudioNFTs({ nfts, viewMode }: StudioNFTsProps) {
     }
   };
 
-  const getRarityIcon = (tier?: string) => {
+  const getRarityIcon = (tier?: string | null) => {
     switch (tier?.toLowerCase()) {
       case 'legendary': return Crown;
       case 'epic': 

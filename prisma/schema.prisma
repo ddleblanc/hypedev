@@ -39,6 +39,33 @@ model User {
   activities         Activity[]
   // Search history
   searchHistory      SearchHistory[]
+  // Notification system
+  notifications           Notification[]          @relation("UserNotifications")
+  notificationPreferences NotificationPreference? @relation("NotificationPreferences")
+  // Lootbox relations
+  lootboxesCreated             Lootbox[]               @relation("LootboxCreator")
+  lootboxOpenings              LootboxOpening[]        @relation("LootboxOpenings")
+  lootboxStats                 UserLootboxStats?       @relation("UserLootboxStats")
+  lootboxActivityFeed          LootboxActivityFeed[]   @relation("LootboxActivityFeed")
+  lootboxLeaderboard           LootboxLeaderboard[]    @relation("LootboxLeaderboard")
+  freeBoxRewards               FreeBoxReward[]         @relation("FreeBoxRewards")
+  // Gaming relations
+  tournamentParticipations     TournamentParticipant[] @relation("TournamentParticipant")
+  matchesAsPlayer1             Match[]                 @relation("MatchPlayer1")
+  matchesAsPlayer2             Match[]                 @relation("MatchPlayer2")
+  playerStats                  PlayerStats[]           @relation("PlayerGameStats")
+  // Museum progress
+  legendProgress               UserLegendProgress[]
+  // Hype Network (Affiliate System)
+  hypeAgent                    HypeAgent?                  @relation("HypeAgent")
+  createdCampaigns             AffiliateCampaign[]         @relation("CampaignCreator")
+  // Chat System (Clan)
+  ownedClans                   Clan[]                      @relation("ClanOwner")
+  clanMemberships              ClanMember[]
+  clanMessages                 ClanMessage[]               @relation("ClanMessageSender")
+  // Chat System (Whispers/DMs)
+  conversationParticipations   ConversationParticipant[]
+  directMessages               DirectMessage[]             @relation("DirectMessageSender")
 }
 
 model CreatorApplication {
@@ -82,12 +109,14 @@ model Project {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   collections Collection[]
+  lootboxes   Lootbox[]    @relation("ProjectLootboxes")
   creator     User         @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 }
 
 model Collection {
   id                String            @id @default(uuid())
   address           String            @unique
+  slug              String?           @unique // URL-friendly identifier (e.g., "boredapeyachtclub")
   name              String
   symbol            String
   description       String?
@@ -127,6 +156,34 @@ model Collection {
   nfts              Nft[]
   // Activity tracking
   activities        Activity[]
+  // Price history snapshots
+  priceSnapshots    CollectionPriceSnapshot[]
+  // Museum legend link
+  legend            Legend?
+  // Affiliate campaigns
+  affiliateCampaigns AffiliateCampaign[] @relation("AffiliateCampaign")
+
+  // Search performance indexes
+  @@index([name])
+  @@index([isDeployed, isVerified])
+  @@index([isDeployed, isFeatured])
+  @@index([category])
+}
+
+// Price history snapshots for floor/volume tracking over time
+model CollectionPriceSnapshot {
+  id            String     @id @default(uuid())
+  collectionId  String
+  collection    Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  floorPrice    Float?
+  volume24h     Float      @default(0)
+  sales24h      Int        @default(0)
+  listedCount   Int        @default(0)
+  holders       Int        @default(0)
+  timestamp     DateTime   @default(now())
+
+  @@index([collectionId, timestamp])
+  @@index([timestamp])
 }
 
 model Nft {
@@ -170,6 +227,10 @@ model Nft {
   marketplaceOffers   MarketplaceOffer[]
   // Activity tracking
   activities          Activity[]
+  // Museum chapter link
+  legendChapter       LegendChapter?
+  // Chat message attachments (Phase 4)
+  messageAttachments  DirectMessage[] @relation("DirectMessageNftAttachment")
 
   @@unique([collectionId, tokenId])
   @@index([collectionId, rarityRank])
@@ -180,6 +241,9 @@ model Nft {
   @@index([collectionId, isListed])
   @@index([ownerAddress, isOnChain])
   @@index([collectionId, isOnChain])
+  // Search performance indexes
+  @@index([name])
+  @@index([onChainTokenId])
 }
 
 model NftTrait {
@@ -336,7 +400,7 @@ model UserList {
 model ListItem {
   id           String   @id @default(uuid())
   listId       String
-  itemType     String   // collection, nft, launchpad, user, game
+  itemType     String   // collection, nft, drop, user, game
   itemId       String   // The ID of the collection, NFT, project, user, or game
   collectionId String?  // For NFTs and collections
   metadata     Json?    // Store additional data like name, image, etc.
@@ -512,18 +576,22 @@ enum ListingStatus {
 }
 
 // Marketplace Offer Model (for tracking on-chain offers)
+// Supports both individual NFT offers and collection-wide offers
 model MarketplaceOffer {
   id                   String       @id @default(uuid())
   offerId              String       @unique  // On-chain offer ID
-  nftId                String?      // Optional - offers can be made on NFTs we don't have in DB
+  nftId                String?      // Optional - NULL for collection offers
+  collectionId         String?      // For collection offers - links to Collection
   offerorAddress       String
   assetContractAddress String
-  tokenId              String
+  tokenId              String       // MAX_UINT256 string for collection offers
   quantity             Int          @default(1)
-  offerAmount          Float        // In ETH or native currency
+  offerAmount          Float        // Price per NFT in ETH
   currency             String       @default("0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE")
   expirationTimestamp  DateTime
   status               OfferStatus  @default(ACTIVE)
+  isCollectionOffer    Boolean      @default(false)  // True for collection-wide offers
+  acceptedTokenId      String?      // Which token was used to accept (for collection offers)
   transactionHash      String?
   acceptedAt           DateTime?
   cancelledAt          DateTime?
@@ -534,8 +602,10 @@ model MarketplaceOffer {
 
   @@index([offerorAddress, status])
   @@index([assetContractAddress, tokenId])
+  @@index([collectionId, status, isCollectionOffer])
   @@index([status])
   @@index([expirationTimestamp])
+  @@index([isCollectionOffer, status])
 }
 
 enum OfferStatus {
@@ -574,15 +644,101 @@ model Activity {
   createdAt       DateTime    @default(now())
 
   // Relations
-  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  nft             Nft?        @relation(fields: [nftId], references: [id], onDelete: SetNull)
-  collection      Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nft             Nft?          @relation(fields: [nftId], references: [id], onDelete: SetNull)
+  collection      Collection?   @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+  notification    Notification?
 
   @@index([userId, createdAt])
   @@index([userId, type])
   @@index([nftId])
   @@index([collectionId])
   @@index([type, createdAt])
+}
+
+// ============================================================
+// NOTIFICATION SYSTEM - Control Center
+// ============================================================
+
+// Notification Model - actionable notifications for user control center
+model Notification {
+  id              String    @id @default(uuid())
+  userId          String
+  activityId      String?   @unique
+  type            String    // Maps to ActivityType (offer_received, trade_received, etc.)
+  title           String
+  message         String?
+
+  // Action tracking
+  actionType      String?   // ACCEPT_OFFER, ACCEPT_TRADE, FOLLOW_BACK, PLACE_BID, VIEW_ITEM, etc.
+  actionStatus    String    @default("PENDING") // PENDING, COMPLETED, EXPIRED, SUPERSEDED
+  actionData      Json?     // Action-specific data (offerId, tradeId, etc.)
+
+  // Priority & timing
+  priority        String    @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  isTimeSensitive Boolean   @default(false)
+  expiresAt       DateTime?
+
+  // Read status
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+
+  // Dismissal
+  isDismissed     Boolean   @default(false)
+  dismissedAt     DateTime?
+
+  // Entity references for quick access
+  nftId           String?
+  collectionId    String?
+  tradeId         String?
+  offerId         String?
+
+  // Related user (sender/counterparty)
+  relatedUserId   String?
+  relatedAddress  String?
+
+  // Metadata for display (nftImage, nftName, price, collectionName, fromUsername, etc.)
+  metadata        Json?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  user            User      @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  activity        Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, createdAt])
+  @@index([userId, isDismissed, createdAt])
+  @@index([userId, priority, createdAt])
+  @@index([userId, type])
+  @@index([expiresAt])
+  @@index([actionStatus])
+}
+
+// User notification preferences
+model NotificationPreference {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+
+  // Channel preferences
+  soundEnabled    Boolean  @default(true)
+  pushEnabled     Boolean  @default(true) // For future PWA support
+
+  // Type-specific toggles (JSON for flexibility)
+  // { "offer_received": true, "trade_received": true, etc. }
+  enabledTypes    Json     @default("{}")
+
+  // Priority settings
+  showLowPriority Boolean  @default(true)
+
+  // Timing preferences (24-hour format)
+  quietHoursStart Int?     // Hour (0-23) to start quiet hours
+  quietHoursEnd   Int?     // Hour (0-23) to end quiet hours
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation("NotificationPreferences", fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Search History Model - tracks user search queries for recent searches feature
@@ -600,4 +756,1231 @@ model SearchHistory {
   @@index([userId, createdAt])
   @@index([query])
   @@index([createdAt])
+}
+
+// ============================================================
+// LOOTBOX SYSTEM - Chainlink VRF V2.5 Integration
+// ============================================================
+
+// Tracks lootbox metadata (mirrors on-chain state + additional metadata)
+model Lootbox {
+  id               String            @id @default(uuid())
+  onChainId        Int               @unique // Matches contract lootboxId
+  name             String
+  description      String?
+  image            String
+  price            Decimal           @db.Decimal(18, 8)
+  priceCurrency    String            @default("ETH")
+  rarity           String            @default("common") // common, rare, epic, mythic, cosmic
+  totalSupply      Int
+  remainingSupply  Int
+  rewardsPerOpening Int              @default(1) // Number of rewards per lootbox opening (1-10)
+  contractAddress  String
+  creatorId        String
+  creator          User              @relation("LootboxCreator", fields: [creatorId], references: [id])
+  projectId        String?
+  project          Project?          @relation("ProjectLootboxes", fields: [projectId], references: [id])
+  rewards          LootboxReward[]
+  openings         LootboxOpening[]
+  isActive         Boolean           @default(false) // Activated after rewards deposited
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  // Enhanced UI fields
+  heroVideo       String?           // Hero video URL for detail page
+  thumbnailImage  String?           // Thumbnail for grid/carousel
+  expiresAt       DateTime?         // Optional expiration date
+
+  // Aggregated stats (updated on open)
+  totalOpened     Int               @default(0)
+  totalValueWon   Decimal           @default(0) @db.Decimal(18, 8)
+
+  // Relations to new models
+  activityFeed    LootboxActivityFeed[] @relation("LootboxActivityFeed")
+  freeBoxRewards  FreeBoxReward[]       @relation("FreeBoxRewards")
+  // Affiliate campaigns
+  affiliateCampaigns AffiliateCampaign[] @relation("LootboxAffiliateCampaign")
+
+  @@index([creatorId])
+  @@index([projectId])
+  @@index([rarity])
+  @@index([isActive])
+  @@index([expiresAt])
+}
+
+// Tracks ACTUAL deposited NFTs as rewards
+model LootboxReward {
+  id                 String           @id @default(uuid())
+  lootboxId          String
+  lootbox            Lootbox          @relation(fields: [lootboxId], references: [id], onDelete: Cascade)
+
+  // Original NFT info (the actual deposited NFT)
+  nftContractAddress String           // Original NFT contract
+  nftTokenId         String           // Original token ID (string for large numbers)
+  tokenType          String           @default("ERC721") // "ERC721" or "ERC1155"
+
+  // Metadata (cached from the NFT)
+  name               String
+  description        String?
+  image              String
+  collectionName     String?
+
+  // Lootbox config
+  rarity             String           // common, rare, epic, mythic, cosmic
+  weight             Int              // Probability weight (higher = more common)
+
+  // Status
+  claimed            Boolean          @default(false) // Has this reward been won?
+  claimedBy          String?          // User ID who won this reward
+  claimedAt          DateTime?
+
+  // Relations
+  legacyOpenings     LootboxOpening[] @relation("LegacyOpeningReward") // Deprecated single-reward relation
+  openingRewards     LootboxOpeningReward[] @relation("OpeningRewards") // Multi-reward relation
+  createdAt          DateTime         @default(now())
+
+  @@index([lootboxId])
+  @@index([nftContractAddress, nftTokenId])
+  @@index([claimed])
+}
+
+// Tracks lootbox opening requests and VRF fulfillment
+model LootboxOpening {
+  id             String                  @id @default(uuid())
+  lootboxId      String
+  lootbox        Lootbox                 @relation(fields: [lootboxId], references: [id])
+  userId         String
+  user           User                    @relation("LootboxOpenings", fields: [userId], references: [id])
+  vrfRequestId   String                  @unique // Chainlink VRF request ID
+  rewardsCount   Int                     @default(1) // Number of rewards expected (matches lootbox.rewardsPerOpening)
+  fulfilled      Boolean                 @default(false)
+  txHash         String?
+  openedAt       DateTime                @default(now())
+  fulfilledAt    DateTime?
+
+  // Relations to rewards (one-to-many for multi-reward support)
+  openingRewards LootboxOpeningReward[]
+
+  // Legacy single reward fields (deprecated, kept for backwards compatibility)
+  rewardId       String?
+  reward         LootboxReward?          @relation("LegacyOpeningReward", fields: [rewardId], references: [id])
+
+  // Enhanced tracking (best/highest rarity from all rewards)
+  bestRarityTier String?                 // Best rarity from all rewards (common, rare, epic, mythic, cosmic)
+  totalValueAtOpen Decimal?              @db.Decimal(18, 8) // Total value of all rewards
+
+  @@index([userId])
+  @@index([lootboxId])
+  @@index([vrfRequestId])
+  @@index([fulfilled, fulfilledAt])
+}
+
+// Join table for multiple rewards per opening
+model LootboxOpeningReward {
+  id         String         @id @default(uuid())
+  openingId  String
+  opening    LootboxOpening @relation(fields: [openingId], references: [id], onDelete: Cascade)
+  rewardId   String
+  reward     LootboxReward  @relation("OpeningRewards", fields: [rewardId], references: [id])
+
+  // Order in which reward was revealed (0-indexed)
+  rewardIndex Int
+
+  // Denormalized for performance
+  rarity     String
+  valueAtOpen Decimal?      @db.Decimal(18, 8)
+
+  createdAt  DateTime       @default(now())
+
+  @@unique([openingId, rewardIndex])
+  @@index([openingId])
+  @@index([rewardId])
+}
+
+// ============================================================
+// GAMING PLATFORM - Elympics Integration
+// ============================================================
+
+model Game {
+  id             String        @id @default(uuid())
+  name           String
+  slug           String        @unique
+  description    String?
+  image          String
+  category       String        // casual, competitive, casino, 1v1
+  subcategory    String?       // puzzle, fps, poker, etc.
+  minPlayers     Int           @default(1)
+  maxPlayers     Int           @default(2)
+  entryFee       Decimal?      @db.Decimal(18, 8)
+  prizePool      Decimal?      @db.Decimal(18, 8)
+  isActive       Boolean       @default(true)
+  elympicsGameId String?       // Elympics game identifier
+  tournaments    Tournament[]
+  matches        Match[]
+  playerStats    PlayerStats[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+}
+
+model Tournament {
+  id                   String                  @id @default(uuid())
+  gameId               String
+  game                 Game                    @relation(fields: [gameId], references: [id])
+  name                 String
+  description          String?
+  image                String?
+  startTime            DateTime
+  endTime              DateTime?
+  entryFee             Decimal                 @db.Decimal(18, 8)
+  prizePool            Decimal                 @db.Decimal(18, 8)
+  maxPlayers           Int
+  currentPlayers       Int                     @default(0)
+  format               String                  // single_elimination, double_elimination, round_robin
+  status               TournamentStatus        @default(UPCOMING)
+  elympicsTournamentId String?
+  brackets             TournamentBracket[]
+  participants         TournamentParticipant[]
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+
+  @@index([gameId])
+  @@index([status])
+  @@index([startTime])
+}
+
+enum TournamentStatus {
+  UPCOMING
+  REGISTRATION
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model TournamentBracket {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  round        Int
+  matchNumber  Int
+  player1Id    String?
+  player2Id    String?
+  winnerId     String?
+  score1       Int?
+  score2       Int?
+  status       String     @default("pending") // pending, in_progress, completed
+  scheduledAt  DateTime?
+  completedAt  DateTime?
+
+  @@index([tournamentId, round])
+}
+
+model TournamentParticipant {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation("TournamentParticipant", fields: [userId], references: [id])
+  seed         Int?
+  eliminated   Boolean    @default(false)
+  placement    Int?
+  prizeAmount  Decimal?   @db.Decimal(18, 8)
+  prizeClaimed Boolean    @default(false)
+  joinedAt     DateTime   @default(now())
+
+  @@unique([tournamentId, userId])
+  @@index([userId])
+}
+
+model Match {
+  id              String      @id @default(uuid())
+  gameId          String
+  game            Game        @relation(fields: [gameId], references: [id])
+  player1Id       String
+  player1         User        @relation("MatchPlayer1", fields: [player1Id], references: [id])
+  player2Id       String?
+  player2         User?       @relation("MatchPlayer2", fields: [player2Id], references: [id])
+  winnerId        String?
+  wagerAmount     Decimal?    @db.Decimal(18, 8)
+  wagerType       String?     // eth, nft, token
+  status          MatchStatus @default(PENDING)
+  elympicsMatchId String?
+  replayUrl       String?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime    @default(now())
+
+  @@index([gameId])
+  @@index([player1Id])
+  @@index([player2Id])
+  @@index([status])
+}
+
+enum MatchStatus {
+  PENDING
+  MATCHMAKING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+model PlayerStats {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation("PlayerGameStats", fields: [userId], references: [id])
+  gameId        String
+  game          Game     @relation(fields: [gameId], references: [id])
+  wins          Int      @default(0)
+  losses        Int      @default(0)
+  draws         Int      @default(0)
+  rating        Int      @default(1000) // ELO-style rating
+  peakRating    Int      @default(1000)
+  streak        Int      @default(0)    // Positive = wins, negative = losses
+  totalEarnings Decimal  @default(0)    @db.Decimal(18, 8)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, gameId])
+  @@index([gameId, rating])
+}
+
+// ============================================================
+// LOOTBOX STATS & SOCIAL FEATURES
+// ============================================================
+
+// User lootbox stats - tracks all lootbox activity for a user
+// Updated in PATCH /api/lootboxes/[id]/open after VRF fulfillment
+model UserLootboxStats {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation("UserLootboxStats", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Counters - incremented on purchase/open
+  totalOpened     Int      @default(0)
+  totalPurchased  Int      @default(0)
+  totalSpentEth   Decimal  @default(0) @db.Decimal(18, 8)
+
+  // Rarity distribution - updated after VRF fulfillment from LootboxReward.rarity
+  commonDrops     Int      @default(0)
+  rareDrops       Int      @default(0)
+  epicDrops       Int      @default(0)
+  mythicDrops     Int      @default(0)
+  cosmicDrops     Int      @default(0)
+
+  // Best drop tracking
+  bestDropRarity  String?  // Highest rarity ever received
+  bestDropValue   Decimal? @db.Decimal(18, 8)
+
+  // Streak tracking
+  currentStreak   Int      @default(0)  // Consecutive opens
+  longestStreak   Int      @default(0)
+  lastOpenedAt    DateTime?
+
+  // Free boxes - earned via referrals, tournaments, leaderboard
+  freeBoxesAvailable Int    @default(0)
+  freeBoxesClaimed   Int    @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([totalOpened])
+}
+
+// Live activity feed for real-time social proof
+// Created in PATCH /api/lootboxes/[id]/open after VRF fulfillment
+// Consumed via Supabase Realtime for live marquee
+model LootboxActivityFeed {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation("LootboxActivityFeed", fields: [userId], references: [id], onDelete: Cascade)
+
+  type            String   // 'opened', 'rare_drop', 'epic_drop', 'mythic_drop', 'cosmic_drop'
+
+  lootboxId       String?
+  lootbox         Lootbox? @relation("LootboxActivityFeed", fields: [lootboxId], references: [id])
+
+  openingId       String?  // Reference to the LootboxOpening
+  rewardId        String?  // Reference to the LootboxReward won
+
+  // Denormalized for feed performance (avoids joins)
+  userDisplayName String   // From User.username or wallet address
+  userAvatar      String?  // From User.profilePicture
+  lootboxName     String?
+  rewardName      String?
+  rewardImage     String?
+  rewardRarity    String?
+  rewardValue     Decimal? @db.Decimal(18, 8)
+
+  createdAt       DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([rewardRarity, createdAt])
+  @@index([createdAt])
+}
+
+// Lootbox leaderboard - calculated periodically from UserLootboxStats
+model LootboxLeaderboard {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation("LootboxLeaderboard", fields: [userId], references: [id], onDelete: Cascade)
+
+  type            String   // 'daily', 'weekly', 'all_time'
+
+  totalOpened     Int      @default(0)
+  totalValue      Decimal  @default(0) @db.Decimal(18, 8)
+  luckyScore      Float    @default(0) // (rare+ drops / total) * 100
+
+  rank            Int?
+
+  periodStart     DateTime
+  periodEnd       DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, type])
+  @@index([type, rank])
+  @@index([type, luckyScore])
+}
+
+// Free box rewards tracking - earned via referrals, tournaments, leaderboard placement
+// Claiming transfers ERC1155 lootbox token from platform wallet to user
+model FreeBoxReward {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation("FreeBoxRewards", fields: [userId], references: [id], onDelete: Cascade)
+
+  source          String   // 'referral', 'leaderboard', 'tournament', 'promo'
+  sourceId        String?  // referralId, tournamentId, etc.
+
+  lootboxId       String?  // Specific lootbox or null for any
+  lootbox         Lootbox? @relation("FreeBoxRewards", fields: [lootboxId], references: [id])
+
+  claimed         Boolean  @default(false)
+  claimedAt       DateTime?
+  expiresAt       DateTime?
+
+  createdAt       DateTime @default(now())
+
+  @@index([userId, claimed])
+  @@index([expiresAt])
+}
+
+// ============================================================
+// MUSEUM SYSTEM - Legends Hall
+// ============================================================
+
+model Legend {
+  id                String        @id @default(uuid())
+  slug              String        @unique
+  name              String
+  title             String
+  tagline           String
+  era               String
+  category          String
+  impact            String
+  status            LegendStatus  @default(DRAFT)
+
+  // Story content
+  heroLine          String        @db.Text
+  challenge         String        @db.Text
+  breakthrough      String        @db.Text
+  legacy            String        @db.Text
+  modernImpact      String        @db.Text
+
+  // Media
+  portraitUrl       String
+  bannerUrl         String
+  heroVideoUrl      String
+  trailerVideoUrl   String?
+  trailerDuration   Int?          @default(0)
+
+  // Styling
+  primaryColor      String        @default("#a3ff12")
+  accentColor       String        @default("#7bc400")
+  gradientClass     String        @default("from-green-400/20 to-emerald-600/10")
+
+  // Relations
+  collection        Collection?   @relation(fields: [collectionId], references: [id])
+  collectionId      String?       @unique
+  chapters          LegendChapter[]
+  artifacts         LegendArtifact[]
+  achievements      LegendAchievement[]
+  timeline          LegendTimelineEvent[]
+  quotes            LegendQuote[]
+  userProgress      UserLegendProgress[]
+
+  // Stats stored as JSON for flexibility
+  stats             Json          @default("{}")
+
+  // Ordering
+  displayOrder      Int           @default(0)
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([status, displayOrder])
+  @@index([slug])
+}
+
+enum LegendStatus {
+  DRAFT
+  COMING_SOON
+  ACTIVE
+  ARCHIVED
+}
+
+model LegendChapter {
+  id                String        @id @default(uuid())
+  legendId          String
+  legend            Legend        @relation(fields: [legendId], references: [id], onDelete: Cascade)
+
+  number            Int
+  title             String
+  subtitle          String?
+  description       String        @db.Text
+
+  // Media
+  videoUrl          String
+  thumbnailUrl      String
+
+  // NFT connection (optional until Phase 4)
+  nft               Nft?          @relation(fields: [nftId], references: [id])
+  nftId             String?       @unique
+
+  // Metadata
+  year              String?
+  rarity            String        @default("Common")
+  edition           String        @default("Open Edition")
+  price             Float?
+
+  // Progression
+  prerequisiteNumber Int?         // Must own chapter with this number first
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([legendId, number])
+  @@index([legendId])
+}
+
+model LegendArtifact {
+  id                String             @id @default(uuid())
+  legendId          String
+  legend            Legend             @relation(fields: [legendId], references: [id], onDelete: Cascade)
+
+  name              String
+  description       String             @db.Text
+  type              String             // Code, Document, Hardware, Blueprint, Manuscript
+  rarity            String             @default("Common")
+  year              String
+  mediaUrl          String
+
+  // Unlock conditions
+  unlockType        ArtifactUnlockType @default(CHAPTER)
+  unlockValue       String?            // Chapter number, points threshold, etc.
+
+  displayOrder      Int                @default(0)
+  createdAt         DateTime           @default(now())
+
+  @@index([legendId, displayOrder])
+}
+
+enum ArtifactUnlockType {
+  CHAPTER           // Unlock by owning specific chapter
+  POINTS            // Unlock by curator points
+  QUIZ              // Unlock by answering quiz correctly
+  PURCHASE          // Direct purchase
+  AIRDROP           // Airdropped to holders
+  FREE              // Always unlocked
+}
+
+model LegendTimelineEvent {
+  id                String        @id @default(uuid())
+  legendId          String
+  legend            Legend        @relation(fields: [legendId], references: [id], onDelete: Cascade)
+
+  year              String
+  event             String
+  detail            String        @db.Text
+  mediaUrl          String?
+
+  // Quiz for gamification
+  hasQuiz           Boolean       @default(false)
+  quizQuestion      String?
+  quizType          String?       @default("multiple") // multiple, truefalse, connection, timeline
+  quizDifficulty    String?       @default("medium")   // easy, medium, hard
+  quizOptions       Json?         // string[]
+  quizCorrectIndex  Int?
+  quizExplanation   String?       @db.Text
+  quizPoints        Int?          @default(100)
+  quizHint          String?
+
+  displayOrder      Int           @default(0)
+  createdAt         DateTime      @default(now())
+
+  @@index([legendId, displayOrder])
+}
+
+model LegendQuote {
+  id                String        @id @default(uuid())
+  legendId          String
+  legend            Legend        @relation(fields: [legendId], references: [id], onDelete: Cascade)
+
+  text              String        @db.Text
+  context           String
+  year              String?
+
+  displayOrder      Int           @default(0)
+  createdAt         DateTime      @default(now())
+
+  @@index([legendId, displayOrder])
+}
+
+model LegendAchievement {
+  id                String                 @id @default(uuid())
+  legendId          String
+  legend            Legend                 @relation(fields: [legendId], references: [id], onDelete: Cascade)
+
+  name              String
+  description       String
+  iconUrl           String?
+  points            Int                    @default(100)
+
+  // Unlock conditions
+  unlockType        AchievementUnlockType
+  unlockValue       String?                // JSON or specific value
+
+  createdAt         DateTime               @default(now())
+
+  @@index([legendId])
+}
+
+enum AchievementUnlockType {
+  CHAPTERS_OWNED    // Own X chapters
+  ALL_CHAPTERS      // Own all chapters
+  TIMELINE_COMPLETE // Complete timeline exploration
+  QUIZ_SCORE        // Achieve total quiz score
+  ARTIFACTS_FOUND   // Find X artifacts
+  FIRST_PURCHASE    // First NFT in collection
+  FULL_COLLECTION   // Own entire collection
+}
+
+model UserLegendProgress {
+  id                String        @id @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legendId          String
+  legend            Legend        @relation(fields: [legendId], references: [id], onDelete: Cascade)
+
+  // Progress tracking (stored as arrays of IDs)
+  chaptersOwned     String[]      @default([])
+  chaptersViewed    String[]      @default([])
+  artifactsFound    String[]      @default([])
+  achievementsEarned String[]     @default([])
+  timelineEventsViewed String[]   @default([])
+  quizzesCompleted  String[]      @default([])
+
+  // Scores
+  curatorPoints     Int           @default(0)
+  quizScore         Int           @default(0)
+  discoveryLevel    Int           @default(1)
+
+  // Timestamps
+  firstVisitAt      DateTime?
+  lastVisitAt       DateTime?
+  trailerWatchedAt  DateTime?
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@unique([userId, legendId])
+  @@index([userId])
+  @@index([legendId])
+}
+
+// ============================================================
+// REPORTS / MODERATION SYSTEM
+// ============================================================
+
+model Report {
+  id              String       @id @default(uuid())
+  type            String       // nft, collection, user
+  targetId        String       // The ID of the NFT, collection, or user
+  reason          String       // stolen, copyright, explicit, spam, other
+  details         String?      // Additional details from reporter
+  reporterId      String?      // User who submitted the report (optional for anon)
+  reporterAddress String?      // Wallet address of reporter
+  status          ReportStatus @default(PENDING)
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  reviewNotes     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([type, targetId])
+  @@index([status])
+  @@index([reporterId])
+  @@index([createdAt])
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
+// ============================================================
+// HYPE NETWORK - Gamified Affiliate System
+// ============================================================
+
+// Core affiliate identity - every affiliate is a "Hype Agent"
+model HypeAgent {
+  id                 String                 @id @default(uuid())
+  userId             String                 @unique
+  user               User                   @relation("HypeAgent", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Identity
+  agentName          String?                // Custom display name
+  agentTag           String                 @unique // Unique tag like "CRYPTOKING#1337"
+  avatar             String?
+  bio                String?
+
+  // Progression
+  totalXp            Int                    @default(0)
+  currentRank        AgentRank              @default(ROOKIE)
+  rankProgress       Int                    @default(0) // 0-100 to next rank
+
+  // Lifetime Stats
+  totalReferrals     Int                    @default(0)
+  totalEarnings      Decimal                @default(0) @db.Decimal(18, 8)
+  totalCampaigns     Int                    @default(0)
+  totalChallengesWon Int                    @default(0)
+
+  // Streaks
+  currentStreak      Int                    @default(0)
+  longestStreak      Int                    @default(0)
+  lastReferralAt     DateTime?
+
+  // Multipliers
+  commissionMultiplier Float               @default(1.0)
+
+  // Status
+  isVerified         Boolean                @default(false)
+  isBanned           Boolean                @default(false)
+
+  // Relations
+  links              AffiliateLink[]
+  commissions        AffiliateCommission[]
+  achievements       AgentAchievement[]
+  challengeParticipations ChallengeParticipant[]
+  leaderboardEntries AgentLeaderboard[]
+  payouts            AgentPayout[]
+  xpLogs             AgentXpLog[]
+
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  @@index([currentRank, totalXp])
+  @@index([totalEarnings])
+  @@index([totalReferrals])
+  @@index([longestStreak])
+}
+
+enum AgentRank {
+  ROOKIE
+  PROMOTER
+  INFLUENCER
+  AMBASSADOR
+  ELITE
+  LEGENDARY
+  MYTHIC
+}
+
+// Campaign created by a creator for their launch
+model AffiliateCampaign {
+  id                 String              @id @default(uuid())
+  creatorId          String
+  creator            User                @relation("CampaignCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+
+  // What's being promoted
+  collectionId       String?
+  collection         Collection?         @relation("AffiliateCampaign", fields: [collectionId], references: [id])
+  lootboxId          String?
+  lootbox            Lootbox?            @relation("LootboxAffiliateCampaign", fields: [lootboxId], references: [id])
+
+  // Campaign Details
+  name               String
+  description        String?
+  bannerImage        String?
+
+  // Commission Structure
+  baseCommissionBps  Int                 @default(500) // 5% = 500 basis points
+  bonusCommissionBps Int?
+  maxCommissionCap   Decimal?            @db.Decimal(18, 8)
+
+  // Budget & Limits
+  totalBudget        Decimal?            @db.Decimal(18, 8)
+  spentBudget        Decimal             @default(0) @db.Decimal(18, 8)
+  maxAgents          Int?
+
+  // Timing
+  startAt            DateTime
+  endAt              DateTime
+
+  // XP rewards
+  xpPerReferral      Int                 @default(100)
+  xpBonusFirstSale   Int                 @default(500)
+
+  // Status
+  status             CampaignStatus      @default(DRAFT)
+  isPublic           Boolean             @default(true)
+  isFeatured         Boolean             @default(false)
+
+  // Stats
+  totalAgents        Int                 @default(0)
+  totalReferrals     Int                 @default(0)
+  totalVolume        Decimal             @default(0) @db.Decimal(18, 8)
+
+  // Relations
+  links              AffiliateLink[]
+  challenges         AffiliateChallenge[]
+  leaderboard        CampaignLeaderboard[]
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([creatorId, status])
+  @@index([status, startAt, endAt])
+  @@index([isFeatured, status])
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  ENDED
+  CANCELLED
+}
+
+// Individual affiliate link
+model AffiliateLink {
+  id                 String              @id @default(uuid())
+  agentId            String
+  agent              HypeAgent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  campaignId         String
+  campaign           AffiliateCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  // Tracking
+  code               String              @unique // Short code e.g., "CRYPTOKING-AZUKI"
+  shortUrl           String?
+
+  // Stats
+  clicks             Int                 @default(0)
+  uniqueVisitors     Int                 @default(0)
+  conversions        Int                 @default(0)
+  conversionRate     Float               @default(0)
+  totalVolume        Decimal             @default(0) @db.Decimal(18, 8)
+  totalEarnings      Decimal             @default(0) @db.Decimal(18, 8)
+
+  // Status
+  isActive           Boolean             @default(true)
+
+  // Relations
+  commissions        AffiliateCommission[]
+  clickEvents        AffiliateLinkClick[]
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([agentId, campaignId])
+  @@index([code])
+  @@index([campaignId, conversions])
+}
+
+// Click tracking
+model AffiliateLinkClick {
+  id                 String              @id @default(uuid())
+  linkId             String
+  link               AffiliateLink       @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  visitorHash        String              // Hashed IP + UA
+  referrer           String?
+  userAgent          String?
+
+  converted          Boolean             @default(false)
+  convertedAt        DateTime?
+  conversionTxHash   String?
+
+  createdAt          DateTime            @default(now())
+
+  @@index([linkId, createdAt])
+  @@index([visitorHash])
+}
+
+// Commission earned per sale
+model AffiliateCommission {
+  id                 String              @id @default(uuid())
+  agentId            String
+  agent              HypeAgent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  linkId             String
+  link               AffiliateLink       @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  // Transaction
+  txHash             String              @unique
+  buyerAddress       String
+  saleAmount         Decimal             @db.Decimal(18, 8)
+  commissionBps      Int
+  multiplier         Float               @default(1.0)
+
+  // Earnings
+  baseCommission     Decimal             @db.Decimal(18, 8)
+  bonusCommission    Decimal             @default(0) @db.Decimal(18, 8)
+  totalCommission    Decimal             @db.Decimal(18, 8)
+
+  // XP
+  xpAwarded          Int                 @default(0)
+
+  // Payout
+  status             CommissionStatus    @default(PENDING)
+  payoutId           String?
+  payout             AgentPayout?        @relation(fields: [payoutId], references: [id])
+
+  createdAt          DateTime            @default(now())
+  paidAt             DateTime?
+
+  @@index([agentId, status])
+  @@index([linkId])
+  @@index([status, createdAt])
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  PAID
+  DISPUTED
+  CANCELLED
+}
+
+// Challenge/competition
+model AffiliateChallenge {
+  id                 String              @id @default(uuid())
+  campaignId         String
+  campaign           AffiliateCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  name               String
+  description        String?
+  bannerImage        String?
+
+  type               ChallengeType
+  targetValue        Int
+  targetCurrency     String?
+
+  startAt            DateTime
+  endAt              DateTime
+
+  prizePool          Decimal?            @db.Decimal(18, 8)
+  prizeNftIds        String[]
+  xpReward           Int                 @default(1000)
+  prizeDistribution  Json                // { "1st": 50, "2nd": 30, "3rd": 20 }
+  winnersCount       Int                 @default(3)
+
+  status             ChallengeStatus     @default(UPCOMING)
+  participantCount   Int                 @default(0)
+
+  participants       ChallengeParticipant[]
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([campaignId, status])
+  @@index([status, startAt])
+}
+
+enum ChallengeType {
+  RACE_TO_TARGET
+  MOST_REFERRALS
+  MOST_VOLUME
+  STREAK_MASTER
+  VIRAL_WAVE
+  WHALE_HUNTER
+  CONSISTENCY
+}
+
+enum ChallengeStatus {
+  UPCOMING
+  ACTIVE
+  CALCULATING
+  COMPLETED
+  CANCELLED
+}
+
+// Challenge participation
+model ChallengeParticipant {
+  id                 String              @id @default(uuid())
+  challengeId        String
+  challenge          AffiliateChallenge  @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  agentId            String
+  agent              HypeAgent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  currentValue       Int                 @default(0)
+  percentComplete    Float               @default(0)
+
+  currentRank        Int?
+  previousRank       Int?
+
+  finalRank          Int?
+  prizeAmount        Decimal?            @db.Decimal(18, 8)
+  prizeNftId         String?
+  xpAwarded          Int                 @default(0)
+  prizeClaimed       Boolean             @default(false)
+  prizeClaimedAt     DateTime?
+
+  joinedAt           DateTime            @default(now())
+  completedAt        DateTime?
+
+  @@unique([challengeId, agentId])
+  @@index([challengeId, currentRank])
+  @@index([agentId])
+}
+
+// Achievements - uses string-based achievementId to match definitions in lib/hype-network/achievements.ts
+model AgentAchievement {
+  id                 String              @id @default(uuid())
+  agentId            String
+  agent              HypeAgent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  achievementId      String              // Matches achievement ID from ACHIEVEMENTS array
+  tier               AchievementTier     // Achievement rarity tier
+
+  unlockedAt         DateTime            @default(now())
+
+  @@unique([agentId, achievementId])
+  @@index([agentId])
+  @@index([achievementId])
+  @@index([tier])
+}
+
+enum AchievementTier {
+  BRONZE
+  SILVER
+  GOLD
+  DIAMOND
+}
+
+// XP event log for tracking XP gains over time
+model AgentXpLog {
+  id                 String              @id @default(uuid())
+  agentId            String
+  agent              HypeAgent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  amount             Int                 // XP amount awarded
+  source             String              // XP source key (e.g., "REFERRAL_CONVERSION")
+  metadata           Json?               // Additional context
+
+  createdAt          DateTime            @default(now())
+
+  @@index([agentId, createdAt])
+  @@index([createdAt])
+}
+
+// Global leaderboard snapshots
+model AgentLeaderboard {
+  id                 String              @id @default(uuid())
+  agentId            String
+  agent              HypeAgent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  period             LeaderboardPeriod
+  periodStart        DateTime
+  periodEnd          DateTime?
+
+  referrals          Int                 @default(0)
+  volume             Decimal             @default(0) @db.Decimal(18, 8)
+  earnings           Decimal             @default(0) @db.Decimal(18, 8)
+  xpEarned           Int                 @default(0)
+
+  rank               Int?
+  previousRank       Int?
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([agentId, period, periodStart])
+  @@index([period, rank])
+  @@index([period, referrals])
+  @@index([period, volume])
+}
+
+// Campaign-specific leaderboard
+model CampaignLeaderboard {
+  id                 String              @id @default(uuid())
+  campaignId         String
+  campaign           AffiliateCampaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  agentId            String
+
+  referrals          Int                 @default(0)
+  volume             Decimal             @default(0) @db.Decimal(18, 8)
+  earnings           Decimal             @default(0) @db.Decimal(18, 8)
+  conversionRate     Float               @default(0)
+
+  rank               Int?
+
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([campaignId, agentId])
+  @@index([campaignId, rank])
+  @@index([campaignId, referrals])
+}
+
+enum LeaderboardPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ALL_TIME
+}
+
+// Payout records
+model AgentPayout {
+  id                 String              @id @default(uuid())
+  agentId            String
+  agent              HypeAgent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  amount             Decimal             @db.Decimal(18, 8)
+  currency           String              @default("ETH")
+  recipientAddress   String
+
+  txHash             String?             @unique
+  status             PayoutStatus        @default(PENDING)
+
+  commissions        AffiliateCommission[]
+  commissionCount    Int                 @default(0)
+
+  requestedAt        DateTime            @default(now())
+  processedAt        DateTime?
+  completedAt        DateTime?
+  failedAt           DateTime?
+  failureReason      String?
+
+  @@index([agentId, status])
+  @@index([status])
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ============================================================
+// CHAT SYSTEM - Whispers/DMs (Phase 3)
+// ============================================================
+
+model Conversation {
+  id           String                    @id @default(uuid())
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  participants ConversationParticipant[]
+  messages     DirectMessage[]
+
+  @@index([updatedAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime     @default(now())
+  isArchived     Boolean      @default(false)
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
+}
+
+model DirectMessage {
+  id             String       @id @default(uuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime     @default(now())
+
+  // NFT attachment support (Phase 4)
+  attachedNftId  String?      // Optional NFT attachment
+  attachedNft    Nft?         @relation("DirectMessageNftAttachment", fields: [attachedNftId], references: [id], onDelete: SetNull)
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("DirectMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@index([attachedNftId])
+}
+
+// ============================================================
+// CHAT SYSTEM - Clan Chat (Phase 2)
+// ============================================================
+
+model Clan {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  tag         String        @unique  // [HPX], [DEGEN], etc.
+  description String?
+  avatar      String?
+  banner      String?
+  ownerId     String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  owner       User          @relation("ClanOwner", fields: [ownerId], references: [id])
+  members     ClanMember[]
+  messages    ClanMessage[]
+
+  @@index([ownerId])
+}
+
+model ClanMember {
+  id        String    @id @default(uuid())
+  clanId    String
+  userId    String
+  role      ClanRole  @default(MEMBER)
+  joinedAt  DateTime  @default(now())
+
+  clan      Clan      @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clanId, userId])
+  @@index([userId])
+  @@index([clanId])
+}
+
+enum ClanRole {
+  OWNER
+  OFFICER
+  MEMBER
+}
+
+model ClanMessage {
+  id        String   @id @default(uuid())
+  clanId    String
+  senderId  String
+  content   String
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  clan      Clan     @relation(fields: [clanId], references: [id], onDelete: Cascade)
+  sender    User     @relation("ClanMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([clanId, createdAt])
+  @@index([senderId])
 }

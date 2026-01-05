@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
 import { logNftMinted } from '@/lib/activity';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
+  // Rate limit: blockchain operations (20 req/min with 60s block)
+  const rateCheck = await rateLimitCheck(request, "blockchain");
+  if (rateCheck.blocked) return rateCheck.response;
+
   try {
     const body = await request.json();
     const { collectionId, nfts, walletAddress } = body;

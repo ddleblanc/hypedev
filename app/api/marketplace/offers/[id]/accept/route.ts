@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { logOfferAccepted } from '@/lib/activity';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 // Schema for accepting an offer
 const acceptOfferSchema = z.object({
@@ -18,6 +19,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit blockchain operations
+  const rateLimit = await rateLimitCheck(request, "blockchain");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const { id: offerId } = await params;
     const body = await request.json();
@@ -130,7 +135,7 @@ export async function POST(
       console.error('Failed to log offer accepted activity:', activityError);
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Offer accepted successfully',
       offer: result.offer,
@@ -144,20 +149,23 @@ export async function POST(
         id: owner.id,
       },
     });
+    return rateLimit.applyHeaders(response);
   } catch (error) {
     console.error('Error accepting offer:', error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
+      return rateLimit.applyHeaders(response);
     }
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: `Failed to accept offer: ${errorMessage}` },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }

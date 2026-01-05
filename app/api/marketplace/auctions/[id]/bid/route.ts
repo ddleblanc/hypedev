@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { logBidPlaced } from '@/lib/activity';
 import { fetchWinningBid } from '@/lib/marketplace';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 // Schema for placing a bid
 const placeBidSchema = z.object({
@@ -20,6 +21,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit blockchain operations
+  const rateLimit = await rateLimitCheck(request, "blockchain");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const { id: auctionId } = await params;
     const body = await request.json();
@@ -124,7 +129,7 @@ export async function POST(
       // Don't fail the request if activity logging fails
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Bid recorded successfully',
       auction: updatedAuction,
@@ -134,21 +139,24 @@ export async function POST(
         transactionHash: validatedData.transactionHash,
       },
     });
+    return rateLimit.applyHeaders(response);
   } catch (error) {
     console.error('Error recording bid:', error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
+      return rateLimit.applyHeaders(response);
     }
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: `Failed to record bid: ${errorMessage}` },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }
 
@@ -160,6 +168,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit API reads
+  const rateLimit = await rateLimitCheck(request, "api");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const { id: auctionId } = await params;
 
@@ -215,7 +227,7 @@ export async function GET(
       // Ignore if we can't fetch
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       currentBid: {
         amount: auction.highestBid || auction.minimumBidAmount,
@@ -237,11 +249,13 @@ export async function GET(
         bidder: onChainWinningBid.bidderAddress,
       } : null,
     });
+    return rateLimit.applyHeaders(response);
   } catch (error) {
     console.error('Error fetching bid history:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: 'Failed to fetch bid history' },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }

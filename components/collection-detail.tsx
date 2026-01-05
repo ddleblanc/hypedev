@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { 
   Play,
@@ -86,7 +86,14 @@ export function CollectionDetail({ collectionId, onBack }: CollectionDetailProps
 
   const heroRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Only use target-based scroll tracking after mount to avoid hydration errors
+  const { scrollYProgress } = useScroll(isMounted ? { target: heroRef } : undefined);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
@@ -114,7 +121,7 @@ export function CollectionDetail({ collectionId, onBack }: CollectionDetailProps
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full overflow-hidden bg-black"
+      className="w-full overflow-hidden"
     >
       <div className="relative">
         {/* Hero Section */}

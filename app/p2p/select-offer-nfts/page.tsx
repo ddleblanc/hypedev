@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, X, Loader2, ArrowRight } from 'lucide-react';
-import { useWalletAuthOptimized } from '@/hooks/use-wallet-auth-optimized';
+import { ArrowLeft, X, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 import { useP2PSelectionFlow } from '@/contexts/p2p-selection-flow-context';
 import { useP2PSelectionFlowNavigation } from '@/hooks/use-p2p-selection-flow';
 import { SelectedNFTsBar } from '@/components/p2p/selection-flow/selected-nfts-bar';
 import { CollectionBrowser } from '@/components/p2p/selection-flow/collection-browser';
 import { NFTSelectionGrid } from '@/components/p2p/selection-flow/nft-selection-grid';
 import { OfferSelectionMenu } from '@/components/p2p/selection-flow/offer-selection-menu';
+import { trpc } from '@/lib/trpc/client';
 
 interface NFT {
   id: string;
@@ -28,7 +29,7 @@ interface NFT {
 function UserOfferSelectionPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const address = user?.walletAddress;
   const traderAddress = searchParams?.get('trader');
 
@@ -43,33 +44,37 @@ function UserOfferSelectionPageContent() {
 
   const { proceedToBoardReview, goBackFromOfferSelection } = useP2PSelectionFlowNavigation();
 
-  const [nfts, setNfts] = useState<NFT[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isCreatingTrade, setIsCreatingTrade] = useState(false);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
 
-  // Fetch user's NFTs
-  useEffect(() => {
-    if (!address) return;
+  // tRPC query for user's NFTs
+  const nftsQuery = trpc.user.nfts.list.useQuery(
+    {
+      address: address || '',
+      filter: 'owned',
+    },
+    {
+      enabled: !!address,
+    }
+  );
 
-    const fetchNFTs = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/user/${address}/nfts`);
-        const data = await response.json();
-
-        if (data.success) {
-          setNfts(data.data.nfts || []);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user NFTs:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchNFTs();
-  }, [address]);
+  const nfts = useMemo(() => {
+    if (!nftsQuery.data?.nfts) return [];
+    return nftsQuery.data.nfts.map((nft) => ({
+      id: nft.id,
+      tokenId: nft.tokenId,
+      name: nft.name,
+      image: nft.image || '',
+      collection: nft.collection
+        ? {
+            name: nft.collection.name,
+            symbol: '',
+          }
+        : undefined,
+      collectionId: nft.collectionId || undefined,
+      rarityTier: nft.rarityTier || undefined,
+    }));
+  }, [nftsQuery.data]);
 
   // Group NFTs by collection
   const collections = useMemo(() => {
@@ -175,14 +180,14 @@ function UserOfferSelectionPageContent() {
       )}
 
       {/* Loading State */}
-      {isLoading && (
+      {nftsQuery.isLoading && (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 text-white animate-spin" />
         </div>
       )}
 
       {/* Empty State */}
-      {!isLoading && filteredNFTs.length === 0 && (
+      {!nftsQuery.isLoading && filteredNFTs.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -197,7 +202,7 @@ function UserOfferSelectionPageContent() {
       )}
 
       {/* NFT Grid */}
-      {!isLoading && filteredNFTs.length > 0 && (
+      {!nftsQuery.isLoading && filteredNFTs.length > 0 && (
         <div className="py-6 mt-[3.2rem]">
           <NFTSelectionGrid
             nfts={filteredNFTs}

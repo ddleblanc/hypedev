@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { User, TrendingUp, Award, DollarSign, History, Settings, LogOut, ChevronRight } from 'lucide-react';
-import { useWalletAuthOptimized } from '@/hooks/use-wallet-auth-optimized';
+import { useAuth } from '@/contexts/auth-context';
 
 interface MobileProfileProps {
   statsData?: {
@@ -27,7 +27,7 @@ export function MobileProfile({
   onSettings,
   onDisconnect,
 }: MobileProfileProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
 
   return (
     <div className="relative z-10 min-h-screen px-4 pt-20 pb-32 bg-transparent">

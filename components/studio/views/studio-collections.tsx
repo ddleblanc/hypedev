@@ -35,23 +35,23 @@ interface Collection {
   description?: string;
   image?: string;
   bannerImage?: string;
-  projectId: string;
+  projectId?: string;
   project?: {
     id: string;
     name: string;
-  };
+  } | null;
   address?: string;
   chainId: number;
   contractType?: string;
-  maxSupply?: number;
+  maxSupply?: number | null;
   mintedSupply: number;
   royaltyPercentage: number;
   isDeployed: boolean;
   volume: number;
   holders: number;
   floorPrice: number;
-  createdAt: string;
-  deployedAt?: string;
+  createdAt: Date | string;
+  deployedAt?: Date | string | null;
 }
 
 interface StudioCollectionsProps {
@@ -75,8 +75,8 @@ export function StudioCollections({ collections, viewMode, onViewCollection }: S
     return num.toString();
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (dateInput: Date | string) => {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));

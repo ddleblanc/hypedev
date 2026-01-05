@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import { cleanupStuckModals } from '@/lib/modal-cleanup';
 
 export type TransactionStep = "details" | "checkout" | "approve" | "confirm" | "pending" | "success" | "error";
 
@@ -152,6 +153,28 @@ const TransactionContext = createContext<TransactionContextType | undefined>(und
 
 export function TransactionProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(transactionReducer, initialState);
+
+  // Clean up stuck modals when transaction enters error state
+  useEffect(() => {
+    if (state.step === "error") {
+      // Give React a moment to finish any pending updates, then clean up
+      const timeoutId = setTimeout(() => {
+        cleanupStuckModals();
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [state.step]);
+
+  // Also clean up when transaction is reset
+  useEffect(() => {
+    if (!state.isActive && state.step === "details") {
+      // Small delay to ensure any closing animations complete
+      const timeoutId = setTimeout(() => {
+        cleanupStuckModals();
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [state.isActive, state.step]);
 
   const startTransaction = useCallback((nft: TransactionNFT, mode: "buy" | "offer" | "deploy" | "mint", amount: number) => {
     dispatch({ type: 'START_TRANSACTION', payload: { nft, mode, amount } });

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -13,15 +13,15 @@ interface ProtectedRouteProps {
 /**
  * Protected Route Component
  * Wraps pages that require wallet authentication
- * Redirects to home if wallet is not connected
+ * Redirects to login page if wallet is not connected
  */
 export function ProtectedRoute({
   children,
-  redirectTo = "/",
+  redirectTo = "/login",
   requireOnboarding = false
 }: ProtectedRouteProps) {
   const router = useRouter();
-  const { isConnected, isLoading, user, requiresOnboarding } = useWalletAuthOptimized();
+  const { isConnected, isLoading, user, requiresOnboarding } = useAuth();
 
   useEffect(() => {
     // Wait for initial loading to complete

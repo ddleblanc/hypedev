@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
  * GET /api/analytics/price-history
@@ -10,6 +11,9 @@ import { prisma } from '@/lib/prisma';
  * - period: '7d', '30d', '90d', 'all' (default: '30d')
  */
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const collectionId = searchParams.get('collectionId');

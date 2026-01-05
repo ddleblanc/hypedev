@@ -1,17 +1,41 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { z } from 'zod';
-import { auth } from '@/lib/auth';
-import { logPurchase } from '@/lib/activity';
-import { getListingById } from '@/lib/marketplace';
-import { requireAuthMatch, AuthError } from '@/lib/thirdweb-auth';
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { logPurchase } from "@/lib/activity";
+import { getListingById } from "@/lib/marketplace";
+import { requireAuthMatch, AuthError } from "@/lib/thirdweb-auth";
+import { rateLimitCheck } from "@/lib/rate-limit";
+import { ResultAsync, ok, err } from "@/lib/result";
+import { resultToResponse, resultToResponseWithRateLimit } from "@/lib/api-utils";
+import {
+  validationError,
+  notFoundError,
+  databaseError,
+  badRequestError,
+  unauthorizedError,
+  forbiddenError,
+  type AnyAppError,
+} from "@/lib/errors";
+import {
+  getAttributionData,
+  clearAttributionCookie,
+} from "@/lib/hype-network/attribution";
+import { recordConversion } from "@/lib/hype-network/link-service";
 
-// Schema for purchase request
-const purchaseSchema = z.object({
+// Zod schemas for validation
+const PurchaseSchema = z.object({
   listingId: z.string(),
   buyerAddress: z.string(),
   transactionHash: z.string(),
   quantity: z.number().int().positive().default(1),
+});
+
+const GetPurchasesQuerySchema = z.object({
+  buyer: z.string().optional(),
+  seller: z.string().optional(),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
 });
 
 /**
@@ -19,34 +43,66 @@ const purchaseSchema = z.object({
  * Record a successful purchase after on-chain transaction
  */
 export async function POST(request: NextRequest) {
+  // Rate limit blockchain operations
+  const rateLimit = await rateLimitCheck(request, "blockchain");
+  if (rateLimit.blocked) return rateLimit.response;
+
+  // Parse JSON body
+  const bodyResult = await ResultAsync.fromPromise(
+    request.json() as Promise<unknown>,
+    () => badRequestError("Invalid JSON body")
+  );
+
+  if (bodyResult.isErr()) {
+    return resultToResponseWithRateLimit(err<never, AnyAppError>(bodyResult.error), rateLimit);
+  }
+
+  // Validate input
+  const parseResult = PurchaseSchema.safeParse(bodyResult.value);
+  if (!parseResult.success) {
+    return resultToResponseWithRateLimit(err(validationError(parseResult.error)), rateLimit);
+  }
+
+  const validatedData = parseResult.data;
+
+  // Verify the caller is the buyer
   try {
-    const body = await request.json();
-    const validatedData = purchaseSchema.parse(body);
-
-    // Verify the caller is the buyer
-    try {
-      await requireAuthMatch(validatedData.buyerAddress);
-    } catch (authError) {
-      if (authError instanceof AuthError) {
-        return NextResponse.json(
-          { success: false, error: authError.message },
-          { status: authError.status }
-        );
-      }
-      throw authError;
-    }
-
-    // Get the buyer user record
-    const buyer = await auth.getUserByWallet(validatedData.buyerAddress);
-    if (!buyer) {
-      return NextResponse.json(
-        { success: false, error: 'Buyer not found. Please connect your wallet first.' },
-        { status: 401 }
+    await requireAuthMatch(validatedData.buyerAddress);
+  } catch (authError) {
+    if (authError instanceof AuthError) {
+      return resultToResponseWithRateLimit(
+        err(
+          authError.status === 401
+            ? unauthorizedError(authError.message)
+            : forbiddenError(authError.message)
+        ),
+        rateLimit
       );
     }
+    throw authError;
+  }
 
-    // Find the listing in our database
-    const listing = await prisma.marketplaceListing.findUnique({
+  // Get buyer user record
+  const buyerResult = await ResultAsync.fromPromise(
+    auth.getUserByWallet(validatedData.buyerAddress),
+    (e) => databaseError(e)
+  );
+
+  if (buyerResult.isErr()) {
+    return resultToResponseWithRateLimit(err<never, AnyAppError>(buyerResult.error), rateLimit);
+  }
+
+  const buyer = buyerResult.value;
+  if (!buyer) {
+    return resultToResponseWithRateLimit(
+      err(unauthorizedError("Buyer not found. Please connect your wallet first.")),
+      rateLimit
+    );
+  }
+
+  // Find the listing
+  const listingResult = await ResultAsync.fromPromise(
+    prisma.marketplaceListing.findUnique({
       where: { listingId: validatedData.listingId },
       include: {
         nft: {
@@ -55,52 +111,56 @@ export async function POST(request: NextRequest) {
           },
         },
       },
-    });
+    }),
+    (e) => databaseError(e)
+  );
 
-    if (!listing) {
-      return NextResponse.json(
-        { success: false, error: 'Listing not found in database' },
-        { status: 404 }
-      );
-    }
+  if (listingResult.isErr()) {
+    return resultToResponseWithRateLimit(err<never, AnyAppError>(listingResult.error), rateLimit);
+  }
 
-    if (listing.status !== 'ACTIVE') {
-      return NextResponse.json(
-        { success: false, error: `Listing is not active (current status: ${listing.status})` },
-        { status: 400 }
-      );
-    }
+  const listing = listingResult.value;
+  if (!listing) {
+    return resultToResponseWithRateLimit(err(notFoundError("Listing", validatedData.listingId)), rateLimit);
+  }
 
-    // Verify the purchase happened on-chain by checking listing status
-    // Note: Listing should be completed/gone after purchase
-    let onChainListing = null;
-    try {
-      onChainListing = await getListingById(validatedData.listingId);
-    } catch (chainError) {
-      console.log('On-chain listing check failed (expected if purchase completed):', chainError);
-    }
+  if (listing.status !== "ACTIVE") {
+    return resultToResponseWithRateLimit(
+      err(badRequestError(`Listing is not active (current status: ${listing.status})`)),
+      rateLimit
+    );
+  }
 
-    // If listing is still active on-chain, the purchase may not have completed
-    if (onChainListing && (onChainListing.status === 'CREATED' || Number(onChainListing.status) === 1)) {
+  // Verify purchase on-chain (non-blocking warning)
+  try {
+    const onChainListing = await getListingById(validatedData.listingId);
+    if (
+      onChainListing &&
+      (onChainListing.status === "CREATED" || Number(onChainListing.status) === 1)
+    ) {
       console.warn(`Listing ${validatedData.listingId} is still active on-chain`);
-      // We'll proceed anyway since the tx hash was provided - the on-chain state may just be slow to update
     }
+  } catch (chainError) {
+    console.log(
+      "On-chain listing check failed (expected if purchase completed):",
+      chainError
+    );
+  }
 
-    // Get seller information
-    const seller = await auth.getUserByWallet(listing.sellerAddress);
+  // Get seller information
+  const seller = await auth.getUserByWallet(listing.sellerAddress);
 
-    // Update listing and NFT ownership in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Update the listing status to SOLD
+  // Update listing and NFT ownership in transaction
+  const result = await ResultAsync.fromPromise(
+    prisma.$transaction(async (tx) => {
       const updatedListing = await tx.marketplaceListing.update({
         where: { listingId: validatedData.listingId },
         data: {
-          status: 'SOLD',
+          status: "SOLD",
           transactionHash: validatedData.transactionHash,
         },
       });
 
-      // Transfer NFT ownership to buyer and clear listing data
       const updatedNft = await tx.nft.update({
         where: { id: listing.nftId },
         data: {
@@ -115,55 +175,97 @@ export async function POST(request: NextRequest) {
       });
 
       return { listing: updatedListing, nft: updatedNft };
-    });
+    }),
+    (e) => databaseError(e)
+  );
 
-    // Log the purchase activity for both buyer and seller
-    try {
-      if (seller) {
-        await logPurchase(
-          buyer.id,
-          seller.id,
-          listing.nftId,
-          listing.pricePerToken,
-          listing.nft?.collectionId || undefined,
-          validatedData.transactionHash
+  if (result.isErr()) {
+    return resultToResponseWithRateLimit(err<never, AnyAppError>(result.error), rateLimit);
+  }
+
+  // Log purchase activity (non-blocking)
+  if (seller) {
+    logPurchase(
+      buyer.id,
+      seller.id,
+      listing.nftId,
+      listing.pricePerToken,
+      listing.nft?.collectionId || undefined,
+      validatedData.transactionHash
+    ).catch(console.error);
+  }
+
+  // Process affiliate attribution (non-blocking)
+  let attributionResult: {
+    attributed: boolean;
+    commissionId?: string;
+    agentTag?: string;
+  } = { attributed: false };
+
+  try {
+    const attribution = await getAttributionData();
+
+    if (attribution) {
+      // Verify the campaign matches this collection
+      const link = await prisma.affiliateLink.findUnique({
+        where: { id: attribution.linkId },
+        include: {
+          agent: { select: { agentTag: true } },
+          campaign: { select: { collectionId: true, status: true } },
+        },
+      });
+
+      if (
+        link &&
+        link.campaign.status === "ACTIVE" &&
+        link.campaign.collectionId === listing.nft?.collectionId
+      ) {
+        // Record the conversion
+        const commission = await recordConversion({
+          linkId: attribution.linkId,
+          buyerAddress: validatedData.buyerAddress.toLowerCase(),
+          txHash: validatedData.transactionHash,
+          saleAmount: Number(listing.pricePerToken),
+        });
+
+        attributionResult = {
+          attributed: true,
+          commissionId: commission.id,
+          agentTag: link.agent.agentTag,
+        };
+
+        // Clear the attribution cookie (one conversion per click)
+        await clearAttributionCookie();
+
+        console.log(
+          `[Purchase] Attribution processed: agent ${link.agent.agentTag}, commission ${commission.id}`
         );
       }
-    } catch (activityError) {
-      console.error('Failed to log purchase activity:', activityError);
-      // Don't fail the request if activity logging fails
     }
+  } catch (attrError) {
+    // Don't fail the purchase if attribution fails
+    console.error("[Purchase] Attribution processing failed:", attrError);
+  }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Purchase recorded successfully',
-      listing: result.listing,
-      nft: result.nft,
+  return resultToResponseWithRateLimit(
+    ok({
+      message: "Purchase recorded successfully",
+      listing: result.value.listing,
+      nft: result.value.nft,
       buyer: {
         address: validatedData.buyerAddress,
         id: buyer.id,
       },
-      seller: seller ? {
-        address: listing.sellerAddress,
-        id: seller.id,
-      } : null,
-    });
-  } catch (error) {
-    console.error('Error recording purchase:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
-    }
-
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
-      { success: false, error: `Failed to record purchase: ${errorMessage}` },
-      { status: 500 }
-    );
-  }
+      seller: seller
+        ? {
+            address: listing.sellerAddress,
+            id: seller.id,
+          }
+        : null,
+      attribution: attributionResult,
+    }),
+    rateLimit
+  );
 }
 
 /**
@@ -171,52 +273,90 @@ export async function POST(request: NextRequest) {
  * Get purchase history using Activity table for accurate historical data
  */
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const buyerAddress = searchParams.get('buyer');
-    const sellerAddress = searchParams.get('seller');
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const skip = (page - 1) * limit;
+  // Rate limit API reads
+  const rateLimit = await rateLimitCheck(request, "api");
+  if (rateLimit.blocked) return rateLimit.response;
 
-    // Use Activity table for accurate purchase history
-    // This tracks actual purchases even if NFT was later resold
-    const where: any = {
-      type: { in: ['purchase', 'listing_sold', 'auction_won'] },
-    };
+  const searchParams = request.nextUrl.searchParams;
 
-    // If buyer is specified, find their user ID and filter by userId
-    if (buyerAddress) {
-      const buyer = await auth.getUserByWallet(buyerAddress);
-      if (buyer) {
-        where.userId = buyer.id;
-        where.type = { in: ['purchase', 'auction_won'] };
-      } else {
-        // Buyer not found, return empty results
-        return NextResponse.json({
-          success: true,
-          purchases: [],
-          pagination: { page, limit, total: 0, totalPages: 0 },
-        });
-      }
+  // Validate query parameters
+  const parseResult = GetPurchasesQuerySchema.safeParse({
+    buyer: searchParams.get("buyer") || undefined,
+    seller: searchParams.get("seller") || undefined,
+    page: searchParams.get("page") || 1,
+    limit: searchParams.get("limit") || 20,
+  });
+
+  if (!parseResult.success) {
+    return resultToResponseWithRateLimit(err(validationError(parseResult.error)), rateLimit);
+  }
+
+  const { buyer: buyerAddress, seller: sellerAddress, page, limit } = parseResult.data;
+  const skip = (page - 1) * limit;
+
+  // Build where clause for Activity table
+  const where: {
+    type: { in: string[] };
+    userId?: string;
+  } = {
+    type: { in: ["purchase", "listing_sold", "auction_won"] },
+  };
+
+  // If buyer is specified, find their user ID
+  if (buyerAddress) {
+    const buyerResult = await ResultAsync.fromPromise(
+      auth.getUserByWallet(buyerAddress),
+      (e) => databaseError(e)
+    );
+
+    if (buyerResult.isErr()) {
+      return resultToResponseWithRateLimit(err<never, AnyAppError>(buyerResult.error), rateLimit);
     }
 
-    // If seller is specified, find sales by that seller
-    if (sellerAddress) {
-      const seller = await auth.getUserByWallet(sellerAddress);
-      if (seller) {
-        where.userId = seller.id;
-        where.type = 'listing_sold';
-      } else {
-        return NextResponse.json({
-          success: true,
+    const buyer = buyerResult.value;
+    if (!buyer) {
+      return resultToResponseWithRateLimit(
+        ok({
           purchases: [],
           pagination: { page, limit, total: 0, totalPages: 0 },
-        });
-      }
+        }),
+        rateLimit
+      );
     }
 
-    const [activities, total] = await Promise.all([
+    where.userId = buyer.id;
+    where.type = { in: ["purchase", "auction_won"] };
+  }
+
+  // If seller is specified, find their user ID
+  if (sellerAddress) {
+    const sellerResult = await ResultAsync.fromPromise(
+      auth.getUserByWallet(sellerAddress),
+      (e) => databaseError(e)
+    );
+
+    if (sellerResult.isErr()) {
+      return resultToResponseWithRateLimit(err<never, AnyAppError>(sellerResult.error), rateLimit);
+    }
+
+    const seller = sellerResult.value;
+    if (!seller) {
+      return resultToResponseWithRateLimit(
+        ok({
+          purchases: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        }),
+        rateLimit
+      );
+    }
+
+    where.userId = seller.id;
+    where.type = { in: ["listing_sold"] };
+  }
+
+  // Execute query
+  const result = await ResultAsync.fromPromise(
+    Promise.all([
       prisma.activity.findMany({
         where,
         include: {
@@ -241,40 +381,34 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip,
         take: limit,
       }),
       prisma.activity.count({ where }),
-    ]);
+    ]),
+    (e) => databaseError(e)
+  );
 
-    // Transform activities into purchase format
-    const purchases = activities.map(activity => ({
-      id: activity.id,
-      type: activity.type,
-      amount: activity.amount,
-      transactionHash: activity.transactionHash,
-      createdAt: activity.createdAt,
-      nft: activity.nft,
-      user: activity.user,
-      listingId: activity.listingId,
-    }));
-
-    return NextResponse.json({
-      success: true,
-      purchases,
+  return resultToResponseWithRateLimit(
+    result.map(([activities, total]) => ({
+      purchases: activities.map((activity) => ({
+        id: activity.id,
+        type: activity.type,
+        amount: activity.amount,
+        transactionHash: activity.transactionHash,
+        createdAt: activity.createdAt,
+        nft: activity.nft,
+        user: activity.user,
+        listingId: activity.listingId,
+      })),
       pagination: {
         page,
         limit,
         total,
         totalPages: Math.ceil(total / limit),
       },
-    });
-  } catch (error) {
-    console.error('Error fetching purchase history:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch purchase history' },
-      { status: 500 }
-    );
-  }
+    })),
+    rateLimit
+  );
 }

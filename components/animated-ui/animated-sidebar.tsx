@@ -45,7 +45,10 @@ import {
   Database,
   PieChart,
   MoreHorizontal,
-  X
+  X,
+  Compass,
+  Coins,
+  Rocket
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -434,11 +437,11 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     );
                   }
                 })()
-              ) : currentRoute === 'launchpad' || currentRoute === 'launchpad-detail' ? (
+              ) : currentRoute === 'drops' || currentRoute === 'drops-detail' ? (
                 <>
                   <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-white" />
-                    Launchpad
+                    Drops
                   </h2>
                   <p className="text-sm text-white/60">Discover new collections</p>
                 </>
@@ -644,7 +647,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     </Button>
                   </div>
                 </div>
-              ) : currentRoute === 'launchpad' || currentRoute === 'launchpad-detail' ? (
+              ) : currentRoute === 'drops' || currentRoute === 'drops-detail' ? (
                 <div className="w-full space-y-3">
                   <div className="flex gap-2">
                     <Button
@@ -1094,15 +1097,117 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     transition={{ delay: 0.55 }}
                     className="space-y-2"
                   >
-                    <Button className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold">
-                      <Edit3 className="w-4 h-4 mr-2" /> Edit Profile
-                    </Button>
-                    <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-                      <Share className="w-4 h-4 mr-2" /> Share Profile
-                    </Button>
-                    <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">
-                      <Settings className="w-4 h-4 mr-2" /> Privacy Settings
-                    </Button>
+                    {pathname === '/profile' ? (
+                      <>
+                        <Button
+                          className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold"
+                          onClick={() => router.push('/profile/collection')}
+                        >
+                          <Package className="w-4 h-4 mr-2" /> View Collection
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full border-white/20 text-white hover:bg-white/10"
+                          onClick={() => router.push('/profile/achievements')}
+                        >
+                          <Trophy className="w-4 h-4 mr-2" /> Achievements
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full border-white/20 text-white hover:bg-white/10"
+                          onClick={() => router.push('/profile/settings')}
+                        >
+                          <Settings className="w-4 h-4 mr-2" /> Settings
+                        </Button>
+                      </>
+                    ) : pathname === '/profile/collection' ? (
+                      <>
+                        <Button
+                          className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold"
+                          onClick={() => router.push('/studio/create')}
+                        >
+                          <Plus className="w-4 h-4 mr-2" /> Create NFT
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full border-white/20 text-white hover:bg-white/10"
+                          onClick={() => router.push('/lootboxes')}
+                        >
+                          <Box className="w-4 h-4 mr-2" /> Browse Lootboxes
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full border-white/20 text-white hover:bg-white/10"
+                          onClick={() => router.push('/marketplace')}
+                        >
+                          <TrendingUp className="w-4 h-4 mr-2" /> Marketplace
+                        </Button>
+                      </>
+                    ) : pathname === '/profile/achievements' ? (
+                      <>
+                        <Button
+                          className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold"
+                          onClick={() => router.push('/play')}
+                        >
+                          <Gamepad2 className="w-4 h-4 mr-2" /> Play Games
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full border-white/20 text-white hover:bg-white/10"
+                          onClick={() => router.push('/profile/stats')}
+                        >
+                          <Activity className="w-4 h-4 mr-2" /> View Stats
+                        </Button>
+                      </>
+                    ) : pathname === '/profile/stats' ? (
+                      <>
+                        <Button
+                          className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold"
+                          onClick={() => router.push('/marketplace')}
+                        >
+                          <TrendingUp className="w-4 h-4 mr-2" /> Trade NFTs
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full border-white/20 text-white hover:bg-white/10"
+                          onClick={() => router.push('/play')}
+                        >
+                          <Gamepad2 className="w-4 h-4 mr-2" /> Play Games
+                        </Button>
+                      </>
+                    ) : pathname === '/profile/settings' ? (
+                      <>
+                        <Button
+                          className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold"
+                          onClick={() => router.push('/profile')}
+                        >
+                          <User className="w-4 h-4 mr-2" /> Back to Dashboard
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full border-white/20 text-white hover:bg-white/10"
+                          onClick={() => router.push('/profile/collection')}
+                        >
+                          <Package className="w-4 h-4 mr-2" /> View Collection
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          className="w-full bg-gradient-to-r from-white to-gray-100 hover:from-gray-100 hover:to-white text-black font-bold"
+                          onClick={() => router.push('/profile')}
+                        >
+                          <User className="w-4 h-4 mr-2" /> Dashboard
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="w-full border-white/20 text-white hover:bg-white/10"
+                          onClick={() => router.push('/profile/settings')}
+                        >
+                          <Settings className="w-4 h-4 mr-2" /> Settings
+                        </Button>
+                      </>
+                    )}
                   </motion.div>
                 </div>
               </>
@@ -1297,9 +1402,9 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                   </motion.div>
                 </div>
               </>
-            ) : currentRoute === 'launchpad' || currentRoute === 'launchpad-detail' ? (
+            ) : currentRoute === 'drops' || currentRoute === 'drops-detail' ? (
               <>
-                {/* Launchpad Stats */}
+                {/* Drops Stats */}
                 <div className="p-6 border-b border-white/10">
                   <motion.h3
                     initial={{ opacity: 0, x: -10 }}
@@ -1307,7 +1412,7 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
                     transition={{ delay: 0.3 }}
                     className="text-sm font-semibold text-white/80 mb-4"
                   >
-                    LAUNCHPAD STATS
+                    DROPS STATS
                   </motion.h3>
                   <div className="space-y-3">
                     {[
@@ -1618,79 +1723,56 @@ export function AnimatedSidebar({ show, showFooter = true, currentRoute = 'marke
               </>
             ) : currentRoute === 'marketplace' ? (
               <>
-                {/* Trending Collections */}
-                <div className="p-6 border-b border-white/10">
-                  <motion.h3
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4 }}
-                    className="text-sm font-semibold text-white/80 mb-4"
-                  >
-                    📈 TRENDING COLLECTIONS
-                  </motion.h3>
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.45 }}
-                    className="space-y-3"
-                  >
-                    {[
-                      { name: 'Warriors', price: '4.2', change: '23' },
-                      { name: 'Cyber Legends', price: '3.8', change: '45' },
-                      { name: 'Art Masters', price: '2.1', change: '12' },
-                      { name: 'Music NFTs', price: '1.5', change: '89' }
-                    ].map((item, i) => (
-                      <div key={item.name} className="flex items-center gap-3 py-3 hover:text-white transition-colors cursor-pointer">
-                        <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                          <span className="text-black text-xs font-bold">#{i + 1}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{item.name}</p>
-                          <p className="text-xs text-white/60">{500 + i * 100} items</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs font-bold text-white">{item.price} ETH</p>
-                          <p className="text-[10px] text-white">+{item.change}%</p>
-                        </div>
-                      </div>
-                    ))}
-                  </motion.div>
-                </div>
-
-                {/* Categories */}
+                {/* Marketplace Navigation Links */}
                 <div className="p-6">
                   <motion.h3
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="text-sm font-semibold text-white/80 mb-4"
+                    transition={{ delay: 0.3 }}
+                    className="text-sm font-semibold text-white/60 mb-4 uppercase tracking-wider"
                   >
-                    📂 CATEGORIES
+                    Explore
                   </motion.h3>
-                  <div className="space-y-2">
+                  <nav className="space-y-1">
                     {[
-                      { name: 'Gaming', projects: 18, growth: '+45%' },
-                      { name: 'Art', projects: 12, growth: '+23%' },
-                      { name: 'Collectibles', projects: 8, growth: '+67%' },
-                      { name: 'Music', projects: 6, growth: '+89%' }
-                    ].map((category, index) => (
-                      <motion.div
-                        key={category.name}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.55 + index * 0.05 }}
-                        className="flex items-center justify-between py-3 hover:text-white transition-colors cursor-pointer"
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-white">{category.name}</p>
-                          <p className="text-xs text-white/60">{category.projects} collections</p>
-                        </div>
-                        <Badge className="bg-white/20 text-white border-white/30 text-xs">
-                          {category.growth}
-                        </Badge>
-                      </motion.div>
-                    ))}
-                  </div>
+                      { name: 'Discover', icon: Compass, href: '/marketplace', description: 'Browse all NFTs' },
+                      { name: 'Collections', icon: Layers, href: '/marketplace/collections', description: 'Top collections' },
+                      { name: 'Lootboxes', icon: Package, href: '/lootboxes', description: 'Mystery boxes' },
+                      { name: 'Tokens', icon: Coins, href: '/marketplace/tokens', description: 'Game tokens' },
+                      { name: 'Drops', icon: Rocket, href: '/marketplace/drops', description: 'Upcoming releases' },
+                      { name: 'Activity', icon: Activity, href: '/marketplace/activity', description: 'Recent trades' }
+                    ].map((item, index) => {
+                      const Icon = item.icon;
+                      const isActive = pathname === item.href;
+                      return (
+                        <motion.button
+                          key={item.name}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.35 + index * 0.05 }}
+                          onClick={() => router.push(item.href)}
+                          className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 group ${
+                            isActive
+                              ? 'bg-white/20 text-white'
+                              : 'text-white/70 hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                            isActive ? 'bg-white/20' : 'bg-white/5 group-hover:bg-white/10'
+                          }`}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-medium">{item.name}</p>
+                            <p className="text-xs text-white/50">{item.description}</p>
+                          </div>
+                          <ChevronRight className={`h-4 w-4 transition-transform ${
+                            isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'
+                          }`} />
+                        </motion.button>
+                      );
+                    })}
+                  </nav>
                 </div>
               </>
             ) : (

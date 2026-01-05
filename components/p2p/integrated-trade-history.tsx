@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock,
@@ -22,8 +22,9 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { MediaRenderer } from "@/components/media-renderer";
+import { trpc } from "@/lib/trpc/client";
 
 interface Trade {
   id: string;
@@ -77,11 +78,8 @@ export function IntegratedTradeHistory({
   searchQuery = "",
   viewFilter = 'all'
 }: IntegratedTradeHistoryProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const address = user?.walletAddress;
-  const [trades, setTrades] = useState<Trade[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [expandedTrade, setExpandedTrade] = useState<string | null>(null);
 
   const statusConfig = {
@@ -96,32 +94,54 @@ export function IntegratedTradeHistory({
     REJECTED: { label: "Rejected", color: "bg-red-500/20 text-red-400 border-red-500/30", icon: XCircle },
   };
 
-  const fetchTrades = async () => {
-    if (!address) return;
+  // tRPC query for fetching trades
+  const tradesQuery = trpc.p2p.trades.list.useQuery(
+    { address: address ?? '' },
+    { enabled: !!address }
+  );
 
-    setIsLoading(true);
-    setError(null);
+  // Transform tRPC response to match Trade interface (Date -> string)
+  const trades: Trade[] = (tradesQuery.data?.trades ?? []).map((trade) => ({
+    id: trade.id,
+    status: trade.status,
+    fairnessScore: trade.fairnessScore ?? 0,
+    _count: trade._count,
+    createdAt: trade.createdAt instanceof Date ? trade.createdAt.toISOString() : String(trade.createdAt),
+    updatedAt: trade.updatedAt instanceof Date ? trade.updatedAt.toISOString() : String(trade.updatedAt),
+    items: trade.items.filter((item) => item.nft !== null).map((item) => ({
+      id: item.id,
+      side: item.side,
+      tokenAmount: item.tokenAmount ?? 0,
+      nft: {
+        id: item.nft!.id,
+        name: item.nft!.name,
+        image: item.nft!.image ?? '',
+        collection: {
+          name: item.nft!.collection.name,
+          symbol: item.nft!.collection.symbol,
+          image: item.nft!.collection.image ?? '',
+        },
+      },
+    })),
+    initiator: {
+      id: trade.initiator.id,
+      walletAddress: trade.initiator.walletAddress,
+      username: trade.initiator.username ?? 'Unknown',
+      profilePicture: trade.initiator.profilePicture ?? '',
+    },
+    counterparty: {
+      id: trade.counterparty.id,
+      walletAddress: trade.counterparty.walletAddress,
+      username: trade.counterparty.username ?? 'Unknown',
+      profilePicture: trade.counterparty.profilePicture ?? '',
+    },
+  }));
+  const isLoading = tradesQuery.isLoading;
+  const error = tradesQuery.error?.message ?? null;
 
-    try {
-      const response = await fetch(`/api/p2p/trades?address=${address}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setTrades(data.data.trades);
-      } else {
-        setError(data.error || 'Failed to fetch trades');
-      }
-    } catch (error) {
-      console.error('Error fetching trades:', error);
-      setError('Failed to fetch trades');
-    } finally {
-      setIsLoading(false);
-    }
+  const fetchTrades = () => {
+    tradesQuery.refetch();
   };
-
-  useEffect(() => {
-    fetchTrades();
-  }, [address]);
 
   // Filter trades
   const filteredTrades = trades.filter(trade => {

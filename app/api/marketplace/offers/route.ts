@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { logOfferMade, logOfferCanceled } from '@/lib/activity';
 import { getOfferById } from '@/lib/marketplace';
 import { requireAuthMatch, AuthError } from '@/lib/thirdweb-auth';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 // Schema for creating an offer record
 const createOfferSchema = z.object({
@@ -24,14 +25,28 @@ const createOfferSchema = z.object({
  * Create a new offer record in the database after on-chain transaction
  */
 export async function POST(request: NextRequest) {
+  console.log("[POST /api/marketplace/offers] Request received");
+
+  // Rate limit: blockchain operations (20 req/min with 60s block)
+  const rateCheck = await rateLimitCheck(request, "blockchain");
+  if (rateCheck.blocked) {
+    console.log("[POST /api/marketplace/offers] Rate limited");
+    return rateCheck.response;
+  }
+
   try {
     const body = await request.json();
+    console.log("[POST /api/marketplace/offers] Request body:", JSON.stringify(body, null, 2));
+
     const validatedData = createOfferSchema.parse(body);
+    console.log("[POST /api/marketplace/offers] Validated data:", JSON.stringify(validatedData, null, 2));
 
     // Verify the caller is the offeror
     try {
       await requireAuthMatch(validatedData.offerorAddress);
+      console.log("[POST /api/marketplace/offers] Auth verified for:", validatedData.offerorAddress);
     } catch (authError) {
+      console.log("[POST /api/marketplace/offers] Auth failed:", authError);
       if (authError instanceof AuthError) {
         return NextResponse.json(
           { success: false, error: authError.message },
@@ -51,10 +66,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Try to find the NFT in our database
-    let nftId = validatedData.nftId;
+    let nftId: string | undefined = validatedData.nftId;
     let nft = null;
-    if (!nftId) {
-      // Try to find by contract address and tokenId
+
+    // Check if nftId is a valid UUID format
+    const isValidUUID = nftId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(nftId);
+
+    if (nftId && isValidUUID) {
+      // Valid UUID - look up directly
+      nft = await prisma.nft.findUnique({
+        where: { id: nftId },
+        include: { collection: true },
+      });
+    }
+
+    // If no valid nftId or NFT not found, try to find by contract address and tokenId
+    if (!nft) {
       const collection = await prisma.collection.findUnique({
         where: { address: validatedData.assetContractAddress.toLowerCase() },
       });
@@ -71,12 +98,9 @@ export async function POST(request: NextRequest) {
           include: { collection: true },
         });
         nftId = nft?.id;
+      } else {
+        nftId = undefined;
       }
-    } else {
-      nft = await prisma.nft.findUnique({
-        where: { id: nftId },
-        include: { collection: true },
-      });
     }
 
     // Verify the offer exists on-chain
@@ -89,19 +113,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the offer record
+    const offerData = {
+      offerId: validatedData.offerId,
+      nftId: nftId || null,
+      offerorAddress: validatedData.offerorAddress.toLowerCase(),
+      assetContractAddress: validatedData.assetContractAddress.toLowerCase(),
+      tokenId: validatedData.tokenId,
+      quantity: validatedData.quantity,
+      offerAmount: validatedData.offerAmount,
+      expirationTimestamp: new Date(validatedData.expirationTimestamp),
+      transactionHash: validatedData.transactionHash,
+      status: 'ACTIVE' as const,
+    };
+    console.log("[POST /api/marketplace/offers] Creating offer with:", JSON.stringify(offerData, null, 2));
+
     const offer = await prisma.marketplaceOffer.create({
-      data: {
-        offerId: validatedData.offerId,
-        nftId: nftId || null,
-        offerorAddress: validatedData.offerorAddress.toLowerCase(),
-        assetContractAddress: validatedData.assetContractAddress.toLowerCase(),
-        tokenId: validatedData.tokenId,
-        quantity: validatedData.quantity,
-        offerAmount: validatedData.offerAmount,
-        expirationTimestamp: new Date(validatedData.expirationTimestamp),
-        transactionHash: validatedData.transactionHash,
-        status: 'ACTIVE',
-      },
+      data: offerData,
+    });
+
+    console.log("[POST /api/marketplace/offers] Offer created successfully:", {
+      id: offer.id,
+      offerId: offer.offerId,
+      status: offer.status,
     });
 
     // Log the offer activity
@@ -242,6 +275,10 @@ export async function GET(request: NextRequest) {
  * Cancel an offer (mark as cancelled)
  */
 export async function DELETE(request: NextRequest) {
+  // Rate limit: blockchain operations (20 req/min with 60s block)
+  const rateCheck = await rateLimitCheck(request, "blockchain");
+  if (rateCheck.blocked) return rateCheck.response;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const offerId = searchParams.get('offerId');

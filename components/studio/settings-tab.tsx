@@ -34,6 +34,7 @@ import type { ClaimCondition } from '@/lib/nft-minting';
 import { setupClaimConditions, getClaimConditions } from '@/lib/nft-minting';
 import { useActiveAccount } from 'thirdweb/react';
 import { MagicDateTimePicker } from '@/components/ui/magic-datetime-picker';
+import { trpc } from "@/lib/trpc/client";
 
 interface SettingsTabProps {
   collection: any;
@@ -41,6 +42,7 @@ interface SettingsTabProps {
 
 export function SettingsTab({ collection }: SettingsTabProps) {
   const account = useActiveAccount();
+  const saveClaimPhasesMutation = trpc.studio.collections.saveClaimPhases.useMutation();
   const [claimPhases, setClaimPhases] = useState<ClaimCondition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -258,20 +260,11 @@ export function SettingsTab({ collection }: SettingsTabProps) {
         account
       );
 
-      // Also save to database
-      const response = await fetch(`/api/studio/collections/${collection.id}/claim-phases`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          claimPhases: JSON.stringify(claimPhases)
-        }),
+      // Also save to database via tRPC
+      await saveClaimPhasesMutation.mutateAsync({
+        collectionId: collection.id,
+        claimPhases: JSON.stringify(claimPhases)
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to save to database');
-      }
 
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 3000);

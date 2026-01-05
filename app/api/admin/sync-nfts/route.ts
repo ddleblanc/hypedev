@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getContract, readContract } from 'thirdweb';
 import { client } from '@/lib/thirdweb';
 import { defineChain } from 'thirdweb/chains';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 const CHAIN_ID = 11155111; // Sepolia
 const chain = defineChain(CHAIN_ID);
@@ -106,20 +107,26 @@ async function findOnChainTokenId(
  *   - limit: number (default: 50, max: 200)
  */
 export async function POST(request: NextRequest) {
+  // Rate limit admin operations
+  const rateLimit = await rateLimitCheck(request, "auth");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     // Check admin key
     if (!ADMIN_KEY) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Admin API not configured' },
         { status: 503 }
       );
+      return rateLimit.applyHeaders(response);
     }
     const authHeader = request.headers.get('authorization');
     if (!authHeader || authHeader !== `Bearer ${ADMIN_KEY}`) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
+      return rateLimit.applyHeaders(response);
     }
 
     const body = await request.json();
@@ -249,6 +256,10 @@ export async function POST(request: NextRequest) {
           }
 
           if (Object.keys(updateData).length > 0) {
+            // Also mark as on-chain since we confirmed it exists
+            updateData.isOnChain = true;
+            updateData.onChainAt = new Date();
+
             await prisma.nft.update({
               where: { id: nft.id },
               data: updateData
@@ -270,7 +281,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       dryRun,
       summary: {
@@ -284,13 +295,15 @@ export async function POST(request: NextRequest) {
       },
       results
     });
+    return rateLimit.applyHeaders(response);
 
   } catch (error: any) {
     console.error('Sync NFTs error:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: error.message || 'Failed to sync NFTs' },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }
 
@@ -300,20 +313,26 @@ export async function POST(request: NextRequest) {
  * Get status of NFTs that need syncing
  */
 export async function GET(request: NextRequest) {
+  // Rate limit admin operations
+  const rateLimit = await rateLimitCheck(request, "auth");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     // Check admin key
     if (!ADMIN_KEY) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Admin API not configured' },
         { status: 503 }
       );
+      return rateLimit.applyHeaders(response);
     }
     const authHeader = request.headers.get('authorization');
     if (!authHeader || authHeader !== `Bearer ${ADMIN_KEY}`) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
+      return rateLimit.applyHeaders(response);
     }
 
     const { searchParams } = new URL(request.url);
@@ -371,7 +390,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       stats: {
         totalOnChainNfts: totalOnChain,
@@ -383,12 +402,14 @@ export async function GET(request: NextRequest) {
       },
       collectionsNeedingSync: collectionDetails.filter(c => c !== null)
     });
+    return rateLimit.applyHeaders(response);
 
   } catch (error: any) {
     console.error('Get sync status error:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: error.message || 'Failed to get sync status' },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }

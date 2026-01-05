@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { 
+import {
   Play,
   Info,
   Plus,
@@ -18,11 +18,41 @@ import {
   Sword,
   Trophy,
   Target,
-  Flame
+  Flame,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Leaderboard } from "@/components/gaming/leaderboard";
+import { TournamentBracket } from "@/components/gaming/tournament-bracket";
+import { useActiveAccount } from "thirdweb/react";
+import { trpc } from "@/lib/trpc/client";
+
+interface Game {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  image: string;
+  category: string;
+  subcategory?: string;
+}
+
+interface Tournament {
+  id: string;
+  name: string;
+  description?: string | null;
+  image?: string | null;
+  startTime: string | Date;
+  entryFee: number;
+  prizePool: number;
+  maxPlayers: number;
+  currentPlayers: number;
+  format: string;
+  status: string;
+  game?: Game | null;
+}
 
 const mockCompetitiveGames = {
   hero: {
@@ -88,13 +118,45 @@ const mockCompetitiveGames = {
 };
 
 export function CompetitiveGamingLayout() {
+  const account = useActiveAccount();
   const [searchQuery, setSearchQuery] = useState("");
   const [isMuted, setIsMuted] = useState(true);
+  const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
-  
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Only use target-based scroll tracking after mount to avoid hydration errors
+  const { scrollYProgress } = useScroll(isMounted ? { target: heroRef } : undefined);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+
+  // Fetch games from tRPC
+  const { data: gamesData, isLoading: gamesLoading } = trpc.gaming.games.list.useQuery(
+    { category: "competitive" as const },
+    { placeholderData: (prev) => prev }
+  );
+
+  // Fetch tournaments from tRPC
+  const { data: tournamentsData, isLoading: tournamentsLoading } = trpc.gaming.tournaments.list.useQuery(
+    { status: "UPCOMING" as const },
+    { placeholderData: (prev) => prev }
+  );
+
+  // Fetch tournament brackets when selected
+  const { data: bracketsData } = trpc.gaming.tournaments.brackets.useQuery(
+    { id: selectedTournament?.id || "" },
+    { enabled: !!selectedTournament?.id }
+  );
+
+  const games = gamesData?.games || [];
+  const tournaments = tournamentsData?.tournaments || [];
+  const tournamentBrackets = bracketsData;
+  const isLoading = gamesLoading || tournamentsLoading;
 
   const scrollCarousel = (direction: 'left' | 'right', containerId: string) => {
     const container = document.getElementById(containerId);
@@ -110,7 +172,7 @@ export function CompetitiveGamingLayout() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full overflow-hidden bg-black"
+      className="w-full overflow-hidden"
     >
       <div className="relative">
         {/* Hero Banner - Competitive themed */}
@@ -282,7 +344,7 @@ export function CompetitiveGamingLayout() {
               <ArrowUpRight className="h-4 w-4" />
             </Button>
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
             {mockCompetitiveGames.categories.map((category, index) => (
               <motion.div
@@ -295,8 +357,8 @@ export function CompetitiveGamingLayout() {
               >
                 <div className="relative overflow-hidden rounded-xl">
                   <div className="aspect-[3/4] bg-gradient-to-br from-orange-800 to-red-900">
-                    <img 
-                      src={category.image} 
+                    <img
+                      src={category.image}
                       alt={category.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -309,6 +371,158 @@ export function CompetitiveGamingLayout() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </motion.section>
+
+        {/* Live Tournaments Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.8 }}
+          className="px-4 md:px-8 py-8 md:py-16 bg-zinc-900/50"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Trophy className="h-8 w-8 text-orange-400" />
+              Live Tournaments
+            </h2>
+            <Button variant="ghost" className="text-white/80 hover:text-white flex items-center gap-2">
+              View All
+              <ArrowUpRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-orange-400 animate-spin" />
+            </div>
+          ) : tournaments.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {tournaments.slice(0, 6).map((tournament, index) => (
+                <motion.div
+                  key={tournament.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index, duration: 0.5 }}
+                  className="bg-zinc-800/50 border border-white/10 rounded-xl p-6 hover:border-orange-400/50 transition-all cursor-pointer"
+                  onClick={() => setSelectedTournament(tournament as unknown as Tournament)}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-1">{tournament.name}</h3>
+                      <p className="text-sm text-white/60">{tournament.game?.name || "Multiple Games"}</p>
+                    </div>
+                    <Badge
+                      className={
+                        tournament.status === "IN_PROGRESS"
+                          ? "bg-green-500 text-black"
+                          : "bg-orange-400 text-black"
+                      }
+                    >
+                      {tournament.status === "IN_PROGRESS" ? "LIVE" : "Upcoming"}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-xs text-white/40 uppercase">Prize Pool</p>
+                      <p className="text-lg font-bold text-orange-400">{tournament.prizePool} ETH</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/40 uppercase">Entry</p>
+                      <p className="text-lg font-bold text-white">{tournament.entryFee} ETH</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/40 uppercase">Players</p>
+                      <p className="text-lg font-bold text-white">
+                        {tournament.currentPlayers}/{tournament.maxPlayers}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+                    <span className="text-sm text-white/60">
+                      {new Date(tournament.startTime).toLocaleDateString()}
+                    </span>
+                    <Button size="sm" className="bg-orange-500 text-black hover:bg-orange-600">
+                      {tournament.status === "IN_PROGRESS" ? "Watch" : "Register"}
+                    </Button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Trophy className="w-12 h-12 text-white/20 mx-auto mb-4" />
+              <p className="text-white/60">No active tournaments</p>
+              <p className="text-sm text-white/40">Check back later for upcoming events</p>
+            </div>
+          )}
+        </motion.section>
+
+        {/* Tournament Bracket Modal/Section */}
+        {selectedTournament && tournamentBrackets && (
+          <motion.section
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="px-4 md:px-8 py-8 md:py-16 bg-black"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-3xl font-bold text-white">{selectedTournament.name}</h2>
+                <p className="text-white/60">Tournament Bracket</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setSelectedTournament(null)}
+                className="border-white/20 text-white"
+              >
+                Close Bracket
+              </Button>
+            </div>
+            <TournamentBracket
+              tournament={{
+                id: selectedTournament.id,
+                name: selectedTournament.name,
+                format: selectedTournament.format,
+                status: selectedTournament.status,
+              }}
+              brackets={tournamentBrackets?.brackets ?
+                (tournamentBrackets.brackets as unknown as Record<number, any[]>) : {}}
+              totalRounds={3}
+              className="bg-zinc-900/50 rounded-xl p-6"
+            />
+          </motion.section>
+        )}
+
+        {/* Leaderboard Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.8 }}
+          className="px-4 md:px-8 py-8 md:py-16 bg-black"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Target className="h-8 w-8 text-orange-400" />
+              Global Leaderboard
+            </h2>
+            <Button
+              variant="ghost"
+              onClick={() => setShowLeaderboard(!showLeaderboard)}
+              className="text-white/80 hover:text-white"
+            >
+              {showLeaderboard ? "Hide" : "Show"} Full Rankings
+            </Button>
+          </div>
+
+          <div className="bg-zinc-900/50 rounded-xl border border-white/10">
+            <Leaderboard
+              limit={showLeaderboard ? 50 : 10}
+              showEarnings={true}
+              currentUserId={account?.address}
+              className="p-4"
+            />
           </div>
         </motion.section>
 

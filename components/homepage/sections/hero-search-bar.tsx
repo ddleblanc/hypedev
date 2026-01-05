@@ -44,6 +44,8 @@ interface TrendingSuggestion {
 
 interface PopularCollection {
   id: string;
+  slug?: string | null;
+  address?: string;
   name: string;
   image: string;
   isVerified: boolean;
@@ -230,7 +232,7 @@ export function HeroSearchBar({
       saveSearchToHistory(collection.name, collection.id, "collection");
       setIsFocused(false);
       setQuery("");
-      router.push(`/collection/${collection.id}`);
+      router.push(`/collection/${collection.slug || collection.address || collection.id}`);
     },
     [router, saveSearchToHistory]
   );

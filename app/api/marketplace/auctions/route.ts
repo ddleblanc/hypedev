@@ -5,6 +5,7 @@ import { getAuctionById } from '@/lib/marketplace';
 import { auth } from '@/lib/auth';
 import { logAuctionCreated } from '@/lib/activity';
 import { requireAuthMatch, AuthError } from '@/lib/thirdweb-auth';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Schema for creating an auction record
 const createAuctionSchema = z.object({
@@ -34,6 +35,9 @@ const updateAuctionSchema = z.object({
  * Create a new auction record in the database after on-chain transaction
  */
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'blockchain');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const body = await request.json();
     const validatedData = createAuctionSchema.parse(body);
@@ -171,6 +175,9 @@ export async function POST(request: NextRequest) {
  * Fetch auctions - by seller address, or all active auctions
  */
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const sellerAddress = searchParams.get('seller');
@@ -237,6 +244,9 @@ export async function GET(request: NextRequest) {
  * Update auction (record bid, update status)
  */
 export async function PUT(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'apiWrite');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const body = await request.json();
     const validatedData = updateAuctionSchema.parse(body);
@@ -309,6 +319,9 @@ export async function PUT(request: NextRequest) {
  * Requires authenticated seller
  */
 export async function DELETE(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'blockchain');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const auctionId = searchParams.get('auctionId');

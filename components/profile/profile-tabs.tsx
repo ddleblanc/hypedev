@@ -2,21 +2,23 @@
 
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Sparkles, Palette, Heart, Activity, FileEdit } from 'lucide-react';
+import { Sparkles, Palette, Heart, Activity, FileEdit, Package } from 'lucide-react';
 
-export type ProfileTab = 'collected' | 'created' | 'drafts' | 'favorited' | 'activity';
+export type ProfileTab = 'collected' | 'created' | 'drafts' | 'favorited' | 'activity' | 'lootboxes';
 
 interface ProfileTabsProps {
   activeTab: ProfileTab;
   onTabChange: (tab: ProfileTab) => void;
   showCreatedTab: boolean;
   showDraftsTab?: boolean;  // Only show on own profile for creators with drafts
+  showLootboxesTab?: boolean;  // Show lootboxes tab when user has lootbox activity
   counts?: {
     collected?: number;
     created?: number;
     drafts?: number;
     favorited?: number;
     activity?: number;
+    lootboxes?: number;
   };
 }
 
@@ -32,6 +34,7 @@ export function ProfileTabs({
   onTabChange,
   showCreatedTab,
   showDraftsTab = false,
+  showLootboxesTab = true,
   counts = {},
 }: ProfileTabsProps) {
   const tabs: TabConfig[] = [
@@ -51,6 +54,12 @@ export function ProfileTabs({
       label: 'Drafts',
       icon: FileEdit,
       showCondition: showDraftsTab,
+    },
+    {
+      id: 'lootboxes',
+      label: 'Lootboxes',
+      icon: Package,
+      showCondition: showLootboxesTab,
     },
     {
       id: 'favorited',

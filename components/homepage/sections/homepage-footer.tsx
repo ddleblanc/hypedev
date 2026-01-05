@@ -41,7 +41,7 @@ const footerSections: FooterSection[] = [
   {
     title: "Create",
     links: [
-      { label: "Launch Project", href: "/launchpad" },
+      { label: "View Drops", href: "/drops" },
       { label: "Mint NFT", href: "/studio" },
       { label: "Create Lootbox", href: "/lootboxes/create" },
       { label: "Creator Hub", href: "/creator-onboarding" },
@@ -247,14 +247,17 @@ export function HomepageFooter({ className }: HomepageFooterProps) {
               onSubmit={handleSubscribe}
               className="flex gap-2 w-full md:w-auto"
             >
-              <div className="relative flex-1 md:w-64">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              <div className="relative flex-1 md:w-64" suppressHydrationWarning>
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none z-10" />
                 <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
                   disabled={isSubscribed}
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-form-type="other"
                   className={cn(
                     "pl-10 bg-white/5 border-white/10 h-11",
                     "focus:border-[rgb(163,255,18)]/50 focus:ring-[rgb(163,255,18)]/20",
@@ -321,7 +324,7 @@ export function HomepageFooter({ className }: HomepageFooterProps) {
         <div className="container mx-auto px-4 md:px-8 py-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-white/40 text-sm">
             <p className="flex items-center gap-2">
-              <span>© {new Date().getFullYear()}</span>
+              <span suppressHydrationWarning>© {new Date().getFullYear()}</span>
               <span className="text-white/60 font-semibold">HYPERCHAINX</span>
               <span className="hidden md:inline">·</span>
               <span className="hidden md:inline">All rights reserved.</span>

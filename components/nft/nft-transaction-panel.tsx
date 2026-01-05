@@ -68,6 +68,7 @@ import { ConnectButton } from "thirdweb/react";
 import { client } from "@/lib/thirdweb";
 import { PriceTicker } from "./price-ticker";
 import { TransactionConfidenceMeter } from "./transaction-confidence-meter";
+import { trpc } from "@/lib/trpc/client";
 
 export interface NFTTransactionPanelProps {
   open: boolean;
@@ -80,6 +81,7 @@ export interface NFTTransactionPanelProps {
     lastSale?: number;
     rarity: string;
     collection: string;
+    collectionId?: string;
     contractAddress?: string;
     tokenId?: string;
     owner?: string;
@@ -97,28 +99,15 @@ export interface NFTTransactionPanelProps {
 
 type TransactionStep = "details" | "checkout" | "approve" | "confirm" | "pending" | "success" | "error";
 
-interface PriceHistory {
-  date: string;
-  price: number;
-  type: "sale" | "list" | "offer";
+// Price history item type from tRPC response
+interface PriceHistoryItem {
+  type: string;
+  price: number | null;
+  from: string;
+  to: string | null;
+  timestamp: Date;
+  transactionHash: string | null;
 }
-
-const MOCK_PRICE_HISTORY: PriceHistory[] = [
-  { date: "2024-01-15", price: 2.8, type: "sale" },
-  { date: "2024-01-10", price: 2.5, type: "list" },
-  { date: "2024-01-05", price: 3.1, type: "sale" },
-  { date: "2023-12-28", price: 2.2, type: "offer" },
-  { date: "2023-12-20", price: 2.9, type: "sale" }
-];
-
-const MOCK_COLLECTION_STATS = {
-  floorPrice: 2.45,
-  volume24h: 147.3,
-  volume7d: 892.1,
-  owners: 3247,
-  totalSupply: 10000,
-  floorChange24h: 5.2
-};
 
 export function NFTTransactionPanel({ open, onOpenChange, nft, mode }: NFTTransactionPanelProps) {
   const [currentStep, setCurrentStep] = useState<TransactionStep>("details");
@@ -131,6 +120,55 @@ export function NFTTransactionPanel({ open, onOpenChange, nft, mode }: NFTTransa
   const [error, setError] = useState("");
   const [isLiked, setIsLiked] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Fetch real collection stats from tRPC
+  const { data: collectionStatsData } = trpc.marketplace.collections.stats.useQuery(
+    {
+      collectionId: nft?.collectionId || "",
+      contractAddress: nft?.contractAddress
+    },
+    {
+      enabled: open && !!nft?.collectionId,
+      staleTime: 60000 // 1 minute
+    }
+  );
+
+  // Fetch NFT price history for chart
+  const { data: priceHistoryData } = trpc.marketplace.nft.priceHistory.useQuery(
+    { nftId: nft?.id || "" },
+    {
+      enabled: open && !!nft?.id,
+      staleTime: 60000 // 1 minute
+    }
+  );
+
+  // Create fallback stats when data is not available
+  const collectionStats = collectionStatsData || {
+    floorPrice: nft?.floorPrice || 0,
+    volume24h: 0,
+    volume7d: 0,
+    holders: 0,
+    totalSupply: 0,
+    listedCount: 0,
+    listedPercentage: 0,
+    mintedSupply: 0,
+    sales24h: 0,
+    sales7d: 0,
+    avgPrice24h: null,
+    floorChange24h: null,
+    floorChange7d: null,
+    totalVolumeETH: 0,
+  };
+
+  // Transform price history data (now uses events from NFTPriceHistoryData)
+  const priceHistory: PriceHistoryItem[] = (priceHistoryData?.events || []).map(e => ({
+    type: e.type,
+    price: e.price,
+    from: e.from || '',
+    to: e.to,
+    timestamp: e.timestamp,
+    transactionHash: e.transactionHash,
+  }));
 
   if (!nft) return null;
 
@@ -329,11 +367,11 @@ export function NFTTransactionPanel({ open, onOpenChange, nft, mode }: NFTTransa
                               <TooltipTrigger>
                                 <Badge variant="secondary" className="gap-1">
                                   <TrendingUp className="h-3 w-3" />
-                                  +{MOCK_COLLECTION_STATS.floorChange24h}%
+                                  +{collectionStats.floorChange24h}%
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
-                                Floor price increased {MOCK_COLLECTION_STATS.floorChange24h}% in 24h
+                                Floor price increased {collectionStats.floorChange24h}% in 24h
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -459,11 +497,11 @@ export function NFTTransactionPanel({ open, onOpenChange, nft, mode }: NFTTransa
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <div className="text-xs text-muted-foreground">Floor Price</div>
-                          <div className="font-semibold">{MOCK_COLLECTION_STATS.floorPrice} ETH</div>
+                          <div className="font-semibold">{collectionStats.floorPrice} ETH</div>
                         </div>
                         <div>
                           <div className="text-xs text-muted-foreground">24h Volume</div>
-                          <div className="font-semibold">{MOCK_COLLECTION_STATS.volume24h} ETH</div>
+                          <div className="font-semibold">{collectionStats.volume24h} ETH</div>
                         </div>
                         <div>
                           <div className="text-xs text-muted-foreground">Top Bid</div>
@@ -471,7 +509,7 @@ export function NFTTransactionPanel({ open, onOpenChange, nft, mode }: NFTTransa
                         </div>
                         <div>
                           <div className="text-xs text-muted-foreground">Owners</div>
-                          <div className="font-semibold">{MOCK_COLLECTION_STATS.owners}</div>
+                          <div className="font-semibold">{collectionStats.holders}</div>
                         </div>
                       </div>
                     </CardContent>
@@ -666,20 +704,29 @@ export function NFTTransactionPanel({ open, onOpenChange, nft, mode }: NFTTransa
                     </CardHeader>
                     <CardContent className="pt-0">
                       <div className="space-y-3">
-                        {MOCK_PRICE_HISTORY.map((item, index) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full ${
-                                item.type === "sale" ? "bg-green-500" :
-                                item.type === "list" ? "bg-blue-500" :
-                                "bg-orange-500"
-                              }`} />
-                              <span className="text-sm capitalize">{item.type}</span>
-                              <span className="text-xs text-muted-foreground">{item.date}</span>
+                        {priceHistory.length > 0 ? (
+                          priceHistory.slice(0, 5).map((item, index) => (
+                            <div key={index} className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-2 h-2 rounded-full ${
+                                  item.type === "sale" ? "bg-green-500" :
+                                  item.type === "listing" ? "bg-blue-500" :
+                                  item.type === "offer" ? "bg-orange-500" :
+                                  "bg-gray-500"
+                                }`} />
+                                <span className="text-sm capitalize">{item.type}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(item.timestamp).toLocaleDateString()}
+                                </span>
+                              </div>
+                              {item.price !== null && (
+                                <span className="text-sm font-medium">{item.price} ETH</span>
+                              )}
                             </div>
-                            <span className="text-sm font-medium">{item.price} ETH</span>
-                          </div>
-                        ))}
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground text-center py-2">No price history available</p>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

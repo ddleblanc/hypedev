@@ -16,7 +16,8 @@ import { HoldersTab } from "@/components/collection/holders-tab";
 import { mockCollection } from "@/components/collection/mock-data";
 import type { Collection } from "@/components/collection/types";
 import { useCollectionOptional } from "@/contexts/collection-context";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
+import { trpc } from "@/lib/trpc/client";
 
 interface CollectionDetailPageProps {
   slug: string;
@@ -26,35 +27,17 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('items');
   const [isWatchlisted, setIsWatchlisted] = useState(false);
-  const [collection, setCollection] = useState<Collection | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const collectionContext = useCollectionOptional();
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
 
-  // Fetch collection data
-  useEffect(() => {
-    const fetchCollection = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/marketplace/collection/${slug}`);
-        const data = await response.json();
+  // Fetch collection data via tRPC
+  const { data: collectionData, isLoading: loading, error: queryError } = trpc.marketplace.collections.bySlug.useQuery(
+    { slug },
+    { enabled: !!slug }
+  );
 
-        if (data.success && data.collection) {
-          setCollection(data.collection);
-        } else {
-          setError(data.error || 'Failed to load collection');
-        }
-      } catch (err) {
-        console.error('Error fetching collection:', err);
-        setError('Failed to load collection');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCollection();
-  }, [slug]);
+  const collection = collectionData?.collection as unknown as Collection | null;
+  const error = queryError ? 'Failed to load collection' : null;
 
   // Update collection context when collection data changes
   useEffect(() => {
@@ -162,7 +145,7 @@ export function CollectionDetailPage({ slug }: CollectionDetailPageProps) {
             >
               <OverviewTab collection={displayCollection} />
               <ItemsTab collection={displayCollection} />
-              <AnalyticsTab />
+              <AnalyticsTab collection={displayCollection} />
               <ActivityTab collection={displayCollection} />
               <HoldersTab collection={displayCollection} />
             </motion.div>

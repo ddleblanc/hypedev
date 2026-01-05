@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Check if an item is in a specific list or any list of a user
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
   try {
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get('userId');

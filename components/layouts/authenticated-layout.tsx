@@ -3,7 +3,7 @@
 import React, { useRef } from "react";
 import Image from "next/image";
 import { MediaRenderer } from "@/components/MediaRenderer";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { ConnectButton } from "thirdweb/react";
 import { sepolia } from "thirdweb/chains";
 import { client } from "@/lib/thirdweb";
@@ -25,7 +25,7 @@ export function AuthenticatedLayout({
   footerContent,
   className = ""
 }: AuthenticatedLayoutProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const connectButtonRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   
@@ -38,7 +38,7 @@ export function AuthenticatedLayout({
       '/p2p': 'p2p',
       '/marketplace': 'marketplace',
       '/casual': 'casual',
-      '/launchpad': 'launchpad',
+      '/drops': 'drops',
       '/museum': 'museum',
       '/studio': 'studio',
     };
@@ -70,7 +70,7 @@ export function AuthenticatedLayout({
 
       {/* Main Content Area */}
       <div className={`relative z-10 flex-1 ${className}`}>
-        <div className={viewMode === 'marketplace' || viewMode === 'casual' || viewMode === 'launchpad' || viewMode === 'trade' || viewMode === 'museum' || viewMode === 'home' ? 'relative' : 'px-4 py-4'}>
+        <div className={viewMode === 'marketplace' || viewMode === 'casual' || viewMode === 'drops' || viewMode === 'trade' || viewMode === 'museum' || viewMode === 'home' ? 'relative' : 'px-4 py-4'}>
           {children}
         </div>
       </div>

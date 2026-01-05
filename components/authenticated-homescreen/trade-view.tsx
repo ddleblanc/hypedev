@@ -4,7 +4,7 @@ import React from "react";
 import { ArrowLeft, TrendingUp, Gamepad2, Image as ImageIcon, User, Home } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { GameCommandCenter, type GameOption } from "@/components/ui/game-command-center";
 
 // Mock data for the authenticated user experience
@@ -21,14 +21,14 @@ const mockUserData = {
 
 const mainNavigation = [
   {
-    label: "TRADE",
-    href: "/trade",
-    description: "Buy & Sell"
-  },
-  {
     label: "PLAY",
     href: "/play",
     description: "Gaming Hub"
+  },
+  {
+    label: "TRADE",
+    href: "/trade",
+    description: "Buy & Sell"
   },
   {
     label: "MUSEUM",
@@ -53,12 +53,12 @@ const tradeOptions: GameOption[] = [
     accentColor: "amber"
   },
   {
-    id: "launchpad",
-    title: "LAUNCHPAD",
+    id: "drops",
+    title: "DROPS",
     description: "Discover and invest in new gaming projects before they launch",
     image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/ea507b10-5017-472d-8433-06c0676dee51/transcode=true,original=true,quality=90/WanVideoWrapper_I2V_00047.webm",
-    href: "/launchpad",
-    category: "LAUNCH ZONE",
+    href: "/drops",
+    category: "NEW DROPS",
     accentColor: "blue"
   },
   {
@@ -66,7 +66,7 @@ const tradeOptions: GameOption[] = [
     title: "LOOTBOXES",
     description: "Open mystery boxes containing rare gaming items and NFTs",
     image: "https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/1ad84358-5802-4eae-b74b-f6c880d38ea5/transcode=true,original=true,quality=90/vid_00005.webm",
-    href: "/lootboxes/reveal",
+    href: "/lootboxes",
     category: "MYSTERY REWARDS",
     accentColor: "purple"
   },
@@ -86,7 +86,7 @@ type TradeViewProps = {
 };
 
 export function TradeView({ setViewMode }: TradeViewProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const router = useRouter();
 
   const handleOptionClick = (option: GameOption) => {
@@ -94,8 +94,8 @@ export function TradeView({ setViewMode }: TradeViewProps) {
       setViewMode('p2p');
     } else if (option.id === 'marketplace') {
       setViewMode('marketplace');
-    } else if (option.id === 'launchpad') {
-      setViewMode('launchpad');
+    } else if (option.id === 'drops') {
+      setViewMode('drops');
     } else if (option.id === 'lootboxes') {
       window.location.href = '/lootboxes/reveal';
     } else if (option.href) {

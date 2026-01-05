@@ -23,6 +23,7 @@ import {
   MARKETPLACE_ADDRESS,
   MARKETPLACE_CHAIN_ID,
 } from '@/lib/marketplace';
+import { trpc } from '@/lib/trpc/client';
 import {
   Tag,
   Loader2,
@@ -85,6 +86,9 @@ export function ListForSaleDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
+
+  // tRPC mutation
+  const createListingMutation = trpc.marketplace.listings.create.useMutation();
 
   const royaltyPercentage = nft?.collection.royaltyPercentage || 0;
   const priceNum = parseFloat(price) || 0;
@@ -185,38 +189,24 @@ export function ListForSaleDialog({
 
       setTransactionHash(result.transactionHash);
 
-      // Save to database - handle errors gracefully since on-chain tx succeeded
+      // Save to database via tRPC - handle errors gracefully since on-chain tx succeeded
       try {
-        const dbResponse = await fetch('/api/marketplace/listings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nftId: nft.id,
-            listingId: result.listingId,
-            sellerAddress: account.address,
-            assetContractAddress: nft.collection.address,
-            tokenId: nft.tokenId,
-            pricePerToken: parseFloat(price),
-            startTimestamp: new Date().toISOString(),
-            endTimestamp: endDate.toISOString(),
-            transactionHash: result.transactionHash,
-          }),
+        await createListingMutation.mutateAsync({
+          nftId: nft.id,
+          listingId: result.listingId,
+          sellerAddress: account.address,
+          assetContractAddress: nft.collection.address,
+          tokenId: nft.tokenId,
+          pricePerToken: parseFloat(price),
+          startTimestamp: new Date().toISOString(),
+          endTimestamp: endDate.toISOString(),
+          transactionHash: result.transactionHash,
         });
-
-        if (!dbResponse.ok) {
-          const errorData = await dbResponse.json().catch(() => ({}));
-          console.error('Database save failed, but on-chain listing succeeded. Error:', errorData);
-          toast({
-            title: 'Listed on-chain',
-            description: errorData.error || 'Your NFT is listed, but there was an issue syncing. It may take a moment to appear.',
-            variant: 'default',
-          });
-        }
-      } catch (dbError) {
-        console.error('Database error:', dbError);
+      } catch (dbError: any) {
+        console.error('Database save failed, but on-chain listing succeeded. Error:', dbError);
         toast({
           title: 'Listed on-chain',
-          description: 'Your NFT is listed. Database sync may be delayed.',
+          description: dbError.message || 'Your NFT is listed, but there was an issue syncing. It may take a moment to appear.',
           variant: 'default',
         });
       }
@@ -279,40 +269,25 @@ export function ListForSaleDialog({
 
       setTransactionHash(result.transactionHash);
 
-      // Save to database - handle errors gracefully since on-chain tx succeeded
+      // Save to database via tRPC - handle errors gracefully since on-chain tx succeeded
       try {
-        const dbResponse = await fetch('/api/marketplace/listings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nftId: nft.id,
-            listingId: result.listingId,
-            sellerAddress: account.address,
-            assetContractAddress: nft.collection.address,
-            tokenId: nft.tokenId, // Keep original tokenId for DB reference
-            pricePerToken: parseFloat(price),
-            startTimestamp: new Date().toISOString(),
-            endTimestamp: endDate.toISOString(),
-            transactionHash: result.transactionHash,
-          }),
+        await createListingMutation.mutateAsync({
+          nftId: nft.id,
+          listingId: result.listingId,
+          sellerAddress: account.address,
+          assetContractAddress: nft.collection.address,
+          tokenId: nft.tokenId, // Keep original tokenId for DB reference
+          pricePerToken: parseFloat(price),
+          startTimestamp: new Date().toISOString(),
+          endTimestamp: endDate.toISOString(),
+          transactionHash: result.transactionHash,
         });
-
-        if (!dbResponse.ok) {
-          // Log error but don't fail - on-chain tx succeeded
-          const errorData = await dbResponse.json().catch(() => ({}));
-          console.error('Database save failed, but on-chain listing succeeded. Error:', errorData);
-          toast({
-            title: 'Listed on-chain',
-            description: errorData.error || 'Your NFT is listed, but there was an issue syncing. It may take a moment to appear.',
-            variant: 'default',
-          });
-        }
-      } catch (dbError) {
+      } catch (dbError: any) {
         // Database error - log but continue since on-chain succeeded
-        console.error('Database error:', dbError);
+        console.error('Database save failed, but on-chain listing succeeded. Error:', dbError);
         toast({
           title: 'Listed on-chain',
-          description: 'Your NFT is listed. Database sync may be delayed.',
+          description: dbError.message || 'Your NFT is listed, but there was an issue syncing. It may take a moment to appear.',
           variant: 'default',
         });
       }

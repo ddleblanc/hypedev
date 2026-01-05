@@ -12,7 +12,10 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
   DialogOverlay,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -22,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -98,7 +102,15 @@ import { client } from "@/lib/thirdweb";
 import { PriceTicker } from "./price-ticker";
 import { TransactionConfidenceMeter } from "./transaction-confidence-meter";
 import { useTransaction, TransactionNFT } from "@/contexts/transaction-context";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
+import { trpc } from "@/lib/trpc/client";
+import { makeNFTOffer, buyNFT } from "@/lib/marketplace-actions";
+import { useToast } from "@/hooks/use-toast";
+import { NFTPriceChart } from "@/components/charts/nft-price-chart";
+import { NFTProvenance } from "@/components/nft/nft-provenance";
+import { NFTOffersPanel } from "@/components/nft/nft-offers-panel";
+import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { acceptNftOffer, acceptCollectionOffer } from "@/lib/marketplace";
 
 export interface NFTDetailModalProps {
   open: boolean;
@@ -107,10 +119,12 @@ export interface NFTDetailModalProps {
     id: string;
     name: string;
     image: string;
+    description?: string;
     price?: number;
     lastSale?: number;
     rarity?: string;
     collection: string;
+    collectionId?: string;
     contractAddress?: string;
     tokenId?: string;
     owner?: string;
@@ -128,90 +142,53 @@ export interface NFTDetailModalProps {
   } | null;
 }
 
-// Enhanced mock data
-const MOCK_COLLECTION_STATS = {
-  floorPrice: 2.45,
-  volume24h: 147.3,
-  volume7d: 892.1,
-  owners: 3247,
-  totalSupply: 10000,
-  floorChange24h: 5.2,
-  listedCount: 1234,
-  avgPrice24h: 3.2,
-  uniqueOwners: 78.4,
-  totalVolume: 12847.3,
-};
+// Activity item type from NFT-specific tRPC response
+interface ActivityItem {
+  id: string;
+  type: 'sale' | 'listing' | 'offer' | 'transfer' | 'mint' | 'bid' | 'cancel';
+  price: number | null;
+  currency: string;
+  from: string | null;
+  to: string | null;
+  timestamp: Date;
+  transactionHash: string | null;
+  fromUser?: {
+    username: string | null;
+    avatar: string | null;
+    address: string | null;
+  };
+  toUser?: {
+    username: string | null;
+    avatar: string | null;
+    address: string | null;
+  };
+}
 
-const MOCK_PRICE_HISTORY = [
-  { date: "2024-01-15", price: 2.1, event: "sale", from: "0x1234...5678", to: "0x8765...4321" },
-  { date: "2024-01-20", price: 2.5, event: "sale", from: "0x2468...1357", to: "0x7531...8642" },
-  { date: "2024-01-25", price: 2.3, event: "offer", from: "0x3579...2468", status: "expired" },
-  { date: "2024-02-01", price: 2.8, event: "sale", from: "0x4680...3579", to: "0x9753...1864" },
-  { date: "2024-02-05", price: 3.1, event: "sale", from: "0x5791...4680", to: "0x8642...9753" },
-  { date: "2024-02-10", price: 2.9, event: "offer", from: "0x6802...5791", status: "active" },
-];
-
-const MOCK_ACTIVITY = [
-  {
-    id: "1",
-    type: "sale",
-    from: "0x1234...5678",
-    to: "0x8765...4321",
-    price: 2.5,
-    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    txHash: "0xabc...def",
-  },
-  {
-    id: "2",
-    type: "offer",
-    from: "0x2468...1357",
-    price: 2.3,
-    timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    status: "expired",
-  },
-  {
-    id: "3",
-    type: "list",
-    from: "0x1357...2468",
-    price: 2.8,
-    timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: "4",
-    type: "transfer",
-    from: "0x3579...2468",
-    to: "0x9753...1864",
-    timestamp: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: "5",
-    type: "mint",
-    to: "0x4680...3579",
-    timestamp: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
-  },
-];
-
-const MOCK_MORE_FROM_COLLECTION = Array.from({ length: 12 }, (_, i) => ({
-  id: `related-${i}`,
-  name: `Cyber Warrior #${(i + 1000).toString().padStart(4, "0")}`,
-  image: `https://picsum.photos/400/400?random=${i + 100}`,
-  price: Math.random() > 0.5 ? +(Math.random() * 5 + 0.5).toFixed(2) : undefined,
-  rarity: ["Common", "Uncommon", "Rare", "Epic", "Legendary"][
-    Math.floor(Math.random() * 5)
-  ],
-}));
+// Type for related NFTs from collection
+interface RelatedNFT {
+  id: string;
+  dbId: string;
+  name: string;
+  image: string | null;
+  rarity: string | null;
+  rank: number | null;
+  price: string;
+  owner: string | null;
+  isListed: boolean;
+  listingPrice: number | null;
+}
 
 export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps) {
   const account = useActiveAccount();
   const { startTransaction, updateStep, completeTransaction, setError, setTxHash } = useTransaction();
-  
+  const { toast } = useToast();
+
   // State management
   const [activeTab, setActiveTab] = useState("overview");
   const [offerAmount, setOfferAmount] = useState("");
   const [offerDuration, setOfferDuration] = useState("7");
   const [quantity, setQuantity] = useState(1);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
   const [copied, setCopied] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
@@ -219,6 +196,16 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
   const [mobileView, setMobileView] = useState<"image" | "details">("details");
   const [imageZoom, setImageZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Social features state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  // Offers state
+  const [acceptingOfferId, setAcceptingOfferId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   
   // Mouse position for image interaction
   const mouseX = useMotionValue(0);
@@ -262,6 +249,134 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
     setTimeout(() => setCopied(""), 2000);
   }, []);
 
+  // Fetch real collection stats from tRPC
+  const { data: collectionStatsData } = trpc.marketplace.collections.stats.useQuery(
+    {
+      collectionId: nft?.collectionId || "",
+      contractAddress: nft?.contractAddress
+    },
+    {
+      enabled: open && !!nft?.collectionId,
+      staleTime: 60000 // 1 minute
+    }
+  );
+
+  // Fetch NFT-specific activity data (not collection activity)
+  const { data: activityData, isLoading: isLoadingActivity } = trpc.marketplace.nft.activity.useQuery(
+    {
+      nftId: nft?.id || "",
+      limit: 20
+    },
+    {
+      enabled: open && !!nft?.id,
+      staleTime: 30000 // 30 seconds
+    }
+  );
+
+  // Fetch last sale details
+  const { data: lastSaleData } = trpc.marketplace.nft.lastSale.useQuery(
+    { nftId: nft?.id || "" },
+    { enabled: open && !!nft?.id }
+  );
+
+  // Fetch real trait rarity data
+  const { data: traitRarityData, isLoading: isLoadingTraits } = trpc.marketplace.nft.traitRarity.useQuery(
+    { nftId: nft?.id || "" },
+    {
+      enabled: open && !!nft?.id,
+      staleTime: 300000 // 5 minutes - trait rarity doesn't change often
+    }
+  );
+
+  // Fetch price history for chart
+  const { data: priceHistoryData, isLoading: isLoadingPriceHistory } = trpc.marketplace.nft.priceHistory.useQuery(
+    { nftId: nft?.id || "" },
+    {
+      enabled: open && !!nft?.id,
+      staleTime: 60000 // 1 minute
+    }
+  );
+
+  // Fetch ownership history/provenance
+  const { data: provenanceData, isLoading: isLoadingProvenance } = trpc.marketplace.nft.provenance.useQuery(
+    { nftId: nft?.id || "" },
+    {
+      enabled: open && !!nft?.id,
+      staleTime: 60000 // 1 minute
+    }
+  );
+
+  // Fetch all active offers for this NFT
+  const { data: offersData, isLoading: isLoadingOffers, refetch: refetchOffers } = trpc.marketplace.nft.offers.useQuery(
+    { nftId: nft?.id || "", includeCollectionOffers: true, includeTraitOffers: true },
+    {
+      enabled: open && !!nft?.id,
+      staleTime: 30000 // 30 seconds - offers can change frequently
+    }
+  );
+
+  // Fetch the best offer for this NFT (used in Top Bid display)
+  const { data: bestOfferData } = trpc.marketplace.nft.bestOffer.useQuery(
+    { nftId: nft?.id || "" },
+    {
+      enabled: open && !!nft?.id,
+      staleTime: 30000 // 30 seconds
+    }
+  );
+
+  // Fetch favorite status
+  const { data: favoriteData, refetch: refetchFavorite } = trpc.user.favorites.check.useQuery(
+    { nftId: nft?.id || "" },
+    { enabled: open && !!nft?.id && !!account }
+  );
+
+  // Toggle favorite mutation
+  const toggleFavoriteMutation = trpc.user.favorites.toggle.useMutation({
+    onSuccess: () => refetchFavorite(),
+  });
+
+  // Report mutation
+  const createReportMutation = trpc.user.reports.create.useMutation();
+
+  // Fetch related NFTs from collection
+  const { data: relatedNftsData, isLoading: isLoadingRelated } = trpc.marketplace.collections.nfts.useQuery(
+    {
+      collectionId: nft?.collectionId || "",
+      limit: 12,
+      page: 1
+    },
+    {
+      enabled: open && !!nft?.collectionId,
+      staleTime: 60000 // 1 minute
+    }
+  );
+
+  // Filter out current NFT and limit to 8 items for carousel
+  const relatedNfts: RelatedNFT[] = (relatedNftsData?.nfts || [])
+    .filter((item) => item.id !== nft?.id && item.id !== nft?.tokenId)
+    .slice(0, 8);
+
+  // Create fallback stats when data is not available
+  const collectionStats = collectionStatsData || {
+    floorPrice: nft?.floorPrice || 0,
+    volume24h: 0,
+    volume7d: 0,
+    holders: 0,
+    totalSupply: 0,
+    listedCount: 0,
+    listedPercentage: 0,
+    mintedSupply: 0,
+    sales24h: 0,
+    sales7d: 0,
+    avgPrice24h: null,
+    floorChange24h: null,
+    floorChange7d: null,
+    totalVolumeETH: 0,
+  };
+
+  // Transform activity data to component-expected format
+  const activityItems: ActivityItem[] = activityData?.items || [];
+
   if (!nft) return null;
 
   const isOwner = account?.address && nft.owner === account.address;
@@ -280,74 +395,414 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
 
   const handleBuyNow = async () => {
     if (!nft.price || !account) return;
-    
+
+    // NFT must have a listing to buy - check for listingId
+    // For now, we'll show an error if there's no listingId
+    // In a real scenario, the NFT should have listingId from the marketplace
+    const listingId = (nft as { listingId?: string }).listingId;
+
+    if (!listingId) {
+      toast({
+        title: "Cannot complete purchase",
+        description: "This NFT doesn't have a valid listing ID",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const transactionNFT: TransactionNFT = {
+      id: nft.id,
+      name: nft.name,
+      image: nft.image,
+      price: nft.price,
+      collection: nft.collection,
+      contractAddress: nft.contractAddress,
+      tokenId: nft.tokenId,
+    };
+
+    startTransaction(transactionNFT, "buy", total);
+    onOpenChange(false);
+
     try {
-      const transactionNFT: TransactionNFT = {
-        id: nft.id,
-        name: nft.name,
-        image: nft.image,
-        price: nft.price,
-        collection: nft.collection,
-        contractAddress: nft.contractAddress,
-        tokenId: nft.tokenId,
-      };
+      updateStep("approve", 40);
 
-      startTransaction(transactionNFT, "buy", total);
-      onOpenChange(false);
+      const result = await buyNFT(
+        {
+          listingId,
+          nftId: nft.id,
+          quantity: 1,
+        },
+        account
+      );
 
-      // Simulate transaction steps
-      setTimeout(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        updateStep("approve", 40, 30000);
-        
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-        updateStep("confirm", 60, 20000);
-        
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        updateStep("pending", 80, 15000);
-        
-        const mockTxHash = `0x${Math.random().toString(16).slice(2, 66)}`;
-        setTxHash(mockTxHash);
-        
-        await new Promise((resolve) => setTimeout(resolve, 4000));
-        completeTransaction();
-      }, 100);
+      if (!result.success) {
+        throw new Error(result.error || "Purchase failed");
+      }
+
+      updateStep("pending", 80);
+      setTxHash(result.transactionHash!);
+
+      completeTransaction();
+      toast({ title: "Purchase successful!" });
     } catch (err) {
-      setError("Transaction failed. Please try again.");
+      const errorMessage = err instanceof Error ? err.message : "Transaction failed. Please try again.";
+      setError(errorMessage);
+      toast({ title: errorMessage, variant: "destructive" });
     }
   };
 
   const handleMakeOffer = async () => {
     if (!numericOffer || !account) return;
-    
+
+    if (!nft.contractAddress || !nft.tokenId) {
+      toast({
+        title: "Missing NFT information",
+        description: "Cannot make offer without contract address and token ID",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const transactionNFT: TransactionNFT = {
+      id: nft.id,
+      name: nft.name,
+      image: nft.image,
+      price: numericOffer,
+      collection: nft.collection,
+      contractAddress: nft.contractAddress,
+      tokenId: nft.tokenId,
+    };
+
+    startTransaction(transactionNFT, "offer", numericOffer);
+    onOpenChange(false);
+
     try {
-      const transactionNFT: TransactionNFT = {
-        id: nft.id,
-        name: nft.name,
-        image: nft.image,
-        price: numericOffer,
-        collection: nft.collection,
-        contractAddress: nft.contractAddress,
-        tokenId: nft.tokenId,
-      };
+      updateStep("approve", 40);
 
-      startTransaction(transactionNFT, "offer", numericOffer);
-      onOpenChange(false);
+      const result = await makeNFTOffer(
+        {
+          nftId: nft.id,
+          contractAddress: nft.contractAddress,
+          tokenId: nft.tokenId,
+          offerAmount: offerAmount,
+          durationDays: parseInt(offerDuration),
+        },
+        account
+      );
 
-      setTimeout(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        updateStep("approve", 50, 20000);
-        
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-        updateStep("confirm", 75, 15000);
-        
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        completeTransaction();
-      }, 100);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to submit offer");
+      }
+
+      updateStep("pending", 80);
+      setTxHash(result.transactionHash!);
+
+      completeTransaction();
+      toast({ title: "Offer submitted successfully!" });
     } catch (err) {
-      setError("Failed to submit offer. Please try again.");
+      const errorMessage = err instanceof Error ? err.message : "Failed to submit offer. Please try again.";
+      setError(errorMessage);
+      toast({ title: errorMessage, variant: "destructive" });
     }
   };
+
+  // Handle accepting an offer (for NFT owner)
+  const handleAcceptOffer = async (offerId: string, isCollectionOffer: boolean) => {
+    if (!account || !nft) return;
+
+    if (!nft.contractAddress || !nft.tokenId) {
+      toast({
+        title: "Missing NFT information",
+        description: "Cannot accept offer without contract address and token ID",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setAcceptingOfferId(offerId);
+
+    const offer = offersData?.find(o => o.offerId === offerId);
+    const transactionNFT: TransactionNFT = {
+      id: nft.id,
+      name: nft.name,
+      image: nft.image,
+      price: offer?.amount || 0,
+      collection: nft.collection,
+      contractAddress: nft.contractAddress,
+      tokenId: nft.tokenId,
+    };
+
+    startTransaction(transactionNFT, "offer", offer?.amount || 0);
+
+    try {
+      updateStep("approve", 40);
+
+      let result: { transactionHash: string };
+
+      if (isCollectionOffer) {
+        result = await acceptCollectionOffer(offerId, nft.tokenId, account);
+      } else {
+        result = await acceptNftOffer(offerId, account);
+      }
+
+      updateStep("pending", 80);
+      setTxHash(result.transactionHash);
+
+      completeTransaction();
+      toast({ title: "Offer accepted! NFT sold successfully." });
+
+      // Refresh offers list
+      refetchOffers();
+
+      // Close modal after successful sale
+      onOpenChange(false);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to accept offer. Please try again.";
+      setError(errorMessage);
+      toast({ title: errorMessage, variant: "destructive" });
+    } finally {
+      setAcceptingOfferId(null);
+    }
+  };
+
+  // =========================================================================
+  // Social Features Handlers
+  // =========================================================================
+
+  // Get block explorer URL based on chain
+  const getExplorerUrl = (chainId: number = 11155111) => {
+    const explorers: Record<number, string> = {
+      1: "https://etherscan.io",
+      11155111: "https://sepolia.etherscan.io",
+      137: "https://polygonscan.com",
+      8453: "https://basescan.org",
+      42161: "https://arbiscan.io",
+      10: "https://optimistic.etherscan.io",
+    };
+    return explorers[chainId] || explorers[1];
+  };
+
+  const explorerUrl = getExplorerUrl(11155111); // Default to Sepolia for now
+
+  // Share functionality
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/nft/${nft?.contractAddress}/${nft?.tokenId}`;
+    const shareData = {
+      title: `${nft?.name} | ${nft?.collection}`,
+      text: `Check out ${nft?.name} on HPX Marketplace`,
+      url: shareUrl,
+    };
+
+    // Try native share API first (mobile)
+    if (typeof navigator !== "undefined" && navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // User cancelled or error, fall back to modal
+      }
+    }
+
+    // Fall back to share modal
+    setShowShareModal(true);
+  };
+
+  const copyShareLink = () => {
+    const shareUrl = `${window.location.origin}/nft/${nft?.contractAddress}/${nft?.tokenId}`;
+    navigator.clipboard.writeText(shareUrl);
+    setCopied("share");
+    setTimeout(() => setCopied(""), 2000);
+  };
+
+  // Download functionality
+  const handleDownload = async () => {
+    if (!nft?.image) return;
+
+    try {
+      // For IPFS or external URLs, fetch and download
+      const response = await fetch(nft.image);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${nft.name || "nft"}-${nft.tokenId || "image"}.${blob.type.split("/")[1] || "png"}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Image downloaded successfully!" });
+    } catch (error) {
+      console.error("Failed to download:", error);
+      // Fallback: open in new tab
+      window.open(nft.image, "_blank");
+    }
+  };
+
+  // Toggle favorite
+  const isFavorited = favoriteData?.favorited || false;
+
+  const handleToggleFavorite = () => {
+    if (!account || !nft?.id) {
+      toast({ title: "Please connect your wallet to favorite items", variant: "destructive" });
+      return;
+    }
+    toggleFavoriteMutation.mutate({ nftId: nft.id });
+  };
+
+  // Submit report
+  const handleSubmitReport = async () => {
+    if (!reportReason || !nft?.id) return;
+
+    setIsSubmittingReport(true);
+    try {
+      await createReportMutation.mutateAsync({
+        type: "nft",
+        targetId: nft.id,
+        contractAddress: nft.contractAddress,
+        tokenId: nft.tokenId,
+        reason: reportReason as "stolen" | "copyright" | "explicit" | "spam" | "other",
+        details: reportDetails || undefined,
+      });
+
+      setShowReportModal(false);
+      setReportReason("");
+      setReportDetails("");
+      toast({ title: "Report submitted. Thank you for helping keep the marketplace safe." });
+    } catch (error) {
+      console.error("Failed to submit report:", error);
+      toast({ title: "Failed to submit report. Please try again.", variant: "destructive" });
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  // Open metadata URL
+  const handleViewMetadata = () => {
+    if (!nft) return;
+
+    let metadataUrl = (nft as { metadataUri?: string }).metadataUri;
+
+    if (metadataUrl) {
+      // Convert IPFS URI to HTTP gateway URL
+      if (metadataUrl.startsWith("ipfs://")) {
+        metadataUrl = metadataUrl.replace("ipfs://", "https://ipfs.io/ipfs/");
+      }
+      window.open(metadataUrl, "_blank");
+    } else {
+      toast({ title: "Metadata URI not available", variant: "destructive" });
+    }
+  };
+
+  // Share Modal Component
+  const ShareModal = () => (
+    <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share this NFT</DialogTitle>
+          <DialogDescription>
+            Share {nft?.name} with your friends and followers
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Copy Link */}
+          <div className="flex items-center gap-2">
+            <Input
+              readOnly
+              value={`${typeof window !== "undefined" ? window.location.origin : ""}/nft/${nft?.contractAddress}/${nft?.tokenId}`}
+              className="flex-1 text-sm"
+            />
+            <Button onClick={copyShareLink} size="sm">
+              {copied === "share" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            </Button>
+          </div>
+
+          {/* Social Share Buttons */}
+          <div className="flex justify-center gap-4">
+            <Button
+              variant="outline"
+              size="lg"
+              className="flex-1"
+              onClick={() => {
+                const url = encodeURIComponent(`${window.location.origin}/nft/${nft?.contractAddress}/${nft?.tokenId}`);
+                const text = encodeURIComponent(`Check out ${nft?.name} on HPX Marketplace`);
+                window.open(`https://twitter.com/intent/tweet?url=${url}&text=${text}`, "_blank");
+              }}
+            >
+              <Twitter className="h-5 w-5 mr-2" />
+              Twitter
+            </Button>
+
+            <Button
+              variant="outline"
+              size="lg"
+              className="flex-1"
+              onClick={() => {
+                const url = encodeURIComponent(`${window.location.origin}/nft/${nft?.contractAddress}/${nft?.tokenId}`);
+                window.open(`https://t.me/share/url?url=${url}&text=${encodeURIComponent(nft?.name || "")}`, "_blank");
+              }}
+            >
+              <MessageCircle className="h-5 w-5 mr-2" />
+              Telegram
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
+  // Report Modal Component
+  const ReportModal = () => (
+    <Dialog open={showReportModal} onOpenChange={setShowReportModal}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Report this NFT</DialogTitle>
+          <DialogDescription>
+            Help us maintain a safe marketplace by reporting issues.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Reason for report</Label>
+            <Select value={reportReason} onValueChange={setReportReason}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a reason" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="stolen">Stolen artwork</SelectItem>
+                <SelectItem value="copyright">Copyright infringement</SelectItem>
+                <SelectItem value="explicit">Explicit content</SelectItem>
+                <SelectItem value="spam">Spam or scam</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Additional details (optional)</Label>
+            <Textarea
+              placeholder="Provide any additional context..."
+              value={reportDetails}
+              onChange={(e) => setReportDetails(e.target.value)}
+              rows={3}
+            />
+          </div>
+
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setShowReportModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitReport}
+              disabled={!reportReason || isSubmittingReport}
+            >
+              {isSubmittingReport && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Submit Report
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 
   const getRarityColor = (rarity?: string) => {
     switch (rarity) {
@@ -419,14 +874,15 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsLiked(!isLiked)}
+            onClick={handleToggleFavorite}
             className="text-white hover:bg-white/10"
           >
-            <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />
+            <Heart className={cn("h-5 w-5", isFavorited && "fill-red-500 text-red-500")} />
           </Button>
           <Button
             variant="ghost"
             size="sm"
+            onClick={handleShare}
             className="text-white hover:bg-white/10"
           >
             <Share2 className="h-5 w-5" />
@@ -506,7 +962,7 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <Link
-                        href={`/collection/${nft.collection}`}
+                        href={`/collection/${nft.contractAddress || nft.collectionId || nft.collection}`}
                         className="hover:text-foreground flex items-center gap-1"
                       >
                         {nft.collection}
@@ -538,17 +994,49 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                           <div className="grid grid-cols-3 gap-4">
                             <div>
                               <p className="text-xs text-muted-foreground">Floor</p>
-                              <p className="font-semibold">{MOCK_COLLECTION_STATS.floorPrice} ETH</p>
+                              <p className="font-semibold">{collectionStats.floorPrice} ETH</p>
                             </div>
                             <div>
                               <p className="text-xs text-muted-foreground">Last Sale</p>
-                              <p className="font-semibold">{nft.lastSale || "—"}</p>
+                              <p className="font-semibold">
+                                {lastSaleData ? `${lastSaleData.price} ${lastSaleData.currency}` : nft.lastSale || "—"}
+                              </p>
+                              {lastSaleData && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  {new Date(lastSaleData.timestamp).toLocaleDateString()}
+                                </p>
+                              )}
                             </div>
                             <div>
                               <p className="text-xs text-muted-foreground">Top Bid</p>
-                              <p className="font-semibold">{nft.topBid || "—"}</p>
+                              <p className="font-semibold">
+                                {bestOfferData ? `${bestOfferData.amount} ${bestOfferData.currency}` : "—"}
+                              </p>
                             </div>
                           </div>
+
+                          {/* Mini Price Sparkline for Mobile */}
+                          {priceHistoryData?.events && priceHistoryData.events.length > 1 && (
+                            <div className="mt-4">
+                              <p className="text-xs text-muted-foreground mb-2">Price History</p>
+                              <div className="h-16 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <LineChart data={priceHistoryData.events.map(e => ({
+                                    date: new Date(e.timestamp).getTime(),
+                                    price: e.price
+                                  }))}>
+                                    <Line
+                                      type="monotone"
+                                      dataKey="price"
+                                      stroke="hsl(var(--primary))"
+                                      strokeWidth={2}
+                                      dot={false}
+                                    />
+                                  </LineChart>
+                                </ResponsiveContainer>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="text-center py-4">
@@ -582,27 +1070,55 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                   </Card>
 
                   {/* Properties */}
-                  {nft.traits && Object.keys(nft.traits).length > 0 && (
+                  {(traitRarityData && traitRarityData.length > 0) || (nft.traits && Object.keys(nft.traits).length > 0) ? (
                     <div>
                       <h3 className="font-semibold mb-3 flex items-center gap-2">
                         <Gem className="h-4 w-4" />
                         Properties
                       </h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        {Object.entries(nft.traits).map(([key, value]) => (
-                          <Card key={key} className="hover:bg-muted/50 transition-colors">
-                            <CardContent className="p-3">
-                              <p className="text-xs text-muted-foreground mb-1">{key}</p>
-                              <p className="font-medium text-sm">{value}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {Math.floor(Math.random() * 30 + 5)}% rarity
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
+                      {isLoadingTraits ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {Array.from({ length: 4 }).map((_, i) => (
+                            <Card key={i} className="animate-pulse">
+                              <CardContent className="p-3">
+                                <div className="h-3 bg-muted rounded w-12 mb-1" />
+                                <div className="h-4 bg-muted rounded w-16" />
+                                <div className="h-2 bg-muted rounded w-10 mt-1" />
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : traitRarityData && traitRarityData.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {traitRarityData.map((trait) => (
+                            <Card key={`${trait.traitType}-${trait.value}`} className="hover:bg-muted/50 transition-colors">
+                              <CardContent className="p-3">
+                                <p className="text-xs text-muted-foreground mb-1">{trait.traitType}</p>
+                                <p className="font-medium text-sm">{trait.value}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {trait.percentage}% ({trait.count.toLocaleString()} items)
+                                </p>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : nft.traits ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(nft.traits).map(([key, value]) => (
+                            <Card key={key} className="hover:bg-muted/50 transition-colors">
+                              <CardContent className="p-3">
+                                <p className="text-xs text-muted-foreground mb-1">{key}</p>
+                                <p className="font-medium text-sm">{value}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  —
+                                </p>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Recent Activity */}
                   <div>
@@ -611,7 +1127,7 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                       Recent Activity
                     </h3>
                     <div className="space-y-3">
-                      {MOCK_ACTIVITY.slice(0, 4).map((activity) => (
+                      {activityItems.slice(0, 4).map((activity) => (
                         <Card key={activity.id} className="hover:bg-muted/50 transition-colors">
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
@@ -621,34 +1137,41 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                                     "h-8 w-8 rounded-full flex items-center justify-center",
                                     activity.type === "sale"
                                       ? "bg-green-500/10 text-green-500"
-                                      : activity.type === "offer"
+                                      : activity.type === "offer" || activity.type === "bid"
                                       ? "bg-blue-500/10 text-blue-500"
-                                      : activity.type === "list"
+                                      : activity.type === "listing"
                                       ? "bg-purple-500/10 text-purple-500"
-                                      : "bg-orange-500/10 text-orange-500"
+                                      : activity.type === "transfer"
+                                      ? "bg-orange-500/10 text-orange-500"
+                                      : activity.type === "cancel"
+                                      ? "bg-red-500/10 text-red-500"
+                                      : "bg-gray-500/10 text-gray-500"
                                   )}
                                 >
                                   {activity.type === "sale" ? (
                                     <ShoppingCart className="h-4 w-4" />
-                                  ) : activity.type === "offer" ? (
+                                  ) : activity.type === "offer" || activity.type === "bid" ? (
                                     <Tag className="h-4 w-4" />
-                                  ) : activity.type === "list" ? (
+                                  ) : activity.type === "listing" ? (
                                     <ArrowUpRight className="h-4 w-4" />
-                                  ) : (
+                                  ) : activity.type === "transfer" ? (
                                     <ArrowRight className="h-4 w-4" />
+                                  ) : activity.type === "cancel" ? (
+                                    <X className="h-4 w-4" />
+                                  ) : (
+                                    <Plus className="h-4 w-4" />
                                   )}
                                 </div>
                                 <div>
                                   <p className="font-medium text-sm capitalize">{activity.type}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {activity.from}
-                                    {activity.to && ` → ${activity.to}`}
+                                    {activity.fromUser?.username || (activity.from ? `${activity.from.slice(0, 6)}...${activity.from.slice(-4)}` : "Unknown")}
                                   </p>
                                 </div>
                               </div>
                               <div className="text-right">
                                 {activity.price && (
-                                  <p className="font-semibold text-sm">{activity.price} ETH</p>
+                                  <p className="font-semibold text-sm">{activity.price} {activity.currency}</p>
                                 )}
                                 <p className="text-xs text-muted-foreground">
                                   {new Date(activity.timestamp).toLocaleDateString()}
@@ -658,6 +1181,9 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                           </CardContent>
                         </Card>
                       ))}
+                      {activityItems.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -805,15 +1331,19 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                     className="h-9 w-9 p-0 bg-black/50 backdrop-blur-sm border-white/20 hover:bg-black/70"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setIsLiked(!isLiked);
+                      handleToggleFavorite();
                     }}
                   >
-                    <Heart className={cn("h-4 w-4", isLiked && "fill-red-500 text-red-500")} />
+                    <Heart className={cn("h-4 w-4", isFavorited && "fill-red-500 text-red-500")} />
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     className="h-9 w-9 p-0 bg-black/50 backdrop-blur-sm border-white/20 hover:bg-black/70"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShare();
+                    }}
                   >
                     <Share2 className="h-4 w-4" />
                   </Button>
@@ -821,6 +1351,10 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                     size="sm"
                     variant="secondary"
                     className="h-9 w-9 p-0 bg-black/50 backdrop-blur-sm border-white/20 hover:bg-black/70"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowReportModal(true);
+                    }}
                   >
                     <Flag className="h-4 w-4" />
                   </Button>
@@ -837,6 +1371,10 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                           size="sm"
                           variant="secondary"
                           className="gap-2 bg-black/50 backdrop-blur-sm border-white/20 hover:bg-black/70"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownload();
+                          }}
                         >
                           <Download className="h-4 w-4" />
                           Save
@@ -876,21 +1414,38 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
             <div className="h-full">
               <h3 className="text-white text-sm font-medium mb-3">More from this collection</h3>
               <div className="flex gap-3 overflow-x-auto scrollbar-hide h-20">
-                {MOCK_MORE_FROM_COLLECTION.slice(0, 8).map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:border-white/20 cursor-pointer transition-all duration-200 hover:scale-105 group"
-                  >
-                    <MediaRenderer
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                {isLoadingRelated ? (
+                  // Loading skeleton
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div
+                      key={`skeleton-${i}`}
+                      className="flex-shrink-0 w-16 h-16 rounded-lg bg-white/5 border border-white/10 animate-pulse"
                     />
+                  ))
+                ) : relatedNfts.length > 0 ? (
+                  relatedNfts.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:border-white/20 cursor-pointer transition-all duration-200 hover:scale-105 group"
+                    >
+                      <MediaRenderer
+                        src={item.image || ""}
+                        alt={item.name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                      />
+                    </div>
+                  ))
+                ) : (
+                  // Empty state
+                  <div className="flex items-center justify-center text-white/40 text-sm">
+                    No other NFTs in this collection
                   </div>
-                ))}
-                <div className="flex-shrink-0 w-16 h-16 rounded-lg border border-white/20 border-dashed flex items-center justify-center text-white/50 hover:text-white/70 hover:border-white/30 cursor-pointer transition-all duration-200">
-                  <ChevronRight className="h-5 w-5" />
-                </div>
+                )}
+                {relatedNfts.length > 0 && (
+                  <div className="flex-shrink-0 w-16 h-16 rounded-lg border border-white/20 border-dashed flex items-center justify-center text-white/50 hover:text-white/70 hover:border-white/30 cursor-pointer transition-all duration-200">
+                    <ChevronRight className="h-5 w-5" />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -923,7 +1478,7 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
               
               <div className="flex items-center gap-6 mb-6">
                 <Link
-                  href={`/collection/${nft.collection}`}
+                  href={`/collection/${nft.contractAddress || nft.collectionId || nft.collection}`}
                   className="text-lg text-muted-foreground hover:text-foreground flex items-center gap-2 transition-colors"
                 >
                   {nft.collection}
@@ -965,7 +1520,7 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                 
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full">
                   <Users className="h-4 w-4" />
-                  <span className="font-medium">{MOCK_COLLECTION_STATS.owners.toLocaleString()} owners</span>
+                  <span className="font-medium">{collectionStats.holders.toLocaleString()} owners</span>
                 </div>
               </div>
             </div>
@@ -976,10 +1531,19 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
           <div className="flex-1 overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
               <div className="px-8 py-4 border-b">
-                <TabsList className="grid grid-cols-3 w-full h-11">
+                <TabsList className="grid grid-cols-4 w-full h-11">
                   <TabsTrigger value="overview" className="gap-2">
                     <Grid3X3 className="h-4 w-4" />
                     Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="offers" className="gap-2 relative">
+                    <DollarSign className="h-4 w-4" />
+                    Offers
+                    {offersData && offersData.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                        {offersData.length}
+                      </Badge>
+                    )}
                   </TabsTrigger>
                   <TabsTrigger value="properties" className="gap-2">
                     <Gem className="h-4 w-4" />
@@ -1004,12 +1568,12 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                               <div className="flex items-center justify-between mb-4">
                                 <p className="text-sm font-medium text-muted-foreground">Current Price</p>
                                 <Badge variant="secondary" className="gap-1">
-                                  {MOCK_COLLECTION_STATS.floorChange24h > 0 ? (
+                                  {(collectionStats.floorChange24h ?? 0) > 0 ? (
                                     <TrendingUp className="h-3 w-3 text-green-500" />
                                   ) : (
                                     <TrendingDownIcon className="h-3 w-3 text-red-500" />
                                   )}
-                                  {Math.abs(MOCK_COLLECTION_STATS.floorChange24h)}% 24h
+                                  {Math.abs(collectionStats.floorChange24h ?? 0)}% 24h
                                 </Badge>
                               </div>
                               
@@ -1024,26 +1588,41 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                               <div className="grid grid-cols-3 gap-6">
                                 <div>
                                   <p className="text-xs font-medium text-muted-foreground mb-1">Floor Price</p>
-                                  <p className="text-lg font-semibold">{MOCK_COLLECTION_STATS.floorPrice} ETH</p>
+                                  <p className="text-lg font-semibold">{collectionStats.floorPrice ?? 0} ETH</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {((nft.price / MOCK_COLLECTION_STATS.floorPrice - 1) * 100).toFixed(1)}% above floor
+                                    {collectionStats.floorPrice ? ((nft.price / collectionStats.floorPrice - 1) * 100).toFixed(1) : 0}% above floor
                                   </p>
                                 </div>
                                 <div>
                                   <p className="text-xs font-medium text-muted-foreground mb-1">Last Sale</p>
-                                  <p className="text-lg font-semibold">{nft.lastSale || "—"}</p>
-                                  {nft.lastSale && (
+                                  <p className="text-lg font-semibold">
+                                    {lastSaleData ? `${lastSaleData.price} ${lastSaleData.currency}` : nft.lastSale || "—"}
+                                  </p>
+                                  {lastSaleData ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      {new Date(lastSaleData.timestamp).toLocaleDateString("en-US", {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric"
+                                      })}
+                                      {lastSaleData.buyer && (
+                                        <> • {lastSaleData.buyer.username || `${lastSaleData.buyer.address.slice(0, 6)}...`}</>
+                                      )}
+                                    </p>
+                                  ) : nft.lastSale ? (
                                     <p className="text-xs text-muted-foreground">
                                       {((nft.price / nft.lastSale - 1) * 100).toFixed(1)}% vs last
                                     </p>
-                                  )}
+                                  ) : null}
                                 </div>
                                 <div>
                                   <p className="text-xs font-medium text-muted-foreground mb-1">Top Bid</p>
-                                  <p className="text-lg font-semibold">{nft.topBid || "No bids"}</p>
-                                  {nft.topBid && (
+                                  <p className="text-lg font-semibold">
+                                    {bestOfferData ? `${bestOfferData.amount} ${bestOfferData.currency}` : "No bids"}
+                                  </p>
+                                  {bestOfferData && nft.price && (
                                     <p className="text-xs text-muted-foreground">
-                                      {((nft.price / nft.topBid - 1) * 100).toFixed(1)}% above bid
+                                      {((nft.price / bestOfferData.amount - 1) * 100).toFixed(1)}% above bid
                                     </p>
                                   )}
                                 </div>
@@ -1081,11 +1660,11 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                                   <p className="text-sm text-muted-foreground">
                                     ≈ ${(numericOffer * 2650).toLocaleString()} USD
                                   </p>
-                                  {MOCK_COLLECTION_STATS.floorPrice && (
+                                  {collectionStats.floorPrice && (
                                     <p className="text-sm">
-                                      {((numericOffer / MOCK_COLLECTION_STATS.floorPrice - 1) * 100).toFixed(1)}%{" "}
-                                      <span className={numericOffer > MOCK_COLLECTION_STATS.floorPrice ? "text-green-500" : "text-red-500"}>
-                                        {numericOffer > MOCK_COLLECTION_STATS.floorPrice ? "above" : "below"} floor
+                                      {((numericOffer / collectionStats.floorPrice - 1) * 100).toFixed(1)}%{" "}
+                                      <span className={numericOffer > collectionStats.floorPrice ? "text-green-500" : "text-red-500"}>
+                                        {numericOffer > collectionStats.floorPrice ? "above" : "below"} floor
                                       </span>
                                     </p>
                                   )}
@@ -1095,6 +1674,42 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                           )}
                         </CardContent>
                       </Card>
+
+                      {/* Price History Chart */}
+                      {(priceHistoryData?.events && priceHistoryData.events.length > 0) || isLoadingPriceHistory ? (
+                        <NFTPriceChart
+                          events={priceHistoryData?.events || []}
+                          stats={priceHistoryData?.stats || {
+                            avgPrice: 0,
+                            minPrice: 0,
+                            maxPrice: 0,
+                            totalSales: 0,
+                            firstSaleDate: null,
+                            lastSaleDate: null,
+                            priceChange: null,
+                          }}
+                          isLoading={isLoadingPriceHistory}
+                          floorPrice={collectionStats.floorPrice}
+                          currency="ETH"
+                        />
+                      ) : null}
+
+                      {/* Description */}
+                      {nft.description && (
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              <FileText className="h-5 w-5" />
+                              Description
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                              {nft.description}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
 
                       {/* Collection Stats */}
                       <Card>
@@ -1108,16 +1723,16 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                           <div className="space-y-4">
                             <div>
                               <p className="text-sm font-medium text-muted-foreground">Floor Price</p>
-                              <p className="text-xl font-bold">{MOCK_COLLECTION_STATS.floorPrice} ETH</p>
+                              <p className="text-xl font-bold">{collectionStats.floorPrice ?? 0} ETH</p>
                               <p className="text-sm text-muted-foreground">
-                                ${(MOCK_COLLECTION_STATS.floorPrice * 2650).toFixed(0)}
+                                ${((collectionStats.floorPrice ?? 0) * 2650).toFixed(0)}
                               </p>
                             </div>
                             <div>
                               <p className="text-sm font-medium text-muted-foreground">Volume (24h)</p>
-                              <p className="text-xl font-bold">{MOCK_COLLECTION_STATS.volume24h} ETH</p>
+                              <p className="text-xl font-bold">{collectionStats.volume24h ?? 0} ETH</p>
                               <p className="text-sm text-muted-foreground">
-                                {((MOCK_COLLECTION_STATS.volume24h / MOCK_COLLECTION_STATS.volume7d) * 100).toFixed(1)}% of 7d vol
+                                {(((collectionStats.volume24h ?? 0) / (collectionStats.volume7d || 1)) * 100).toFixed(1)}% of 7d vol
                               </p>
                             </div>
                           </div>
@@ -1125,77 +1740,29 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                             <div>
                               <p className="text-sm font-medium text-muted-foreground">Listed Items</p>
                               <p className="text-xl font-bold">
-                                {MOCK_COLLECTION_STATS.listedCount} / {MOCK_COLLECTION_STATS.totalSupply.toLocaleString()}
+                                {collectionStats.listedCount} / {collectionStats.totalSupply.toLocaleString()}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {((MOCK_COLLECTION_STATS.listedCount / MOCK_COLLECTION_STATS.totalSupply) * 100).toFixed(1)}% listed
+                                {((collectionStats.listedCount / collectionStats.totalSupply) * 100).toFixed(1)}% listed
                               </p>
                             </div>
                             <div>
                               <p className="text-sm font-medium text-muted-foreground">Unique Owners</p>
-                              <p className="text-xl font-bold">{MOCK_COLLECTION_STATS.owners.toLocaleString()}</p>
+                              <p className="text-xl font-bold">{collectionStats.holders.toLocaleString()}</p>
                               <p className="text-sm text-muted-foreground">
-                                {MOCK_COLLECTION_STATS.uniqueOwners}% unique ownership
+                                {collectionStats.totalSupply > 0 ? ((collectionStats.holders / collectionStats.totalSupply) * 100).toFixed(1) : 0}% unique ownership
                               </p>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
 
-                      {/* Owner Information */}
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-lg">Owner Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                            <div className="flex items-center gap-4">
-                              <Avatar className="h-12 w-12">
-                                <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-primary-foreground font-bold">
-                                  {nft.owner ? nft.owner.slice(2, 4).toUpperCase() : "UN"}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-semibold">Owner</p>
-                                <p className="text-sm text-muted-foreground font-mono">
-                                  {nft.owner
-                                    ? `${nft.owner.substring(0, 6)}...${nft.owner.substring(38)}`
-                                    : "0x1234...5678"}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                        copyAddress(
-                                          nft.owner || "0x1234567890123456789012345678901234567890",
-                                          "owner"
-                                        )
-                                      }
-                                    >
-                                      {copied === "owner" ? (
-                                        <Check className="h-4 w-4" />
-                                      ) : (
-                                        <Copy className="h-4 w-4" />
-                                      )}
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Copy address</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              
-                              <Button variant="ghost" size="sm">
-                                <ExternalLink className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      {/* Ownership History / Provenance */}
+                      <NFTProvenance
+                        data={provenanceData || null}
+                        isLoading={isLoadingProvenance}
+                        chainId={11155111}
+                      />
 
                       {/* Transaction Confidence */}
                       {canBuy && (
@@ -1223,11 +1790,16 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Contract Address</span>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-mono text-xs">
+                                  <a
+                                    href={`${explorerUrl}/address/${nft.contractAddress}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-mono text-xs hover:text-primary transition-colors"
+                                  >
                                     {nft.contractAddress
                                       ? `${nft.contractAddress.substring(0, 6)}...${nft.contractAddress.substring(38)}`
                                       : "0x1234...5678"}
-                                  </span>
+                                  </a>
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1245,11 +1817,26 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                                       <Copy className="h-3 w-3" />
                                     )}
                                   </Button>
+                                  <a
+                                    href={`${explorerUrl}/address/${nft.contractAddress}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="h-6 w-6 p-0 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
                                 </div>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Token ID</span>
-                                <span className="font-mono">{nft.tokenId || "#1234"}</span>
+                                <a
+                                  href={`${explorerUrl}/nft/${nft.contractAddress}/${nft.tokenId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-mono hover:text-primary transition-colors"
+                                >
+                                  {nft.tokenId || "#1234"}
+                                </a>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Token Standard</span>
@@ -1274,6 +1861,7 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                                   variant="ghost"
                                   size="sm"
                                   className="h-6 px-2 text-xs"
+                                  onClick={handleViewMetadata}
                                 >
                                   <ExternalLink className="h-3 w-3 mr-1" />
                                   View
@@ -1287,10 +1875,67 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                   </ScrollArea>
                 </TabsContent>
 
+                <TabsContent value="offers" className="h-full m-0">
+                  <ScrollArea className="h-full">
+                    <div className="p-8">
+                      <NFTOffersPanel
+                        offers={offersData || []}
+                        isLoading={isLoadingOffers}
+                        isOwner={!!isOwner}
+                        floorPrice={collectionStats.floorPrice}
+                        onAcceptOffer={handleAcceptOffer}
+                        acceptingOfferId={acceptingOfferId}
+                        chainId={11155111}
+                      />
+                    </div>
+                  </ScrollArea>
+                </TabsContent>
+
                 <TabsContent value="properties" className="h-full m-0">
                   <ScrollArea className="h-full">
                     <div className="p-8">
-                      {nft.traits && Object.keys(nft.traits).length > 0 ? (
+                      {isLoadingTraits ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          {Array.from({ length: 4 }).map((_, i) => (
+                            <Card key={i} className="animate-pulse">
+                              <CardContent className="p-6">
+                                <div className="text-center space-y-2">
+                                  <div className="h-4 bg-muted rounded w-20 mx-auto" />
+                                  <div className="h-6 bg-muted rounded w-24 mx-auto" />
+                                  <div className="h-3 bg-muted rounded w-16 mx-auto" />
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : traitRarityData && traitRarityData.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-4">
+                          {traitRarityData.map((trait, index) => (
+                            <motion.div
+                              key={`${trait.traitType}-${trait.value}`}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                            >
+                              <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105 cursor-pointer">
+                                <CardContent className="p-6">
+                                  <div className="text-center">
+                                    <p className="text-sm font-medium text-muted-foreground mb-2">{trait.traitType}</p>
+                                    <p className="text-lg font-bold mb-2">{trait.value}</p>
+                                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                                      <Percent className="h-3 w-3" />
+                                      <span>{trait.percentage}% rarity</span>
+                                    </div>
+                                    <div className="mt-2 text-xs text-muted-foreground">
+                                      {trait.count.toLocaleString()} of {trait.totalSupply.toLocaleString()} items
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </motion.div>
+                          ))}
+                        </div>
+                      ) : nft.traits && Object.keys(nft.traits).length > 0 ? (
                         <div className="grid grid-cols-2 gap-4">
                           {Object.entries(nft.traits).map(([key, value], index) => (
                             <motion.div
@@ -1306,10 +1951,10 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
                                     <p className="text-lg font-bold mb-2">{value}</p>
                                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                                       <Percent className="h-3 w-3" />
-                                      <span>{Math.floor(Math.random() * 30 + 5)}% rarity</span>
+                                      <span>—</span>
                                     </div>
                                     <div className="mt-2 text-xs text-muted-foreground">
-                                      {Math.floor(Math.random() * 1000 + 100)} items
+                                      Rarity data unavailable
                                     </div>
                                   </div>
                                 </CardContent>
@@ -1334,86 +1979,182 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
 
                 <TabsContent value="activity" className="h-full m-0">
                   <ScrollArea className="h-full">
-                    <div className="p-8 space-y-4">
-                      {MOCK_ACTIVITY.map((activity, index) => (
-                        <motion.div
-                          key={activity.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <Card className="hover:shadow-md transition-all duration-200">
-                            <CardContent className="p-6">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
+                    <div className="p-6">
+                      {activityItems.length > 0 ? (
+                        <div className="rounded-lg border overflow-hidden">
+                          {/* Table Header */}
+                          <div className="grid grid-cols-[1fr_1fr_1.5fr_1.5fr_auto] gap-4 px-4 py-3 bg-muted/50 border-b text-sm font-medium text-muted-foreground">
+                            <div>Event</div>
+                            <div>Price</div>
+                            <div>From</div>
+                            <div>To</div>
+                            <div className="text-right">Time</div>
+                          </div>
+                          {/* Table Rows */}
+                          <div className="divide-y">
+                            {activityItems.map((activity, index) => (
+                              <motion.div
+                                key={activity.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                                className="grid grid-cols-[1fr_1fr_1.5fr_1.5fr_auto] gap-4 px-4 py-3 items-center hover:bg-muted/30 transition-colors"
+                              >
+                                {/* Event */}
+                                <div className="flex items-center gap-2">
                                   <div
                                     className={cn(
-                                      "h-12 w-12 rounded-xl flex items-center justify-center",
+                                      "h-8 w-8 rounded-lg flex items-center justify-center",
                                       activity.type === "sale"
                                         ? "bg-green-500/10 text-green-500"
-                                        : activity.type === "offer"
+                                        : activity.type === "offer" || activity.type === "bid"
                                         ? "bg-blue-500/10 text-blue-500"
-                                        : activity.type === "list"
+                                        : activity.type === "listing"
                                         ? "bg-purple-500/10 text-purple-500"
                                         : activity.type === "transfer"
                                         ? "bg-orange-500/10 text-orange-500"
+                                        : activity.type === "cancel"
+                                        ? "bg-red-500/10 text-red-500"
                                         : "bg-gray-500/10 text-gray-500"
                                     )}
                                   >
                                     {activity.type === "sale" ? (
-                                      <ShoppingCart className="h-6 w-6" />
-                                    ) : activity.type === "offer" ? (
-                                      <Tag className="h-6 w-6" />
-                                    ) : activity.type === "list" ? (
-                                      <ArrowUpRight className="h-6 w-6" />
+                                      <ShoppingCart className="h-4 w-4" />
+                                    ) : activity.type === "offer" || activity.type === "bid" ? (
+                                      <Tag className="h-4 w-4" />
+                                    ) : activity.type === "listing" ? (
+                                      <ArrowUpRight className="h-4 w-4" />
                                     ) : activity.type === "transfer" ? (
-                                      <ArrowRight className="h-6 w-6" />
+                                      <ArrowRight className="h-4 w-4" />
+                                    ) : activity.type === "cancel" ? (
+                                      <X className="h-4 w-4" />
                                     ) : (
-                                      <Plus className="h-6 w-6" />
+                                      <Plus className="h-4 w-4" />
                                     )}
                                   </div>
-                                  <div>
-                                    <p className="font-semibold capitalize text-lg">{activity.type}</p>
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                      <span className="font-mono">{activity.from}</span>
-                                      {activity.to && (
-                                        <>
-                                          <ArrowRight className="h-3 w-3" />
-                                          <span className="font-mono">{activity.to}</span>
-                                        </>
+                                  <span className="font-medium capitalize">{activity.type}</span>
+                                </div>
+
+                                {/* Price */}
+                                <div>
+                                  {activity.price ? (
+                                    <span className="font-semibold">
+                                      {activity.price} {activity.currency}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </div>
+
+                                {/* From */}
+                                <div className="flex items-center gap-2">
+                                  {activity.fromUser?.avatar && (
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={activity.fromUser.avatar} />
+                                      <AvatarFallback className="text-xs">
+                                        {(activity.fromUser?.username || activity.from || "?").slice(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  )}
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="font-mono text-sm truncate max-w-[120px] hover:text-primary cursor-pointer">
+                                          {activity.fromUser?.username || (activity.from ? `${activity.from.slice(0, 6)}...${activity.from.slice(-4)}` : "—")}
+                                        </span>
+                                      </TooltipTrigger>
+                                      {activity.from && (
+                                        <TooltipContent>
+                                          <p className="font-mono text-xs">{activity.from}</p>
+                                        </TooltipContent>
                                       )}
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      {new Date(activity.timestamp).toLocaleDateString("en-US", {
-                                        year: "numeric",
-                                        month: "long",
-                                        day: "numeric",
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })}
-                                    </p>
-                                  </div>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 </div>
-                                <div className="text-right">
-                                  {activity.price && (
-                                    <p className="text-xl font-bold">{activity.price} ETH</p>
+
+                                {/* To */}
+                                <div className="flex items-center gap-2">
+                                  {activity.toUser?.avatar && (
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={activity.toUser.avatar} />
+                                      <AvatarFallback className="text-xs">
+                                        {(activity.toUser?.username || activity.to || "?").slice(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
                                   )}
-                                  {activity.txHash && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="mt-2 gap-2 text-xs"
-                                    >
-                                      <ExternalLink className="h-3 w-3" />
-                                      View Transaction
-                                    </Button>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="font-mono text-sm truncate max-w-[120px] hover:text-primary cursor-pointer">
+                                          {activity.toUser?.username || (activity.to ? `${activity.to.slice(0, 6)}...${activity.to.slice(-4)}` : "—")}
+                                        </span>
+                                      </TooltipTrigger>
+                                      {activity.to && (
+                                        <TooltipContent>
+                                          <p className="font-mono text-xs">{activity.to}</p>
+                                        </TooltipContent>
+                                      )}
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+
+                                {/* Time */}
+                                <div className="flex items-center gap-2 justify-end">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                          {formatRelativeTime(activity.timestamp)}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p className="text-xs">
+                                          {new Date(activity.timestamp).toLocaleDateString("en-US", {
+                                            year: "numeric",
+                                            month: "long",
+                                            day: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })}
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                  {activity.transactionHash && (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <a
+                                            href={`https://etherscan.io/tx/${activity.transactionHash}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-muted-foreground hover:text-primary transition-colors"
+                                          >
+                                            <ExternalLink className="h-3.5 w-3.5" />
+                                          </a>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p className="text-xs">View on Etherscan</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   )}
                                 </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      ))}
+                              </motion.div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <Card>
+                          <CardContent className="p-12 text-center">
+                            <Activity className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
+                            <h3 className="text-xl font-semibold mb-2">No Activity Yet</h3>
+                            <p className="text-muted-foreground">
+                              Activity for this NFT will appear here once it has been minted, listed, sold, or transferred.
+                            </p>
+                          </CardContent>
+                        </Card>
+                      )}
                     </div>
                   </ScrollArea>
                 </TabsContent>
@@ -1586,6 +2327,10 @@ export function NFTDetailModal({ open, onOpenChange, nft }: NFTDetailModalProps)
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Share and Report Modals */}
+      <ShareModal />
+      <ReportModal />
     </>
   );
 }

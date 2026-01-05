@@ -1,7 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import { usePathname } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
+import { trpc } from "@/lib/trpc/client";
 
 export interface NFT {
   id: string;
@@ -24,14 +26,14 @@ export interface NFT {
 export interface Trader {
   id: string;
   name: string;
-  username?: string;
+  username?: string | null;
   walletAddress: string;
-  avatar: string;
+  avatar: string | null;
   rating: number;
   trades: number;
   successRate: number;
   isOnline: boolean;
-  tier: 'DIAMOND' | 'GOLD' | 'SILVER';
+  tier: 'DIAMOND' | 'GOLD' | 'SILVER' | 'BRONZE';
   nfts?: NFT[];
 }
 
@@ -141,9 +143,14 @@ const convertAPITraderToContextTrader = (apiTrader: any): Trader => ({
 });
 
 export function P2PTradingProvider({ children }: { children: ReactNode }) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const address = user?.walletAddress;
-  
+  const utils = trpc.useUtils();
+  const pathname = usePathname();
+
+  // Only fetch P2P data when on P2P routes
+  const isP2PRoute = pathname?.startsWith('/p2p');
+
   // State
   const [userNFTs, setUserNFTs] = useState<NFT[]>([]);
   const [userBoardNFTs, setUserBoardNFTs] = useState<NFT[]>([]);
@@ -154,39 +161,35 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
   const [activeTradeId, setActiveTradeId] = useState<string | null>(null);
   const [loadedTrade, setLoadedTrade] = useState<any | null>(null);
   const [boardHistoryIndex, setBoardHistoryIndex] = useState(-1); // -1 = current state
-  
+
   // Loading states
   const [isLoadingUserNFTs, setIsLoadingUserNFTs] = useState(false);
   const [isLoadingTraders, setIsLoadingTraders] = useState(false);
   const [isLoadingTraderNFTs, setIsLoadingTraderNFTs] = useState(false);
-  
+
   // Error states
   const [userNFTsError, setUserNFTsError] = useState<string | null>(null);
   const [tradersError, setTradersError] = useState<string | null>(null);
   const [traderNFTsError, setTraderNFTsError] = useState<string | null>(null);
 
-  // API functions
-  const fetchUserNFTs = async () => {
+  // API functions using tRPC
+  const fetchUserNFTs = useCallback(async () => {
     if (!address) {
       console.log('No wallet address available for fetching NFTs');
       return;
     }
-    
+
     console.log('Fetching NFTs for address:', address);
     setIsLoadingUserNFTs(true);
     setUserNFTsError(null);
-    
+
     try {
-      const response = await fetch(`/api/user/${address}/nfts`);
-      const data = await response.json();
-      
+      const data = await utils.user.nfts.list.fetch({ address, filter: 'owned' });
+
       if (data.success) {
-        const convertedNFTs = data.data.nfts.map(convertAPINFTToContextNFT);
+        const convertedNFTs = data.nfts.map(convertAPINFTToContextNFT);
         setUserNFTs(convertedNFTs);
         console.log('Successfully loaded', convertedNFTs.length, 'NFTs');
-      } else {
-        console.error('API error:', data.error);
-        setUserNFTsError(data.error || 'Failed to fetch user NFTs');
       }
     } catch (error) {
       console.error('Error fetching user NFTs:', error);
@@ -194,24 +197,20 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoadingUserNFTs(false);
     }
-  };
+  }, [address, utils.user.nfts.list]);
 
-  const fetchTraders = async () => {
+  const fetchTraders = useCallback(async () => {
     console.log('Fetching traders...');
     setIsLoadingTraders(true);
     setTradersError(null);
-    
+
     try {
-      const response = await fetch('/api/p2p/traders');
-      const data = await response.json();
-      
+      const data = await utils.p2p.traders.list.fetch({});
+
       if (data.success) {
-        const convertedTraders = data.data.traders.map(convertAPITraderToContextTrader);
+        const convertedTraders = data.traders.map(convertAPITraderToContextTrader);
         setTraders(convertedTraders);
         console.log('Successfully loaded', convertedTraders.length, 'traders');
-      } else {
-        console.error('Traders API error:', data.error);
-        setTradersError(data.error || 'Failed to fetch traders');
       }
     } catch (error) {
       console.error('Error fetching traders:', error);
@@ -219,25 +218,18 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoadingTraders(false);
     }
-  };
+  }, [utils.p2p.traders.list]);
 
-  const fetchTraderNFTs = async (traderAddress: string) => {
+  const fetchTraderNFTs = useCallback(async (traderAddress: string) => {
     setIsLoadingTraderNFTs(true);
     setTraderNFTsError(null);
 
     try {
-      const response = await fetch(`/api/user/${traderAddress}/nfts`);
-      const data = await response.json();
+      const data = await utils.user.nfts.list.fetch({ address: traderAddress, filter: 'owned' });
 
       if (data.success) {
-        // Handle both possible API response structures
-        const nftsArray = data.data.nfts || data.data;
-        const convertedNFTs = Array.isArray(nftsArray)
-          ? nftsArray.map(convertAPINFTToContextNFT)
-          : [];
+        const convertedNFTs = data.nfts.map(convertAPINFTToContextNFT);
         setTraderNFTs(convertedNFTs);
-      } else {
-        setTraderNFTsError(data.error || 'Failed to fetch trader NFTs');
       }
     } catch (error) {
       console.error('Error fetching trader NFTs:', error);
@@ -245,18 +237,20 @@ export function P2PTradingProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoadingTraderNFTs(false);
     }
-  };
+  }, [utils.user.nfts.list]);
 
-  // Effects
+  // Effects - only fetch when on P2P routes
   useEffect(() => {
-    if (address) {
+    if (address && isP2PRoute) {
       fetchUserNFTs();
     }
-  }, [address]);
+  }, [address, isP2PRoute, fetchUserNFTs]);
 
   useEffect(() => {
-    fetchTraders();
-  }, []);
+    if (isP2PRoute) {
+      fetchTraders();
+    }
+  }, [isP2PRoute, fetchTraders]);
 
   // Removed the useEffect that was causing double fetching
   // The selectTrader function already handles fetching NFTs

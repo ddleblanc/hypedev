@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useWalletAuth, AuthUser } from "@/hooks/use-wallet-auth";
+import { useAuth, type AuthUser } from "@/contexts/auth-context";
 import { HomeView } from "./authenticated-homescreen/home-view";
 import { TradeView } from "./authenticated-homescreen/trade-view";
 import { P2PView } from "./authenticated-homescreen/p2p-view";
 import { MarketplaceContainer } from "./marketplace-container";
 import { PlayView } from "./authenticated-homescreen/play-view";
 import { CasualGamesView } from "./authenticated-homescreen/casual-games-view";
-import { LaunchpadView } from "./authenticated-homescreen/launchpad-view";
+import { DropsView } from "./authenticated-homescreen/drops-view";
 import { MuseumView } from "./authenticated-homescreen/museum-view";
 // StudioView removed - now uses dedicated routing
 import { AppLayout } from "./layouts/app-layout";
@@ -23,12 +23,12 @@ interface AuthenticatedHomescreenProps {
 export function AuthenticatedHomescreen({ user }: AuthenticatedHomescreenProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useState<'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'drops' | 'museum' | 'studio'>('home');
 
   // Initialize view mode from URL
   useEffect(() => {
     const view = searchParams.get('view');
-    if (view === 'trade' || view === 'p2p' || view === 'marketplace' || view === 'play' || view === 'casual' || view === 'launchpad' || view === 'museum' || view === 'studio') {
+    if (view === 'trade' || view === 'p2p' || view === 'marketplace' || view === 'play' || view === 'casual' || view === 'drops' || view === 'museum' || view === 'studio') {
       setViewMode(view);
     } else {
       setViewMode('home');
@@ -37,7 +37,7 @@ export function AuthenticatedHomescreen({ user }: AuthenticatedHomescreenProps) 
 
   // Update URL when view mode changes
   const handleViewModeChange = (newMode: string) => {
-    setViewMode(newMode as 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio');
+    setViewMode(newMode as 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'drops' | 'museum' | 'studio');
     
     // Update URL without page reload
     const newUrl = newMode === 'home' ? '/' : `/?view=${newMode}`;
@@ -119,8 +119,8 @@ export function AuthenticatedHomescreen({ user }: AuthenticatedHomescreenProps) 
           <PlayView setViewMode={handleViewModeChange} />
         ) : viewMode === 'casual' ? (
           <CasualGamesView onBack={() => handleViewModeChange('play')} />
-        ) : viewMode === 'launchpad' ? (
-          <LaunchpadView setViewMode={handleViewModeChange} />
+        ) : viewMode === 'drops' ? (
+          <DropsView setViewMode={handleViewModeChange} />
         ) : viewMode === 'museum' ? (
           <MuseumView setViewMode={handleViewModeChange} />
         ) : viewMode === 'studio' ? (

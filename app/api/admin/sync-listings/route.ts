@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAllValidAuctions, getAllValidListings } from 'thirdweb/extensions/marketplace';
 import { getMarketplaceContract, MARKETPLACE_CHAIN_ID } from '@/lib/marketplace';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 // Admin key - MUST be set in environment, no default
 const ADMIN_KEY = process.env.ADMIN_API_KEY;
@@ -61,20 +62,26 @@ function parseTimestamp(value: any): Date {
  * This finds active on-chain listings/auctions and updates the database
  */
 export async function POST(request: NextRequest) {
+  // Rate limit admin operations
+  const rateLimit = await rateLimitCheck(request, "auth");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     // Check admin key
     if (!ADMIN_KEY) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Admin API not configured' },
         { status: 503 }
       );
+      return rateLimit.applyHeaders(response);
     }
     const authHeader = request.headers.get('authorization');
     if (!authHeader || authHeader !== `Bearer ${ADMIN_KEY}`) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
+      return rateLimit.applyHeaders(response);
     }
 
     const body = await request.json();
@@ -336,18 +343,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       dryRun,
       results,
     });
+    return rateLimit.applyHeaders(response);
 
   } catch (error: any) {
     console.error('Sync listings error:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: error.message || 'Failed to sync listings' },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }
 
@@ -357,20 +366,26 @@ export async function POST(request: NextRequest) {
  * Get current sync status - compare on-chain vs database
  */
 export async function GET(request: NextRequest) {
+  // Rate limit admin operations
+  const rateLimit = await rateLimitCheck(request, "auth");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     // Check admin key
     if (!ADMIN_KEY) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Admin API not configured' },
         { status: 503 }
       );
+      return rateLimit.applyHeaders(response);
     }
     const authHeader = request.headers.get('authorization');
     if (!authHeader || authHeader !== `Bearer ${ADMIN_KEY}`) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
+      return rateLimit.applyHeaders(response);
     }
 
     const marketplace = getMarketplaceContract();
@@ -401,7 +416,7 @@ export async function GET(request: NextRequest) {
       where: { listingType: 'direct', status: 'ACTIVE' }
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       onChain: {
         auctions: onChainAuctionCount,
@@ -415,12 +430,14 @@ export async function GET(request: NextRequest) {
       },
       needsSync: (onChainAuctionCount !== dbAuctionCount) || (onChainListingCount !== dbListingCount),
     });
+    return rateLimit.applyHeaders(response);
 
   } catch (error: any) {
     console.error('Get sync status error:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: error.message || 'Failed to get sync status' },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }

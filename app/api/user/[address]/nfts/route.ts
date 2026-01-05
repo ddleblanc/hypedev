@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
+import { rateLimit } from '@/lib/rate-limit'
 
 // Helper function to convert chainId to chain name
 function getChainName(chainId: number): string {
@@ -20,6 +21,9 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ address: string }> }
 ) {
+  const rateLimitResult = await rateLimit(request, 'api')
+  if (rateLimitResult) return rateLimitResult
+
   const params = await context.params;
   try {
     const { address } = params
@@ -319,36 +323,38 @@ export async function GET(
     const availableCollections = [...new Set(transformedNFTs.map(nft => nft.collectionName))]
     const availableChains = [...new Set(transformedNFTs.map(nft => nft.chain))]
 
-    // Count draft NFTs (in DB but not on-chain) - separate query for accuracy
-    const totalDrafts = await prisma.nft.count({
-      where: {
-        collection: {
-          creatorAddress: {
-            equals: normalizedAddress,
-            mode: 'insensitive'
-          }
-        },
-        isMinted: true,
-        isOnChain: false
-      }
-    })
-
-    // Count on-chain owned and created separately for accurate tab counts
-    const totalOwned = await prisma.nft.count({
-      where: {
-        ownerAddress: { equals: normalizedAddress, mode: 'insensitive' },
-        isOnChain: true
-      }
-    })
-
-    const totalCreated = await prisma.nft.count({
-      where: {
-        collection: {
-          creatorAddress: { equals: normalizedAddress, mode: 'insensitive' }
-        },
-        isOnChain: true
-      }
-    })
+    // Batch count queries with Promise.all to avoid sequential database roundtrips
+    const [totalDrafts, totalOwned, totalCreated] = await Promise.all([
+      // Count draft NFTs (in DB but not on-chain)
+      prisma.nft.count({
+        where: {
+          collection: {
+            creatorAddress: {
+              equals: normalizedAddress,
+              mode: 'insensitive'
+            }
+          },
+          isMinted: true,
+          isOnChain: false
+        }
+      }),
+      // Count on-chain owned
+      prisma.nft.count({
+        where: {
+          ownerAddress: { equals: normalizedAddress, mode: 'insensitive' },
+          isOnChain: true
+        }
+      }),
+      // Count on-chain created
+      prisma.nft.count({
+        where: {
+          collection: {
+            creatorAddress: { equals: normalizedAddress, mode: 'insensitive' }
+          },
+          isOnChain: true
+        }
+      })
+    ])
 
     return NextResponse.json({
       success: true,

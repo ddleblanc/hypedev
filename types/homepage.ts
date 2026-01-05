@@ -43,7 +43,7 @@ export interface NFTSaleData {
   buyer: string;
 }
 
-export interface LaunchpadProjectData {
+export interface DropData {
   id: string;
   name: string;
   slug: string;

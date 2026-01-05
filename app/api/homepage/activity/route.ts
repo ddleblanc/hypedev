@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { ActivityItem } from '@/types/homepage';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Simple in-memory cache
 let activityCache: { data: ActivityItem[]; timestamp: number } | null = null;
@@ -44,7 +45,10 @@ function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     // Check cache
     if (activityCache && Date.now() - activityCache.timestamp < CACHE_TTL) {
@@ -94,6 +98,7 @@ export async function GET() {
         collection: {
           select: {
             id: true,
+            slug: true,
             name: true,
           },
         },
@@ -113,7 +118,7 @@ export async function GET() {
         },
         collection: {
           name: a.collection!.name,
-          slug: a.collection!.id,
+          slug: a.collection!.slug || a.collection!.id,
         },
         price: a.amount ? a.amount.toFixed(4).replace(/\.?0+$/, '') : undefined,
         priceCurrency: a.currency || 'ETH',

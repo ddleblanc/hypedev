@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { z } from 'zod'
+import { rateLimit } from '@/lib/rate-limit'
+import { sanitizeText, sanitizeUrl, sanitizeIpfsUrl } from '@/lib/sanitize'
 
 const updateProfileSchema = z.object({
   userId: z.string(),
@@ -17,14 +19,36 @@ const updateProfileSchema = z.object({
 
 
 export async function PUT(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'apiWrite')
+  if (rateLimitResult) return rateLimitResult
+
   try {
     const body = await request.json()
     console.log('PUT /api/user/profile - Received body:', body)
     
     const validatedData = updateProfileSchema.parse(body)
     console.log('PUT /api/user/profile - Validated data:', validatedData)
-    
+
     const { userId, username, ...updateData } = validatedData
+
+    // Sanitize user-provided content
+    const sanitizedData = {
+      ...updateData,
+      // Sanitize bio to strip any HTML/XSS attempts
+      bio: updateData.bio ? sanitizeText(updateData.bio) : updateData.bio,
+      // Validate and sanitize image URLs (allow IPFS)
+      profilePicture: updateData.profilePicture
+        ? (sanitizeIpfsUrl(updateData.profilePicture) || sanitizeUrl(updateData.profilePicture) || updateData.profilePicture)
+        : updateData.profilePicture,
+      bannerImage: updateData.bannerImage
+        ? (sanitizeIpfsUrl(updateData.bannerImage) || sanitizeUrl(updateData.bannerImage) || updateData.bannerImage)
+        : updateData.bannerImage,
+      // Sanitize social URLs
+      socials: updateData.socials?.map(social => ({
+        ...social,
+        url: sanitizeUrl(social.url) || social.url
+      }))
+    }
 
     // Check if username is available if provided
     if (username) {
@@ -38,10 +62,10 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    console.log('PUT /api/user/profile - Updating user with data:', { userId, username, ...updateData })
+    console.log('PUT /api/user/profile - Updating user with sanitized data:', { userId, username, ...sanitizedData })
     const updatedUser = await auth.updateUserProfile(userId, {
       username,
-      ...updateData
+      ...sanitizedData
     })
 
     console.log('PUT /api/user/profile - Update successful, user:', updatedUser)
@@ -67,6 +91,9 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api')
+  if (rateLimitResult) return rateLimitResult
+
   try {
     const searchParams = request.nextUrl.searchParams
     const userId = searchParams.get('userId')

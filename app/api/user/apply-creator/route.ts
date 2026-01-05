@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { z } from 'zod'
+import { rateLimitCheck } from '@/lib/rate-limit'
 
 const applyCreatorSchema = z.object({
   userId: z.string().min(1, 'User ID is required')
 })
 
 export async function POST(request: NextRequest) {
+  // Rate limit: write operations (30 req/min)
+  const rateCheck = await rateLimitCheck(request, "apiWrite")
+  if (rateCheck.blocked) return rateCheck.response
+
   try {
     const body = await request.json()
     const { userId } = applyCreatorSchema.parse(body)

@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
-type AppRoute = 'home' | 'trade' | 'play' | 'play-1v1' | 'p2p' | 'marketplace' | 'casual' | 'launchpad' | 'museum' | 'studio';
+type AppRoute = 'home' | 'trade' | 'play' | 'play-1v1' | 'p2p' | 'marketplace' | 'casual' | 'drops' | 'museum' | 'studio';
 
 interface NavigationState {
   currentRoute: AppRoute;
@@ -28,7 +28,7 @@ const routeHierarchy: Record<AppRoute, number> = {
   p2p: 2,
   marketplace: 2,
   casual: 2,
-  launchpad: 2,
+  drops: 2,
   museum: 2,
   studio: 2,
 };
@@ -43,7 +43,7 @@ const pathnameToRoute = (pathname: string): AppRoute => {
     '/p2p': 'p2p',
     '/marketplace': 'marketplace',
     '/casual': 'casual',
-    '/launchpad': 'launchpad',
+    '/drops': 'drops',
     '/museum': 'museum',
     '/studio': 'studio',
   };
@@ -60,7 +60,7 @@ const routeToPathname = (route: AppRoute): string => {
     p2p: '/p2p',
     marketplace: '/marketplace',
     casual: '/casual',
-    launchpad: '/launchpad',
+    drops: '/drops',
     museum: '/museum',
     studio: '/studio',
   };

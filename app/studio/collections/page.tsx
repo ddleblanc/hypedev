@@ -1,13 +1,17 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Suspense, useMemo, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { StudioCollections } from "@/components/studio/views";
 import { useStudioData } from "@/hooks/use-studio-data";
+import { useStudio } from "@/contexts/studio-context";
 import {
-  Plus, Search, ArrowUpDown, LayoutGrid, LayoutList, 
-  Sparkles, TrendingUp, Clock, CheckCircle2
+  Plus,
+  Search,
+  ArrowUpDown,
+  TrendingUp,
+  Filter,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,370 +24,373 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+// New UI components
+import { PageTransition } from "@/components/studio/page-transition";
+import { CollectionCardSkeleton, GridSkeleton, ListSkeleton, TableRowSkeleton } from "@/components/studio/skeletons";
+import { CollectionsEmptyState, FilteredEmptyState, ErrorState } from "@/components/studio/empty-states";
+import { SegmentedControl, ViewModeToggle } from "@/components/studio/segmented-control";
+import { FilterSheet } from "@/components/studio/bottom-sheet";
+
 function CollectionsContent() {
+  const router = useRouter();
   const { collections, isLoading, error, refreshData } = useStudioData();
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('recent');
+  const { state, setFilter, setViewMode, resetFilters, openModal, hasActiveFilters } = useStudio();
+
+  const [sortBy, setSortBy] = useState("recent");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  
-  const router = useRouter();
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Get status filter from context (or "all" if no filter selected)
+  const statusFilter: string = state.filters.status[0] || "all";
+
   // Calculate metrics
-  const metrics = {
+  const metrics = useMemo(() => ({
     total: collections.length,
     deployed: collections.filter((c: any) => c.isDeployed).length,
-    nfts: collections.reduce((acc: number, c: any) => acc + (c.totalSupply || 0), 0),
-    volume: 89.3,
-    growth: 12.5
-  };
-
-  const filters = [
-    { 
-      id: 'all', 
-      label: 'All Collections',
-      icon: Sparkles,
-      description: 'View everything'
-    },
-    { 
-      id: 'deployed', 
-      label: 'Live',
-      icon: CheckCircle2,
-      description: 'On mainnet',
-      accent: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'
-    },
-    { 
-      id: 'draft', 
-      label: 'In Progress',
-      icon: Clock,
-      description: 'Not deployed',
-      accent: 'text-amber-400 bg-amber-400/10 border-amber-400/20'
-    }
-  ];
+    draft: collections.filter((c: any) => !c.isDeployed).length,
+    nfts: collections.reduce((acc: number, c: any) => acc + (c.mintedSupply || 0), 0),
+    volume: collections.reduce((acc: number, c: any) => acc + (c.volume || 0), 0),
+  }), [collections]);
 
   // Filter and search logic
-  const filteredCollections = collections.filter((c: any) => {
-    const matchesFilter = 
-      activeFilter === 'all' ||
-      (activeFilter === 'deployed' && c.isDeployed) ||
-      (activeFilter === 'draft' && !c.isDeployed);
-    
-    const matchesSearch = !searchQuery || 
-      c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.symbol?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesFilter && matchesSearch;
-  });
+  const filteredCollections = useMemo(() => {
+    return collections.filter((c: any) => {
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "live" && c.isDeployed) ||
+        (statusFilter === "draft" && !c.isDeployed) ||
+        (statusFilter === "paused" && c.isPaused);
 
+      const matchesSearch =
+        !state.filters.search ||
+        c.name?.toLowerCase().includes(state.filters.search.toLowerCase()) ||
+        c.symbol?.toLowerCase().includes(state.filters.search.toLowerCase());
+
+      const matchesContractType =
+        state.filters.contractType.length === 0 ||
+        state.filters.contractType.includes(c.contractType);
+
+      return matchesStatus && matchesSearch && matchesContractType;
+    });
+  }, [collections, statusFilter, state.filters.search, state.filters.contractType]);
+
+  // Sort collections
+  const sortedCollections = useMemo(() => {
+    const sorted = [...filteredCollections];
+    switch (sortBy) {
+      case "name":
+        return sorted.sort((a: any, b: any) => a.name.localeCompare(b.name));
+      case "volume":
+        return sorted.sort((a: any, b: any) => (b.volume || 0) - (a.volume || 0));
+      case "items":
+        return sorted.sort((a: any, b: any) => (b.mintedSupply || 0) - (a.mintedSupply || 0));
+      case "recent":
+      default:
+        return sorted.sort((a: any, b: any) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+    }
+  }, [filteredCollections, sortBy]);
+
+  const handleStatusChange = useCallback((value: string) => {
+    if (value === "all") {
+      setFilter("status", []);
+    } else {
+      setFilter("status", [value as any]);
+    }
+  }, [setFilter]);
+
+  // Mobile filter sections
+  const filterSections = useMemo(() => [
+    {
+      title: "Status",
+      options: [
+        { id: "all", label: "All", selected: statusFilter === "all" },
+        { id: "live", label: "Live", selected: statusFilter === "live" },
+        { id: "draft", label: "Draft", selected: statusFilter === "draft" },
+      ],
+      onToggle: (id: string) => handleStatusChange(id),
+    },
+    {
+      title: "Contract Type",
+      options: [
+        { id: "DropERC721", label: "NFT Drop", selected: state.filters.contractType.includes("DropERC721") },
+        { id: "TokenERC721", label: "NFT Collection", selected: state.filters.contractType.includes("TokenERC721") },
+        { id: "OpenEditionERC721", label: "Open Edition", selected: state.filters.contractType.includes("OpenEditionERC721") },
+        { id: "DropERC1155", label: "Edition Drop", selected: state.filters.contractType.includes("DropERC1155") },
+      ],
+      onToggle: (id: string) => {
+        const current = state.filters.contractType;
+        if (current.includes(id as any)) {
+          setFilter("contractType", current.filter((t) => t !== id));
+        } else {
+          setFilter("contractType", [...current, id as any]);
+        }
+      },
+      multiSelect: true,
+    },
+  ], [statusFilter, state.filters.contractType, handleStatusChange, setFilter]);
+
+  // Error state
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center pt-16">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center max-w-md"
-        >
-          <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
-            <span className="text-red-500">!</span>
-          </div>
-          <h3 className="text-white font-medium mb-2">Something went wrong</h3>
-          <p className="text-zinc-400 text-sm mb-6">{error}</p>
-          <Button 
-            onClick={refreshData}
-            className="bg-white text-black hover:bg-zinc-200 font-medium"
-          >
-            Retry
-          </Button>
-        </motion.div>
-      </div>
-    );
-  }
-
-  if (isLoading && collections.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center pt-16">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-          <p className="text-zinc-500 text-sm">Loading collections...</p>
+      <PageTransition>
+        <div className="min-h-screen flex items-center justify-center pt-16">
+          <ErrorState message={error} onRetry={refreshData} />
         </div>
-      </div>
+      </PageTransition>
     );
   }
 
   return (
-    <div className="min-h-screen pt-20">
-      {/* Unified Header Bar */}
-      <div className="bg-black/80 backdrop-blur-xl border-b border-white/10">
-        <div className="px-4 lg:px-8 py-3">
-          {/* Compact Metrics Bar */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between"
-          >
-            {/* Left side metrics */}
-            <div className="flex items-center gap-4 lg:gap-6">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 uppercase">Total</span>
-                <span className="text-lg font-semibold text-white">{metrics.total}</span>
+    <PageTransition>
+      <div className="min-h-screen pt-20">
+        {/* Header Bar */}
+        <div className="bg-black/80 backdrop-blur-xl border-b border-white/10">
+          <div className="px-4 lg:px-8 py-3">
+            {/* Metrics Row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4 lg:gap-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500 uppercase">Total</span>
+                  <span className="text-lg font-semibold text-white">{metrics.total}</span>
+                </div>
+                <div className="w-px h-5 bg-white/10" />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500 uppercase">Live</span>
+                  <span className="text-lg font-semibold text-emerald-400">{metrics.deployed}</span>
+                </div>
+                <div className="w-px h-5 bg-white/10 hidden sm:block" />
+                <div className="hidden sm:flex items-center gap-2">
+                  <span className="text-xs text-zinc-500 uppercase">NFTs</span>
+                  <span className="text-lg font-semibold text-white">{metrics.nfts.toLocaleString()}</span>
+                </div>
               </div>
-              <div className="w-px h-5 bg-white/10" />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 uppercase">Live</span>
-                <span className="text-lg font-semibold text-emerald-400">{metrics.deployed}</span>
-              </div>
-              <div className="w-px h-5 bg-white/10" />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 uppercase">NFTs</span>
-                <span className="text-lg font-semibold text-white">{metrics.nfts.toLocaleString()}</span>
-              </div>
-            </div>
 
-            {/* Right side metrics (desktop only) */}
-            <div className="hidden lg:flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-500 uppercase">Volume</span>
-                <span className="text-lg font-semibold text-white">{metrics.volume} ETH</span>
-              </div>
-              <div className="w-px h-5 bg-white/10" />
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-3 h-3 text-emerald-400" />
-                <span className="text-lg font-semibold text-emerald-400">+{metrics.growth}%</span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Filter and Controls Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-3"
-          >
-            {/* Filter Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto">
-              {filters.map((filter, index) => {
-                const isActive = activeFilter === filter.id;
-                const count = filter.id === 'all'
-                  ? collections.length
-                  : filter.id === 'deployed'
-                  ? metrics.deployed
-                  : collections.length - metrics.deployed;
-
-                return (
-                  <motion.button
-                    key={filter.id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 + index * 0.05, type: 'spring', stiffness: 400, damping: 17 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setActiveFilter(filter.id)}
-                    className={cn(
-                      "px-4 min-h-[48px] rounded-xl text-sm font-medium transition-all flex items-center gap-2 border whitespace-nowrap",
-                      isActive
-                        ? filter.accent || "bg-white/5 text-white border-white"
-                        : "bg-white/5 text-zinc-400 border-white/10 hover:text-white hover:border-white/20"
-                    )}
-                  >
-                    <filter.icon className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{filter.label}</span>
-                    <span className="sm:hidden">{filter.label.split(' ')[0]}</span>
-                    <span className={cn(
-                      "text-xs px-1.5 py-0.5 rounded-full",
-                      isActive ? "bg-black/20" : "bg-white/10"
-                    )}>
-                      {count}
-                    </span>
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            {/* Right Controls */}
-            <div className="flex items-center gap-3">
-              {/* Search - Hidden on mobile */}
-              <div className={cn(
-                "relative transition-all duration-200 hidden sm:block",
-                isSearchFocused ? "w-64" : "w-48"
-              )}>
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setIsSearchFocused(false)}
-                  placeholder="Search..."
-                  className="pl-9 h-9 bg-white/5 backdrop-blur-sm border-white/10 text-white placeholder:text-zinc-500 focus:border-white/20 focus:bg-white/10"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
-                  >
-                    <span className="text-xs">ESC</span>
-                  </button>
+              <div className="hidden lg:flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500 uppercase">Volume</span>
+                  <span className="text-lg font-semibold text-white">{metrics.volume.toFixed(2)} ETH</span>
+                </div>
+                {metrics.volume > 0 && (
+                  <>
+                    <div className="w-px h-5 bg-white/10" />
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-3 h-3 text-emerald-400" />
+                      <span className="text-lg font-semibold text-emerald-400">Active</span>
+                    </div>
+                  </>
                 )}
               </div>
-
-              {/* View Mode - Same height as search (h-9) */}
-              <div className="flex items-center bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 h-9 hidden sm:flex">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                  onClick={() => setViewMode('grid')}
-                  className={cn(
-                    "px-2.5 h-full rounded-l-lg transition-all flex items-center justify-center",
-                    viewMode === 'grid'
-                      ? "bg-white text-black"
-                      : "text-zinc-500 hover:text-white"
-                  )}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </motion.button>
-                <div className="w-px h-5 bg-white/10" />
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                  onClick={() => setViewMode('list')}
-                  className={cn(
-                    "px-2.5 h-full rounded-r-lg transition-all flex items-center justify-center",
-                    viewMode === 'list'
-                      ? "bg-white text-black"
-                      : "text-zinc-500 hover:text-white"
-                  )}
-                >
-                  <LayoutList className="w-4 h-4" />
-                </motion.button>
-              </div>
-
-              {/* Sort - Hidden on mobile */}
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-36 h-9 bg-white/5 backdrop-blur-sm border-white/10 text-white hidden sm:flex">
-                  <ArrowUpDown className="w-3.5 h-3.5 mr-2 text-zinc-500" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-black/90 backdrop-blur-sm border-white/10">
-                  <SelectItem value="recent" className="text-white">Recent</SelectItem>
-                  <SelectItem value="name" className="text-white">Name</SelectItem>
-                  <SelectItem value="volume" className="text-white">Volume</SelectItem>
-                  <SelectItem value="items" className="text-white">Items</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
 
-            {/* Mobile Search Bar with View Toggle */}
-            {isMobile && (
-              <div className="lg:hidden flex items-center gap-2">
-                <div className="relative flex-1">
+            {/* Controls Row */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-4">
+              {/* Status Filter - Desktop */}
+              <div className="hidden md:block">
+                <SegmentedControl
+                  options={[
+                    { value: "all", label: `All (${metrics.total})` },
+                    { value: "live", label: `Live (${metrics.deployed})` },
+                    { value: "draft", label: `Draft (${metrics.draft})` },
+                  ]}
+                  value={statusFilter as any}
+                  onChange={handleStatusChange}
+                  size="md"
+                />
+              </div>
+
+              {/* Right Controls */}
+              <div className="flex items-center gap-3">
+                {/* Search */}
+                <div
+                  className={cn(
+                    "relative transition-all duration-200 hidden sm:block",
+                    isSearchFocused ? "w-64" : "w-48"
+                  )}
+                >
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                   <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search collections..."
-                    className="pl-9 min-h-[48px] w-full bg-white/5 backdrop-blur-sm border-white/10 text-white placeholder:text-zinc-500 rounded-xl"
+                    value={state.filters.search}
+                    onChange={(e) => setFilter("search", e.target.value)}
+                    onFocus={() => setIsSearchFocused(true)}
+                    onBlur={() => setIsSearchFocused(false)}
+                    placeholder="Search..."
+                    className="pl-9 h-10 bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus:border-[rgb(163,255,18)]/50"
+                  />
+                  {state.filters.search && (
+                    <button
+                      onClick={() => setFilter("search", "")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* View Mode Toggle */}
+                <ViewModeToggle
+                  value={state.viewMode}
+                  onChange={setViewMode}
+                  size="md"
+                  className="hidden sm:flex"
+                />
+
+                {/* Sort */}
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-36 h-10 bg-white/5 border-white/10 text-white hidden md:flex">
+                    <ArrowUpDown className="w-3.5 h-3.5 mr-2 text-zinc-500" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-black/90 backdrop-blur-sm border-white/10">
+                    <SelectItem value="recent" className="text-white">Recent</SelectItem>
+                    <SelectItem value="name" className="text-white">Name</SelectItem>
+                    <SelectItem value="volume" className="text-white">Volume</SelectItem>
+                    <SelectItem value="items" className="text-white">Items</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Create Button - Desktop */}
+                <Button
+                  onClick={() => openModal("createCollection")}
+                  className="hidden md:flex gap-2 bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create
+                </Button>
+              </div>
+
+              {/* Mobile Controls */}
+              {isMobile && (
+                <div className="flex items-center gap-2">
+                  {/* Mobile Search */}
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                    <Input
+                      value={state.filters.search}
+                      onChange={(e) => setFilter("search", e.target.value)}
+                      placeholder="Search collections..."
+                      className="pl-9 h-12 w-full bg-white/5 border-white/10 text-white placeholder:text-zinc-500 rounded-xl"
+                    />
+                  </div>
+
+                  {/* Mobile Filter Button */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowMobileFilters(true)}
+                    className={cn(
+                      "h-12 w-12 border-white/10 rounded-xl",
+                      hasActiveFilters && "border-[rgb(163,255,18)]/50 bg-[rgb(163,255,18)]/10"
+                    )}
+                  >
+                    <Filter className="w-4 h-4" />
+                  </Button>
+
+                  {/* Mobile View Toggle */}
+                  <ViewModeToggle
+                    value={state.viewMode}
+                    onChange={setViewMode}
+                    size="md"
                   />
                 </div>
+              )}
+            </div>
 
-                {/* View Mode Toggle - Mobile */}
-                <div className="flex items-center bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-1">
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                    onClick={() => setViewMode('grid')}
-                    className={cn(
-                      "p-2.5 rounded-lg transition-all flex items-center justify-center min-w-[44px] min-h-[44px]",
-                      viewMode === 'grid'
-                        ? "bg-white text-black"
-                        : "text-zinc-500"
-                    )}
+            {/* Active Filters Chips */}
+            {hasActiveFilters && (
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                {state.filters.contractType.map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setFilter("contractType", state.filters.contractType.filter((t) => t !== type))}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[rgb(163,255,18)]/10 text-[rgb(163,255,18)] text-xs border border-[rgb(163,255,18)]/20"
                   >
-                    <LayoutGrid className="w-4 h-4" />
-                  </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-                    onClick={() => setViewMode('list')}
-                    className={cn(
-                      "p-2.5 rounded-lg transition-all flex items-center justify-center min-w-[44px] min-h-[44px]",
-                      viewMode === 'list'
-                        ? "bg-white text-black"
-                        : "text-zinc-500"
-                    )}
-                  >
-                    <LayoutList className="w-4 h-4" />
-                  </motion.button>
-                </div>
+                    {type}
+                    <X className="w-3 h-3" />
+                  </button>
+                ))}
+                <button
+                  onClick={resetFilters}
+                  className="text-xs text-zinc-500 hover:text-white"
+                >
+                  Clear all
+                </button>
               </div>
             )}
-          </motion.div>
+          </div>
         </div>
-      </div>
 
-
-      {/* Content Area */}
-      <div className="px-4 lg:px-8 py-8 pb-32">
-        <AnimatePresence mode="wait">
-          {filteredCollections.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="flex flex-col items-center justify-center py-24"
-            >
-              <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
-                <Search className="w-6 h-6 text-zinc-600" />
-              </div>
-              <h3 className="text-white font-medium text-lg mb-2">No collections found</h3>
-              <p className="text-zinc-500 text-sm mb-6">
-                {searchQuery ? 'Try adjusting your search' : 'Create your first collection to get started'}
-              </p>
-              {!searchQuery && (
-                <Button
-                  onClick={() => router.push('/studio/create')}
-                  className="bg-white text-black hover:bg-zinc-100"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Collection
-                </Button>
-              )}
-            </motion.div>
+        {/* Content Area */}
+        <div className="px-4 lg:px-8 py-8 pb-32">
+          {/* Loading State with Skeletons */}
+          {isLoading && collections.length === 0 ? (
+            state.viewMode === "grid" ? (
+              <GridSkeleton count={8} Skeleton={CollectionCardSkeleton} />
+            ) : (
+              <ListSkeleton count={6} Skeleton={TableRowSkeleton} />
+            )
+          ) : sortedCollections.length === 0 ? (
+            // Empty States
+            hasActiveFilters || state.filters.search ? (
+              <FilteredEmptyState entityType="collections" />
+            ) : (
+              <CollectionsEmptyState />
+            )
           ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <StudioCollections
-                collections={filteredCollections}
-                viewMode={viewMode}
-              />
-            </motion.div>
+            // Collections Grid/List
+            <StudioCollections
+              collections={sortedCollections}
+              viewMode={state.viewMode}
+              onViewCollection={(c) => router.push(`/studio/collections/${c.id}`)}
+            />
           )}
-        </AnimatePresence>
+        </div>
+
+        {/* Mobile FAB */}
+        {isMobile && (
+          <div className="fixed bottom-24 right-4 z-40">
+            <Button
+              onClick={() => openModal("createCollection")}
+              className="w-14 h-14 rounded-full shadow-lg bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90"
+            >
+              <Plus className="w-6 h-6" />
+            </Button>
+          </div>
+        )}
+
+        {/* Mobile Filter Sheet */}
+        <FilterSheet
+          open={showMobileFilters}
+          onClose={() => setShowMobileFilters(false)}
+          sections={filterSections}
+          onReset={resetFilters}
+          onApply={() => setShowMobileFilters(false)}
+        />
       </div>
-    </div>
+    </PageTransition>
   );
 }
 
 export default function StudioCollectionsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center pt-16">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-          <p className="text-zinc-500 text-sm">Loading...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen pt-20">
+          <div className="px-4 lg:px-8 py-8">
+            <GridSkeleton count={8} Skeleton={CollectionCardSkeleton} />
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <CollectionsContent />
     </Suspense>
   );

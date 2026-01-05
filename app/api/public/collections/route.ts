@@ -1,7 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/rate-limit";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, "api");
+  if (rateLimitResult) return rateLimitResult;
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || 'all';
@@ -61,6 +64,7 @@ export async function GET(request: Request) {
 
       return {
         id: collection.id,
+        slug: collection.slug,
         name: collection.name,
         symbol: collection.symbol,
         description: collection.description,

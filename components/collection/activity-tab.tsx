@@ -85,6 +85,9 @@ export function ActivityTab({ collection }: ActivityTabProps) {
       return streamActivities;
     }
     // Fallback to collection's static activity data
+    if (!collection.recentActivity || collection.recentActivity.length === 0) {
+      return [];
+    }
     return collection.recentActivity.map((a) => ({
       id: String(a.id),
       type: a.type,

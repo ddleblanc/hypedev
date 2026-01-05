@@ -1,22 +1,23 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useActiveAccount } from 'thirdweb/react';
 import { useAuth } from '@/contexts/auth-context';
 import { useStudio } from '@/contexts/studio-context';
+import { trpc } from "@/lib/trpc/client";
 
 // Types from the studio
 interface Project {
   id: string;
   name: string;
   description: string;
-  genre?: string;
-  concept?: string;
-  banner?: string;
+  genre?: string | null;
+  concept?: string | null;
+  banner?: string | null;
   collections: number;
   totalNFTs: number;
-  status: 'active' | 'draft';
-  createdAt: string;
+  status: string;
+  createdAt: Date;
 }
 
 interface Collection {
@@ -26,7 +27,7 @@ interface Collection {
   description?: string;
   image?: string;
   bannerImage?: string;
-  projectId: string;
+  projectId?: string;
   project?: {
     id: string;
     name: string;
@@ -41,8 +42,8 @@ interface Collection {
   volume: number;
   holders: number;
   floorPrice: number;
-  createdAt: string;
-  deployedAt?: string;
+  createdAt: Date;
+  deployedAt?: Date;
   sharedMetadata?: {
     name: string;
     description?: string;
@@ -64,22 +65,22 @@ interface NFT {
   name: string;
   description?: string;
   image?: string;
-  metadataUri: string;
+  metadataUri?: string;
   collectionId: string;
-  collection: { 
-    name: string; 
-    symbol: string; 
-    address?: string; 
+  collection: {
+    name: string;
+    symbol: string;
+    address?: string;
   };
-  attributes: any;
-  ownerAddress: string;
+  attributes: unknown;
+  ownerAddress?: string;
   isMinted: boolean;
-  mintedAt?: string;
+  mintedAt?: Date;
   traitCount: number;
   rarityScore?: number;
   rarityRank?: number;
   rarityTier?: string;
-  createdAt: string;
+  createdAt: Date;
   traits?: Array<{
     traitType: string;
     value: string;
@@ -87,122 +88,197 @@ interface NFT {
   }>;
 }
 
+interface Lootbox {
+  id: string;
+  onChainId: number | null;
+  name: string;
+  description: string | null;
+  image: string | null;
+  price: number;
+  priceCurrency: string;
+  rarity: string | null;
+  totalSupply: number;
+  remainingSupply: number;
+  rewardsPerOpening: number;
+  contractAddress: string | null;
+  isActive: boolean;
+  projectId: string | null;
+  project: {
+    id: string;
+    name: string;
+  } | null;
+  rewardCount: number;
+  rewardPreviews: Array<{
+    id: string;
+    name: string;
+    image: string;
+    rarity: string;
+  }>;
+  openingsCount: number;
+  createdAt: Date;
+}
+
 export function useStudioData() {
   const account = useActiveAccount();
-  const { user, isConnected } = useAuth();
+  const { isConnected } = useAuth();
   const { setStudioData } = useStudio();
-  
-  // Data state
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [nfts, setNFTs] = useState<NFT[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Fetch functions
-  const fetchProjects = useCallback(async () => {
-    if (!account?.address || !isConnected) return;
-    
-    try {
-      setError(null);
-      const response = await fetch(`/api/studio/projects?address=${account.address}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setProjects(data.projects || []);
-      } else {
-        console.error('Failed to fetch projects:', data.error);
-        setError(data.error || 'Failed to fetch projects');
-      }
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-      setError('Failed to fetch projects');
-    }
-  }, [account?.address, isConnected]);
+  const address = account?.address || "";
+  const enabled = Boolean(address) && isConnected;
 
-  const fetchCollections = useCallback(async () => {
-    if (!account?.address || !isConnected) return;
-    
-    try {
-      setError(null);
-      const response = await fetch(`/api/studio/collections?address=${account.address}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setCollections(data.collections || []);
-      } else {
-        console.error('Failed to fetch collections:', data.error);
-        setError(data.error || 'Failed to fetch collections');
-      }
-    } catch (error) {
-      console.error('Error fetching collections:', error);
-      setError('Failed to fetch collections');
+  // Use tRPC queries for data fetching
+  const {
+    data: projectsData,
+    isLoading: projectsLoading,
+    error: projectsError,
+    refetch: refetchProjects
+  } = trpc.studio.projects.list.useQuery(
+    { address },
+    {
+      enabled,
+      placeholderData: (prev) => prev
     }
-  }, [account?.address, isConnected]);
+  );
 
-  const fetchNFTs = useCallback(async () => {
-    if (!account?.address || !isConnected) return;
-    
-    try {
-      setError(null);
-      const response = await fetch(`/api/studio/nfts?address=${account.address}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setNFTs(data.nfts || []);
-      } else {
-        console.error('Failed to fetch NFTs:', data.error);
-        setError(data.error || 'Failed to fetch NFTs');
-      }
-    } catch (error) {
-      console.error('Error fetching NFTs:', error);
-      setError('Failed to fetch NFTs');
+  const {
+    data: collectionsData,
+    isLoading: collectionsLoading,
+    error: collectionsError,
+    refetch: refetchCollections
+  } = trpc.studio.collections.list.useQuery(
+    { address },
+    {
+      enabled,
+      placeholderData: (prev) => prev
     }
-  }, [account?.address, isConnected]);
+  );
+
+  const {
+    data: nftsData,
+    isLoading: nftsLoading,
+    error: nftsError,
+    refetch: refetchNfts
+  } = trpc.studio.nfts.list.useQuery(
+    { address },
+    {
+      enabled,
+      placeholderData: (prev) => prev
+    }
+  );
+
+  const {
+    data: lootboxesData,
+    isLoading: lootboxesLoading,
+    error: lootboxesError,
+    refetch: refetchLootboxes
+  } = trpc.studio.lootboxes.list.useQuery(
+    { address },
+    {
+      enabled,
+      placeholderData: (prev) => prev
+    }
+  );
+
+  // Extract data from queries - memoize to prevent new array references each render
+  const projects = useMemo<Project[]>(
+    () => (projectsData?.projects || []) as unknown as Project[],
+    [projectsData?.projects]
+  );
+
+  const collections = useMemo<Collection[]>(
+    () => (collectionsData?.collections || []) as unknown as Collection[],
+    [collectionsData?.collections]
+  );
+
+  const nfts = useMemo<NFT[]>(
+    () => (nftsData?.nfts || []) as unknown as NFT[],
+    [nftsData?.nfts]
+  );
+
+  const lootboxes = useMemo<Lootbox[]>(
+    () => (lootboxesData?.lootboxes || []) as unknown as Lootbox[],
+    [lootboxesData?.lootboxes]
+  );
+
+  const isLoading = projectsLoading || collectionsLoading || nftsLoading || lootboxesLoading;
+  const error = projectsError?.message || collectionsError?.message || nftsError?.message || lootboxesError?.message || null;
 
   const refreshData = useCallback(() => {
-    setError(null);
-    fetchProjects();
-    fetchCollections();
-    fetchNFTs();
-  }, [fetchProjects, fetchCollections, fetchNFTs]);
+    refetchProjects();
+    refetchCollections();
+    refetchNfts();
+    refetchLootboxes();
+  }, [refetchProjects, refetchCollections, refetchNfts, refetchLootboxes]);
 
-  // Initial data fetch
+  const fetchProjects = useCallback(() => {
+    refetchProjects();
+  }, [refetchProjects]);
+
+  const fetchCollections = useCallback(() => {
+    refetchCollections();
+  }, [refetchCollections]);
+
+  const fetchNFTs = useCallback(() => {
+    refetchNfts();
+  }, [refetchNfts]);
+
+  const fetchLootboxes = useCallback(() => {
+    refetchLootboxes();
+  }, [refetchLootboxes]);
+
+  // Track previous values to prevent unnecessary context updates
+  const prevDataRef = useRef<{
+    projects: Project[];
+    collections: Collection[];
+    nfts: NFT[];
+    lootboxes: Lootbox[];
+    isLoading: boolean;
+    error: string | null;
+  } | null>(null);
+
+  // Update studio context when data actually changes
   useEffect(() => {
-    if (account?.address && isConnected) {
-      setIsLoadingData(true);
-      Promise.all([
-        fetchProjects(),
-        fetchCollections(),
-        fetchNFTs()
-      ]).finally(() => {
-        setIsLoadingData(false);
-      });
+    const prev = prevDataRef.current;
+
+    // Skip if nothing changed (referential equality check)
+    if (
+      prev &&
+      prev.projects === projects &&
+      prev.collections === collections &&
+      prev.nfts === nfts &&
+      prev.lootboxes === lootboxes &&
+      prev.isLoading === isLoading &&
+      prev.error === error
+    ) {
+      return;
     }
-  }, [account?.address, isConnected, fetchProjects, fetchCollections, fetchNFTs]);
 
-  // Update studio context when data changes
-  useEffect(() => {
+    // Update ref with current values
+    prevDataRef.current = { projects, collections, nfts, lootboxes, isLoading, error };
+
+    // Sync to context
     setStudioData({
       projects,
       collections,
       nfts,
-      isLoading: isLoadingData,
+      isLoading,
       error
     });
-  }, [projects, collections, nfts, isLoadingData, error, setStudioData]);
+  }, [projects, collections, nfts, lootboxes, isLoading, error, setStudioData]);
 
   return {
     projects,
     collections,
     nfts,
-    isLoading: isLoadingData,
+    lootboxes,
+    isLoading,
     error,
     refreshData,
     fetchProjects,
     fetchCollections,
-    fetchNFTs
+    fetchNFTs,
+    fetchLootboxes
   };
 }
 
-export type { Project, Collection, NFT };
+export type { Project, Collection, NFT, Lootbox };

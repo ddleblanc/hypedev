@@ -78,13 +78,14 @@ export function AnimatedCounter({
 
 // Utility function for compact number formatting
 export function formatCompactNumber(value: number): string {
-  if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`;
+  const rounded = Math.round(value);
+  if (rounded >= 1_000_000) {
+    return `${(rounded / 1_000_000).toFixed(1)}M`;
   }
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`;
+  if (rounded >= 1_000) {
+    return `${(rounded / 1_000).toFixed(1)}K`;
   }
-  return value.toLocaleString();
+  return rounded.toLocaleString();
 }
 
 // Animated counter with compact number formatting

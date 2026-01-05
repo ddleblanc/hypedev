@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Loader2 } from 'lucide-react';
 import { useP2PChat } from '@/hooks/use-p2p-chat';
-import { useWalletAuthOptimized } from '@/hooks/use-wallet-auth-optimized';
+import { useAuth } from '@/contexts/auth-context';
 import { ChatHeader } from './chat-header';
 import { TradeContextCard } from './trade-context-card';
 
@@ -39,7 +39,7 @@ export function ChatView({
   onBack,
   onViewFullTrade,
 }: ChatViewProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const {
     messages,
     isLoadingMessages,

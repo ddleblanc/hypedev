@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useP2PBackground } from '@/hooks/use-p2p-background';
 import { ArrowLeft, Search, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { MediaRenderer } from '@/components/media-renderer';
 import { MobileNav } from '@/components/p2p/mobile-nav';
+import { trpc } from '@/lib/trpc/client';
 
 interface Collection {
   id: string;
@@ -23,29 +24,30 @@ interface Collection {
 
 export default function CollectionsPage() {
   const { navigateToHub, navigateToCollection } = useP2PBackground();
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchCollections();
-  }, []);
+  // tRPC query for collections
+  const collectionsQuery = trpc.marketplace.collections.list.useQuery(
+    {
+      limit: 50,
+    },
+    {}
+  );
 
-  const fetchCollections = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch('/api/public/collections?category=all');
-      const data = await response.json();
-
-      // Filter to only collections with tradeable NFTs
-      const tradeableCollections = data.collections || [];
-      setCollections(tradeableCollections);
-    } catch (error) {
-      console.error('Failed to fetch collections:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const collections: Collection[] = useMemo(() => {
+    if (!collectionsQuery.data?.collections) return [];
+    return collectionsQuery.data.collections.map((col) => ({
+      id: col.id,
+      name: col.title,
+      symbol: col.address || '',
+      bannerImage: col.image,
+      image: col.image,
+      floorPrice: col.floorPrice,
+      mintedSupply: col.mintedSupply || 0,
+      totalSupply: col.items || 0,
+      isVerified: col.isVerified || false,
+    }));
+  }, [collectionsQuery.data]);
 
   const filteredCollections = collections.filter((collection) =>
     collection.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -103,7 +105,7 @@ export default function CollectionsPage() {
       </motion.div>
 
       {/* Collections Grid */}
-      {isLoading ? (
+      {collectionsQuery.isLoading ? (
         <LoadingGrid />
       ) : (
         <motion.div
@@ -123,7 +125,7 @@ export default function CollectionsPage() {
         </motion.div>
       )}
 
-      {!isLoading && filteredCollections.length === 0 && (
+      {!collectionsQuery.isLoading && filteredCollections.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

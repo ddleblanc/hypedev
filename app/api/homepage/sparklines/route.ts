@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Cache for sparkline data
 const sparklinesCache: Map<string, { data: Record<string, SparklineData>; timestamp: number }> = new Map();
@@ -35,6 +36,9 @@ function calculateTrend(data: number[]): { trend: 'up' | 'down' | 'neutral'; cha
 }
 
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const { searchParams } = new URL(request.url);
     const collectionIdsParam = searchParams.get('collectionIds');

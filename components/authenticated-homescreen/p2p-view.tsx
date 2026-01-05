@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { useWalletAuthOptimized } from '@/hooks/use-wallet-auth-optimized';
+import { useAuth } from '@/contexts/auth-context';
 import { useP2PTrading } from '@/contexts/p2p-trading-context';
+import { trpc } from '@/lib/trpc/client';
 import { MobileP2PHub } from '@/components/p2p/mobile-hub';
 import { MobileNav, P2PMobileTab } from '@/components/p2p/mobile-nav';
 import { ConversationList } from '@/components/p2p/mobile-chat/conversation-list';
@@ -39,7 +40,7 @@ interface P2PViewProps {
 export function P2PView({
   initialTraderAddress,
 }: P2PViewProps) {
-  const { user, signOut } = useWalletAuthOptimized();
+  const { user, signOut } = useAuth();
   const router = useRouter();
   const address = user?.walletAddress;
 
@@ -93,38 +94,67 @@ export function P2PView({
     totalVolume: '0',
   });
 
-  // Load stats on mount
-  useEffect(() => {
-    const loadStats = async () => {
-      if (!user?.walletAddress) return;
+  // Use tRPC to fetch trades for stats
+  const tradesQuery = trpc.p2p.trades.list.useQuery(
+    { address: user?.walletAddress ?? '' },
+    {
+      enabled: !!user?.walletAddress,
+    }
+  );
 
-      try {
-        // Fetch user's trades for stats
-        const response = await fetch(`/api/p2p/trades?userAddress=${user.walletAddress}`);
-        const data = await response.json();
+  // tRPC mutations for trade operations
+  const createTradeMutation = trpc.p2p.trades.create.useMutation({
+    onSuccess: () => {
+      clearAllSelections();
+      setDesktopMessage('');
+      if (activeTradeId) clearActiveTradeId();
+      setRefreshHistoryKey(prev => prev + 1);
+      tradesQuery.refetch();
+    },
+    onError: (error) => {
+      console.error('Trade creation error:', error.message);
+    },
+  });
 
-        if (data.success && data.data) {
-          const trades = data.data.trades || [];
-          const activeTrades = trades.filter((t: any) => t.status === 'PENDING' || t.status === 'AGREED');
-          const completedTrades = trades.filter((t: any) => t.status === 'FINALIZED');
+  const updateTradeMutation = trpc.p2p.trades.update.useMutation({
+    onSuccess: (data, variables) => {
+      clearAllSelections();
+      setDesktopMessage('');
+      clearActiveTradeId();
+      setRefreshHistoryKey(prev => prev + 1);
+      tradesQuery.refetch();
 
-          setStats({
-            unreadMessages: 0, // TODO: Calculate from messages
-            activeOffers: activeTrades.length,
-            pendingActions: activeTrades.filter((t: any) => t.counterpartyAddress === user.walletAddress && t.status === 'PENDING').length,
-            totalTrades: trades.length,
-            successRate: trades.length > 0 ? Math.round((completedTrades.length / trades.length) * 100) : 0,
-            trustScore: 4.5, // TODO: Calculate from trade history
-            totalVolume: '0', // TODO: Calculate from trade values
-          });
+      // Navigate to history for accept/reject actions
+      if (variables.action === 'accept' || variables.action === 'reject') {
+        setDesktopActiveTab('history');
+        if (data.trade) {
+          setSelectedTradeId(data.trade.id);
         }
-      } catch (error) {
-        console.error('Failed to load stats:', error);
       }
-    };
+    },
+    onError: (error) => {
+      console.error('Trade update error:', error.message);
+    },
+  });
 
-    loadStats();
-  }, [user?.walletAddress]);
+  // Update stats when trades data changes
+  useEffect(() => {
+    if (tradesQuery.data?.trades) {
+      const trades = tradesQuery.data.trades;
+      const activeTrades = trades.filter((t) => t.status === 'PENDING' || t.status === 'AGREED');
+      const completedTrades = trades.filter((t) => t.status === 'FINALIZED');
+
+      setStats({
+        unreadMessages: 0, // TODO: Calculate from messages
+        activeOffers: activeTrades.length,
+        pendingActions: activeTrades.filter((t) => t.counterparty?.walletAddress === user?.walletAddress && t.status === 'PENDING').length,
+        totalTrades: trades.length,
+        successRate: trades.length > 0 ? Math.round((completedTrades.length / trades.length) * 100) : 0,
+        trustScore: 4.5, // TODO: Calculate from trade history
+        totalVolume: '0', // TODO: Calculate from trade values
+      });
+    }
+  }, [tradesQuery.data, user?.walletAddress]);
 
   // Desktop helper functions
   const extractRealNFTId = (id: string): string => {
@@ -175,66 +205,51 @@ export function P2PView({
     setIsCreating(true);
 
     try {
-      const endpoint = activeTradeId ? `/api/p2p/trades/${activeTradeId}` : '/api/p2p/trades';
-      const method = activeTradeId ? 'PUT' : 'POST';
-
       const fairnessScore = calculateFairnessScore();
 
-      const body = activeTradeId ? {
-        action: 'counteroffer',
-        userAddress: address,
-        items: [
-          ...userBoardNFTs.map(nft => ({
+      if (activeTradeId) {
+        // Counter-offer on existing trade
+        await updateTradeMutation.mutateAsync({
+          id: activeTradeId,
+          action: 'counteroffer',
+          userAddress: address,
+          items: [
+            ...userBoardNFTs.map(nft => ({
+              nftId: extractRealNFTId(nft.id),
+              side: 'INITIATOR' as const,
+              tokenAmount: nft.value,
+              metadata: { name: nft.name, image: nft.image, rarity: nft.rarity }
+            })),
+            ...traderBoardNFTs.map(nft => ({
+              nftId: extractRealNFTId(nft.id),
+              side: 'COUNTERPARTY' as const,
+              tokenAmount: nft.value,
+              metadata: { name: nft.name, image: nft.image, rarity: nft.rarity }
+            }))
+          ],
+          message: desktopMessage || undefined,
+        });
+      } else {
+        // Create new trade
+        await createTradeMutation.mutateAsync({
+          initiatorAddress: address,
+          counterpartyAddress: selectedTrader.walletAddress,
+          initiatorItems: userBoardNFTs.map(nft => ({
             nftId: extractRealNFTId(nft.id),
-            side: 'INITIATOR',
             tokenAmount: nft.value,
             metadata: { name: nft.name, image: nft.image, rarity: nft.rarity }
           })),
-          ...traderBoardNFTs.map(nft => ({
+          counterpartyItems: traderBoardNFTs.map(nft => ({
             nftId: extractRealNFTId(nft.id),
-            side: 'COUNTERPARTY',
             tokenAmount: nft.value,
             metadata: { name: nft.name, image: nft.image, rarity: nft.rarity }
-          }))
-        ],
-        message: desktopMessage
-      } : {
-        initiatorAddress: address,
-        counterpartyAddress: selectedTrader.walletAddress,
-        initiatorItems: userBoardNFTs.map(nft => ({
-          nftId: extractRealNFTId(nft.id),
-          side: 'INITIATOR',
-          tokenAmount: nft.value,
-          metadata: { name: nft.name, image: nft.image, rarity: nft.rarity }
-        })),
-        counterpartyItems: traderBoardNFTs.map(nft => ({
-          nftId: extractRealNFTId(nft.id),
-          side: 'COUNTERPARTY',
-          tokenAmount: nft.value,
-          metadata: { name: nft.name, image: nft.image, rarity: nft.rarity }
-        })),
-        metadata: {
-          message: desktopMessage,
-          fairnessScore,
-          createdAt: new Date().toISOString()
-        }
-      };
-
-      const response = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        clearAllSelections();
-        setDesktopMessage('');
-        if (activeTradeId) clearActiveTradeId();
-        setRefreshHistoryKey(prev => prev + 1);
-      } else {
-        console.error('Trade error:', data.error || 'Failed to send offer');
+          })),
+          metadata: {
+            message: desktopMessage,
+            fairnessScore,
+            createdAt: new Date().toISOString()
+          }
+        });
       }
     } catch (error) {
       console.error('Error sending offer:', error);
@@ -248,28 +263,12 @@ export function P2PView({
 
     setIsCreating(true);
     try {
-      const response = await fetch(`/api/p2p/trades/${activeTradeId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'accept',
-          userAddress: address,
-          message: desktopMessage || 'Trade accepted!'
-        })
+      await updateTradeMutation.mutateAsync({
+        id: activeTradeId,
+        action: 'accept',
+        userAddress: address,
+        message: desktopMessage || 'Trade accepted!',
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        clearAllSelections();
-        setDesktopMessage('');
-        clearActiveTradeId();
-        setRefreshHistoryKey(prev => prev + 1);
-        setDesktopActiveTab('history');
-        setSelectedTradeId(data.data.id);
-      } else {
-        console.error('Accept error:', data.error || 'Failed to accept trade');
-      }
     } catch (error) {
       console.error('Error accepting trade:', error);
     } finally {
@@ -282,28 +281,12 @@ export function P2PView({
 
     setIsCreating(true);
     try {
-      const response = await fetch(`/api/p2p/trades/${activeTradeId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'reject',
-          userAddress: address,
-          message: desktopMessage || 'Trade rejected'
-        })
+      await updateTradeMutation.mutateAsync({
+        id: activeTradeId,
+        action: 'reject',
+        userAddress: address,
+        message: desktopMessage || 'Trade rejected',
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        clearAllSelections();
-        setDesktopMessage('');
-        clearActiveTradeId();
-        setRefreshHistoryKey(prev => prev + 1);
-        setDesktopActiveTab('history');
-        setSelectedTradeId(data.data.id);
-      } else {
-        console.error('Reject error:', data.error || 'Failed to reject trade');
-      }
     } catch (error) {
       console.error('Error rejecting trade:', error);
     } finally {

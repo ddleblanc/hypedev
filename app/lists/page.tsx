@@ -74,9 +74,9 @@ function ListsContent() {
                     </p>
                   </div>
                   <div className="text-center">
-                    <p className="text-xs text-white/40 uppercase tracking-wide mb-1">Launchpad</p>
+                    <p className="text-xs text-white/40 uppercase tracking-wide mb-1">Drops</p>
                     <p className="text-lg font-bold text-white">
-                      {selectedList.items.filter(i => i.itemType === 'launchpad').length}
+                      {selectedList.items.filter(i => i.itemType === 'drop').length}
                     </p>
                   </div>
                 </div>
@@ -113,7 +113,7 @@ function ListsContent() {
                   <DropdownMenuItem onClick={() => setFilterType('all')}>All Types</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setFilterType('collection')}>Collections</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setFilterType('nft')}>NFTs</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterType('launchpad')}>Launchpad</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFilterType('drop')}>Drops</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setFilterType('user')}>Users</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setFilterType('game')}>Games</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -180,8 +180,8 @@ function ListsContent() {
                         <div
                           className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800"
                           onClick={() => {
-                            if (item.itemType === 'launchpad' || item.itemType === 'collection') {
-                              router.push(`/launchpad/${item.itemId}`);
+                            if (item.itemType === 'drop' || item.itemType === 'collection') {
+                              router.push(`/drops/${item.itemId}`);
                             } else if (item.itemType === 'nft') {
                               router.push(`/marketplace/nft/${item.itemId}`);
                             }

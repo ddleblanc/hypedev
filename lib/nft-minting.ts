@@ -69,7 +69,7 @@ export async function uploadMetadata(metadata: NFTMetadata): Promise<string> {
   }
 }
 
-// Lazy mint NFT for launchpad (batch mint for later claiming)
+// Lazy mint NFT for drop (batch mint for later claiming)
 export async function lazyMintNFT({
   contractAddress,
   chainId,
@@ -138,7 +138,7 @@ export async function lazyMintNFT({
   }
 }
 
-// Claim NFT from lazy minted batch (for launchpad)
+// Claim NFT from lazy minted batch (for drop)
 export async function claimNFT({
   contractAddress,
   chainId,
@@ -208,7 +208,7 @@ export async function claimNFT({
   }
 }
 
-// Set up claim conditions for launchpad
+// Set up claim conditions for drop
 export interface ClaimCondition {
   startTimestamp: Date
   maxClaimableSupply?: number
@@ -726,9 +726,26 @@ export async function getUserClaimStatus(
     });
 
     // Try to get the active claim condition
-    const activeCondition = await getActiveClaimCondition({
-      contract,
-    });
+    // Wrap in its own try-catch since getActiveClaimCondition throws "Claim condition not found"
+    // when no conditions exist (e.g., freshly deployed contracts)
+    let activeCondition = null;
+    try {
+      activeCondition = await getActiveClaimCondition({
+        contract,
+      });
+    } catch (conditionError: any) {
+      // "Claim condition not found" is expected for new contracts
+      if (conditionError?.message?.includes('Claim condition not found')) {
+        console.log('No active claim condition found - returning default claim status');
+        return {
+          claimed: 0,
+          limit: -1, // Unknown/unlimited
+          remaining: -1
+        };
+      }
+      // Re-throw other errors to be caught by the outer try-catch
+      throw conditionError;
+    }
 
     // Default values
     let claimedAmount = 0;
@@ -837,16 +854,28 @@ export async function getClaimConditions(
     }
 
     // Fallback to active condition only (single phase)
-    const activeCondition = await getActiveClaimCondition({
-      contract,
-    })
+    // Wrap in its own try-catch since getActiveClaimCondition throws "Claim condition not found"
+    // when no conditions exist (e.g., freshly deployed contracts)
+    try {
+      const activeCondition = await getActiveClaimCondition({
+        contract,
+      })
 
-    console.log('Active claim condition from contract:', activeCondition)
-    return activeCondition ? [activeCondition] : []
+      console.log('Active claim condition from contract:', activeCondition)
+      return activeCondition ? [activeCondition] : []
+    } catch (activeConditionError: any) {
+      // "Claim condition not found" is expected for new contracts
+      if (activeConditionError?.message?.includes('Claim condition not found')) {
+        console.log('No active claim condition found - this is expected for newly deployed contracts')
+        return []
+      }
+      // For other errors, try the fallback
+      throw activeConditionError
+    }
   } catch (error) {
     console.error('Error getting claim conditions with Thirdweb extension:', error)
 
-    // Fallback: Try reading the active claim condition directly
+    // Fallback: Try reading the active claim condition directly via raw contract call
     try {
       const chain = defineChain(chainId)
       const contract = getContract({

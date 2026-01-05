@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-
-const prisma = new PrismaClient();
+import { rateLimit } from '@/lib/rate-limit';
 
 // GET /api/p2p/trades/[id] - Get trade details
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const { id } = await params;
 
@@ -96,6 +98,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimitResult = await rateLimit(request, 'apiWrite');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const { id } = await params;
     const body = await request.json();

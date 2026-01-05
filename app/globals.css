@@ -304,6 +304,37 @@
   background-image: radial-gradient(var(--tw-gradient-stops));
 }
 
+/* =============================================================================
+   Studio New Design System
+   ============================================================================= */
+:root {
+  /* Studio colors (RGB values for opacity support) */
+  --studio-bg: 9 9 11;              /* zinc-950 */
+  --studio-surface: 24 24 27;       /* zinc-900 */
+  --studio-border: 39 39 42;        /* zinc-800 */
+  --studio-text: 250 250 250;       /* zinc-50 */
+  --studio-text-muted: 161 161 170; /* zinc-400 */
+  --studio-accent: 59 130 246;      /* blue-500 */
+  --studio-success: 34 197 94;      /* green-500 */
+  --studio-warning: 234 179 8;      /* yellow-500 */
+}
+
+/* Studio utility classes */
+.bg-studio-bg { background-color: rgb(var(--studio-bg)); }
+.bg-studio-surface { background-color: rgb(var(--studio-surface)); }
+.border-studio-border { border-color: rgb(var(--studio-border)); }
+.text-studio-text { color: rgb(var(--studio-text)); }
+.text-studio-text-muted { color: rgb(var(--studio-text-muted)); }
+.text-studio-accent { color: rgb(var(--studio-accent)); }
+.bg-studio-accent { background-color: rgb(var(--studio-accent)); }
+.bg-studio-accent\/10 { background-color: rgb(var(--studio-accent) / 0.1); }
+.bg-studio-bg\/80 { background-color: rgb(var(--studio-bg) / 0.8); }
+
+/* Safe area for mobile bottom navigation */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 @layer base {
   .theme {
     --font-sans: Inter, sans-serif;
@@ -1106,6 +1137,38 @@
 
 .dark .premium-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* =============================================================================
+   Studio Skeleton Shimmer Animation
+   ============================================================================= */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: rgb(var(--studio-surface));
+}
+
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(var(--studio-border) / 0.4) 50%,
+    transparent 100%
+  );
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 @layer utilities {

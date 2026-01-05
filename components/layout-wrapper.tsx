@@ -4,7 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode, useState, useEffect, createContext, useContext, useCallback, useMemo } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { NFTMarketplaceSidebar } from "@/components/nft-marketplace-sidebar";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
+// ChatWidget removed - only using InlineChatPanel on home page
 import { AnimatedHeader } from "@/components/animated-ui/animated-header";
 import { AnimatedFooter } from "@/components/animated-ui/animated-footer";
 import { AnimatedSidebar } from "@/components/animated-ui/animated-sidebar";
@@ -47,12 +48,11 @@ interface LayoutWrapperProps {
 
 export function LayoutWrapper({ children }: LayoutWrapperProps) {
   const pathname = usePathname();
-  const { user, isConnected } = useWalletAuthOptimized();
+  const { user, isConnected } = useAuth();
   
   // Determine layout type based on pathname
   const isStudioRoute = pathname.startsWith('/studio');
   const isProfileRoute = pathname.startsWith('/profile');
-  const isCollectionRoute = pathname.startsWith('/collection');
   const isPublicProgressiveRoute = [
     '/discover',
     '/home',
@@ -61,26 +61,23 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
     '/p2p',
     '/marketplace',
     '/casual',
-    '/launchpad',
+    '/drops',
     '/museum',
     '/lootboxes',
     '/collection',
-    '/lists'
+    '/lists',
+    '/login'
   ].some(route => pathname === route || pathname.startsWith(route));
 
-  // Studio and Profile routes require authentication and have their own layout
-  if (isStudioRoute || isProfileRoute) {
+  // Protected routes that require authentication but use progressive UI
+  const isControlCenterRoute = pathname.startsWith('/control-center');
+
+  // Studio, Profile, and Control Center routes require authentication and have their own layout
+  if (isStudioRoute || isProfileRoute || isControlCenterRoute) {
     return <ProgressiveUIWrapper>{children}</ProgressiveUIWrapper>;
   }
 
-  // Collection routes use authenticated layout if user is connected, otherwise basic layout
-  if (isCollectionRoute && user && isConnected) {
-    return <ProgressiveUIWrapper>{children}</ProgressiveUIWrapper>;
-  } else if (isCollectionRoute) {
-    return <>{children}</>;
-  }
-
-  // Public routes that should always use the progressive UI (marketplace, launchpad, etc.)
+  // Public routes that should always use the progressive UI (marketplace, drops, collection, etc.)
   if (isPublicProgressiveRoute) {
     return <ProgressiveUIWrapper>{children}</ProgressiveUIWrapper>;
   }
@@ -126,8 +123,8 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       }
     } else if (segments[0] === 'collection' && segments[1]) {
       currentRoute = 'collection-detail';
-    } else if (segments[0] === 'launchpad' && segments[1]) {
-      currentRoute = 'launchpad-detail';
+    } else if (segments[0] === 'drops' && segments[1]) {
+      currentRoute = 'drops-detail';
     } else {
       currentRoute = segments[0] || 'home';
     }
@@ -136,12 +133,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
     const isPlaySubRoute = currentRoute.startsWith('play-');
     
-    if (currentRoute === 'discover') {
+    if (currentRoute === 'login') {
+      // Login page - show header only
+      return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: null };
+    } else if (currentRoute === 'discover') {
       // Discover page shows header
       return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: null };
     } else if (currentRoute === 'home') {
-      // Home (HUD) page - no header (full immersion)
-      return { showHeader: false, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: null };
+      // Home (HUD) page - show transparent header with Player Terminal
+      return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: null };
     } else if (currentRoute === 'trade') {
       return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 1, previousRoute: 'home' };
     } else if (currentRoute === 'p2p-collections') {
@@ -189,6 +189,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 2,
         previousRoute: 'home'
       };
+    } else if (currentRoute === 'profile-collection' || currentRoute === 'profile-achievements' || currentRoute === 'profile-stats' || currentRoute === 'profile-settings') {
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'profile'
+      };
     } else if (currentRoute === 'profile-public') {
       return {
         showHeader: true,
@@ -226,17 +235,26 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: 'play' 
       };
     } else if (currentRoute === 'lootboxes') {
-      return { showHeader: false, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 0, previousRoute: 'home' };
+      // Browse page - like marketplace with header, footer, sidebar
+      return {
+        showHeader: !isMobile,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 1,
+        previousRoute: 'home'
+      };
     } else if (currentRoute === 'lootboxes-reveal') {
-      return { showHeader: true, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 1, previousRoute: 'home' };
+      // Reveal/Opening page - immersive VRF experience with no global UI
+      return { showHeader: false, showFooter: false, showSidebar: false, showRightSidebar: false, navigationDepth: 2, previousRoute: 'lootboxes' };
     } else if (currentRoute === 'lootboxes-detail') {
-      return { 
-        showHeader: true, 
-        showFooter: false, 
-        showSidebar: !isMobile, 
-        showRightSidebar: false, 
-        navigationDepth: 2, 
-        previousRoute: 'lootboxes-reveal' 
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'lootboxes'
       };
     } else if (currentRoute === 'collection') {
       return {
@@ -256,7 +274,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 3,
         previousRoute: 'collection'
       };
-    } else if (currentRoute === 'launchpad') {
+    } else if (currentRoute === 'drops') {
       return {
         showHeader: true,
         showFooter: !isMobile,
@@ -274,14 +292,23 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 2,
         previousRoute: 'home'
       };
-    } else if (currentRoute === 'launchpad-detail') {
+    } else if (currentRoute === 'drops-detail') {
       return {
         showHeader: true,
         showFooter: !isMobile,
-        showSidebar: !isMobile,
+        showSidebar: false,
         showRightSidebar: false,
         navigationDepth: 2,
-        previousRoute: 'launchpad'
+        previousRoute: 'drops'
+      };
+    } else if (currentRoute === 'control-center') {
+      return {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'home'
       };
     } else if (currentRoute === 'museum') {
       return {
@@ -466,6 +493,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
 
   // Convert pathname to route for UI state management
   const getCurrentRoute = () => {
+    if (pathname === '/login') return 'login';
     if (pathname === '/discover') return 'discover';
     if (pathname === '/home') return 'home';
     const segments = pathname.split('/').filter(Boolean);
@@ -499,12 +527,21 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
       return 'collection-detail';
     }
 
-    if (segments[0] === 'launchpad' && segments[1]) {
-      return 'launchpad-detail';
+    if (segments[0] === 'drops' && segments[1]) {
+      return 'drops-detail';
     }
 
     if (segments[0] === 'profile') {
-      if (segments[1]) {
+      if (segments[1] === 'collection') {
+        return 'profile-collection';
+      } else if (segments[1] === 'achievements') {
+        return 'profile-achievements';
+      } else if (segments[1] === 'stats') {
+        return 'profile-stats';
+      } else if (segments[1] === 'settings') {
+        return 'profile-settings';
+      } else if (segments[1]) {
+        // Address-based public profile (e.g., /profile/0x123...)
         return 'profile-public';
       }
       return 'profile';
@@ -523,34 +560,50 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
     console.log('[LayoutWrapper] UI State:', uiState);
   }, [pathname, currentRoute, uiState]);
 
-  // Listen for museum intro events
+  // Listen for museum theater events - REVEAL EFFECT
+  // The sidebars are visible when browsing, and when user clicks an item:
+  // 1. Sidebars animate OUT (revealing the title card behind them)
+  // 2. Title card is at z-30, sidebars at z-40, so title is revealed as sidebars move away
+  // 3. After animation completes, immersive experience begins
   useEffect(() => {
     const handleIntroStart = () => {
+      // User clicked an item - REVEAL animation starts
+      // Hide sidebars to trigger their exit animation
+      // The title card (at z-30, behind sidebars at z-40) will be revealed
       if (currentRoute === 'museum') {
         setUiState(prev => ({
           ...prev,
+          showHeader: false,
+          showFooter: false,
           showSidebar: false,
           showRightSidebar: false,
         }));
       }
     };
 
-    const handleIntroEnd = () => {
+    const handleTheaterExit = () => {
+      // Returning to browse mode - show sidebars again
       if (currentRoute === 'museum') {
         setUiState(prev => ({
           ...prev,
-          showHeader: true,
-          showFooter: true,
+          showHeader: false,
+          showFooter: false,
+          showSidebar: true,
+          showRightSidebar: true,
+          navigationDepth: 1,
+          previousRoute: 'home'
         }));
       }
     };
 
+    // museum-intro-start = user clicked item, hide sidebars to reveal title
     window.addEventListener('museum-intro-start', handleIntroStart);
-    window.addEventListener('museum-intro-end', handleIntroEnd);
+    // museum-theater-exit = user exits immersive mode, show sidebars again
+    window.addEventListener('museum-theater-exit', handleTheaterExit);
 
     return () => {
       window.removeEventListener('museum-intro-start', handleIntroStart);
-      window.removeEventListener('museum-intro-end', handleIntroEnd);
+      window.removeEventListener('museum-theater-exit', handleTheaterExit);
     };
   }, [currentRoute]);
 
@@ -558,7 +611,17 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
   useEffect(() => {
     let newState: Partial<ProgressiveUIState> = {};
 
-    if (currentRoute === 'discover') {
+    if (currentRoute === 'login') {
+      // Login page - show header only
+      newState = {
+        showHeader: true,
+        showFooter: false,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 0,
+        previousRoute: null
+      };
+    } else if (currentRoute === 'discover') {
       // Discover page shows header
       newState = {
         showHeader: true,
@@ -569,9 +632,9 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: null
       };
     } else if (currentRoute === 'home') {
-      // Home (HUD) page - no header (full immersion)
+      // Home (HUD) page - show transparent header with Player Terminal
       newState = {
-        showHeader: false,
+        showHeader: true,
         showFooter: false,
         showSidebar: false,
         showRightSidebar: false,
@@ -614,6 +677,15 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         showRightSidebar: false,
         navigationDepth: 2,
         previousRoute: 'home'
+      };
+    } else if (currentRoute === 'profile-collection' || currentRoute === 'profile-achievements' || currentRoute === 'profile-stats' || currentRoute === 'profile-settings') {
+      newState = {
+        showHeader: true,
+        showFooter: false,
+        showSidebar: !isMobile || isMobileSidebarOpen,
+        showRightSidebar: false,
+        navigationDepth: 3,
+        previousRoute: 'profile'
       };
     } else if (currentRoute === 'profile-public') {
       newState = {
@@ -670,31 +742,33 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: 'play'
       };
     } else if (currentRoute === 'lootboxes') {
+      // Browse page - like marketplace with header, footer, sidebar
+      newState = {
+        showHeader: !isMobile,
+        showFooter: !isMobile,
+        showSidebar: !isMobile,
+        showRightSidebar: false,
+        navigationDepth: 1,
+        previousRoute: 'home'
+      };
+    } else if (currentRoute === 'lootboxes-reveal') {
+      // Reveal/Opening page - immersive VRF experience with no global UI
       newState = {
         showHeader: false,
         showFooter: false,
         showSidebar: false,
         showRightSidebar: false,
-        navigationDepth: 0,
-        previousRoute: 'home'
-      };
-    } else if (currentRoute === 'lootboxes-reveal') {
-      newState = {
-        showHeader: true,
-        showFooter: false,
-        showSidebar: false,
-        showRightSidebar: false,
-        navigationDepth: 1,
-        previousRoute: 'home'
+        navigationDepth: 2,
+        previousRoute: 'lootboxes'
       };
     } else if (currentRoute === 'lootboxes-detail') {
       newState = {
         showHeader: true,
-        showFooter: false,
+        showFooter: !isMobile,
         showSidebar: !isMobile,
         showRightSidebar: false,
         navigationDepth: 2,
-        previousRoute: 'lootboxes-reveal'
+        previousRoute: 'lootboxes'
       };
     } else if (currentRoute === 'collection') {
       newState = {
@@ -714,7 +788,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 3,
         previousRoute: 'collection'
       };
-    } else if (currentRoute === 'launchpad') {
+    } else if (currentRoute === 'drops') {
       newState = {
         showHeader: true,
         showFooter: !isMobile,
@@ -732,14 +806,23 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         navigationDepth: 2,
         previousRoute: 'home'
       };
-    } else if (currentRoute === 'launchpad-detail') {
+    } else if (currentRoute === 'drops-detail') {
       newState = {
         showHeader: true,
         showFooter: !isMobile,
-        showSidebar: !isMobile,
+        showSidebar: false,
         showRightSidebar: false,
         navigationDepth: 2,
-        previousRoute: 'launchpad'
+        previousRoute: 'drops'
+      };
+    } else if (currentRoute === 'control-center') {
+      newState = {
+        showHeader: true,
+        showFooter: !isMobile,
+        showSidebar: false,
+        showRightSidebar: false,
+        navigationDepth: 2,
+        previousRoute: 'home'
       };
     } else if (currentRoute === 'museum') {
       newState = {
@@ -751,7 +834,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
         previousRoute: 'home'
       };
     }
-    
+
     // Only update state if there are actual changes
     setUiState(prev => {
       const hasChanges = Object.keys(newState).some(key => 
@@ -818,6 +901,7 @@ function ProgressiveUIWrapper({ children }: { children: ReactNode }) {
             children={children}
             uiState={uiState}
             currentRoute={currentRoute}
+            pathname={pathname}
             handleNavigate={handleNavigate}
             handleStudioViewChange={handleStudioViewChange}
             currentStudioView={currentStudioView}
@@ -843,6 +927,7 @@ function ProgressiveUIWrapperInner({
   children,
   uiState,
   currentRoute,
+  pathname,
   handleNavigate,
   handleStudioViewChange,
   currentStudioView,
@@ -941,16 +1026,12 @@ function ProgressiveUIWrapperInner({
       />
       
       {/* Studio Mobile Navigation - Show on all Studio pages except create flow */}
-      {(() => {
-        const path = usePathname();
-        const showStudioNav = isMobile && isStudioRoute && !path.includes('/studio/create');
-        return showStudioNav ? (
-          <StudioMobileNav
-            onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-            isMenuOpen={isMobileSidebarOpen}
-          />
-        ) : null;
-      })()}
+      {isMobile && isStudioRoute && !pathname.includes('/studio/create') && (
+        <StudioMobileNav
+          onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+          isMenuOpen={isMobileSidebarOpen}
+        />
+      )}
 
       {/* Main content with padding adjustments */}
       <div className={`
@@ -966,6 +1047,8 @@ function ProgressiveUIWrapperInner({
       
       {/* Background Carousel for wallpaper selection */}
       <BackgroundCarousel />
+
+      {/* Chat Widget removed - only using InlineChatPanel on home page */}
     </>
   );
 }

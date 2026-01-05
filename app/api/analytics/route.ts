@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
  * GET /api/analytics
@@ -11,6 +12,9 @@ import { auth } from '@/lib/auth';
  * - period: '7d', '30d', '90d', 'all' (default: '30d')
  */
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const creatorAddress = searchParams.get('creatorAddress');

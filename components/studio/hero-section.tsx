@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion, useScroll, useTransform, MotionValue } from "framer-motion";
 import { Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,14 @@ interface HeroSectionProps {
 
 export function HeroSection({ collection, onEdit, onMint, onSettings, onPreview }: HeroSectionProps) {
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Only use target-based scroll tracking after mount to avoid hydration errors
+  const { scrollYProgress } = useScroll(isMounted ? { target: heroRef } : undefined);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.06]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 

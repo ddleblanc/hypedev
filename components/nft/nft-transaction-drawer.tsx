@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
+import {
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -15,7 +15,7 @@ import {
   DrawerFooter,
   DrawerClose
 } from "@/components/ui/drawer";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,8 +27,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
-import { 
-  Zap, 
+import {
+  Zap,
   Tag,
   Crown,
   Shield,
@@ -44,10 +44,20 @@ import {
   ChevronUp,
   ExternalLink,
   Heart,
-  Eye
+  Eye,
+  Users
 } from "lucide-react";
 import { PriceTicker } from "./price-ticker";
 import { TransactionConfidenceMeter } from "./transaction-confidence-meter";
+import { trpc } from "@/lib/trpc/client";
+
+// Attribution info type
+interface AttributionInfo {
+  isAttributed: boolean;
+  agentTag?: string;
+  agentName?: string;
+  commissionRate?: number;
+}
 
 export interface NFTTransactionDrawerProps {
   open: boolean;
@@ -60,6 +70,8 @@ export interface NFTTransactionDrawerProps {
     lastSale?: number;
     rarity: string;
     collection: string;
+    collectionId?: string;
+    contractAddress?: string;
     floorPrice?: number;
     topBid?: number;
     views?: number;
@@ -72,12 +84,6 @@ export interface NFTTransactionDrawerProps {
 
 type TransactionStep = "details" | "checkout" | "approve" | "confirm" | "pending" | "success" | "error";
 
-const MOCK_COLLECTION_STATS = {
-  floorPrice: 2.45,
-  volume24h: 147.3,
-  floorChange24h: 5.2
-};
-
 export function NFTTransactionDrawer({ open, onOpenChange, nft, mode }: NFTTransactionDrawerProps) {
   const [currentStep, setCurrentStep] = useState<TransactionStep>("details");
   const [offerAmount, setOfferAmount] = useState("");
@@ -87,6 +93,65 @@ export function NFTTransactionDrawer({ open, onOpenChange, nft, mode }: NFTTrans
   const [showFees, setShowFees] = useState(false);
   const [error, setError] = useState("");
   const [isLiked, setIsLiked] = useState(false);
+  const [attribution, setAttribution] = useState<AttributionInfo | null>(null);
+
+  // Fetch real collection stats from tRPC
+  const { data: collectionStatsData } = trpc.marketplace.collections.stats.useQuery(
+    {
+      collectionId: nft?.collectionId || "",
+      contractAddress: nft?.contractAddress
+    },
+    {
+      enabled: open && !!nft?.collectionId,
+      staleTime: 60000 // 1 minute
+    }
+  );
+
+  // Create fallback stats when data is not available
+  const collectionStats = collectionStatsData || {
+    floorPrice: nft?.floorPrice || 0,
+    volume24h: 0,
+    volume7d: 0,
+    holders: 0,
+    totalSupply: 0,
+    listedCount: 0,
+    listedPercentage: 0,
+    mintedSupply: 0,
+    sales24h: 0,
+    sales7d: 0,
+    avgPrice24h: null,
+    floorChange24h: null,
+    floorChange7d: null,
+    totalVolumeETH: 0,
+  };
+
+  // Check for affiliate attribution when drawer opens
+  useEffect(() => {
+    async function checkAttribution() {
+      if (!open || !nft?.collectionId) {
+        setAttribution(null);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/hype-network/check-attribution", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collectionId: nft.collectionId }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setAttribution(result);
+        }
+      } catch (err) {
+        console.error("Failed to check attribution:", err);
+        setAttribution(null);
+      }
+    }
+
+    checkAttribution();
+  }, [open, nft?.collectionId]);
 
   if (!nft) return null;
 
@@ -126,6 +191,7 @@ export function NFTTransactionDrawer({ open, onOpenChange, nft, mode }: NFTTrans
     setOfferAmount("");
     setError("");
     setAgreedToTerms(false);
+    setAttribution(null);
     onOpenChange(false);
   };
 
@@ -217,7 +283,7 @@ export function NFTTransactionDrawer({ open, onOpenChange, nft, mode }: NFTTrans
                     {isBuyMode && (
                       <Badge variant="secondary" className="gap-1">
                         <TrendingUp className="h-3 w-3" />
-                        +{MOCK_COLLECTION_STATS.floorChange24h}%
+                        +{collectionStats.floorChange24h}%
                       </Badge>
                     )}
                   </div>
@@ -278,6 +344,29 @@ export function NFTTransactionDrawer({ open, onOpenChange, nft, mode }: NFTTrans
                 </CardContent>
               </Card>
 
+              {/* Affiliate Attribution Banner */}
+              {attribution?.isAttributed && (
+                <div className="flex items-center gap-3 p-3 bg-[rgb(163,255,18)]/10 border border-[rgb(163,255,18)]/30 rounded-lg">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[rgb(163,255,18)]/20">
+                    <Users className="w-4 h-4 text-[rgb(163,255,18)]" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-white">
+                      Referred by{" "}
+                      <span className="text-[rgb(163,255,18)]">
+                        {attribution.agentName || attribution.agentTag}
+                      </span>
+                    </div>
+                    <div className="text-xs text-white/60">
+                      This agent earns {attribution.commissionRate}% commission on your purchase
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-[rgb(163,255,18)]/50 text-[rgb(163,255,18)] text-xs">
+                    Affiliate
+                  </Badge>
+                </div>
+              )}
+
               {/* Transaction Confidence */}
               <TransactionConfidenceMeter
                 nft={nft}
@@ -297,11 +386,11 @@ export function NFTTransactionDrawer({ open, onOpenChange, nft, mode }: NFTTrans
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="text-xs text-muted-foreground">Floor Price</div>
-                      <div className="font-semibold">{MOCK_COLLECTION_STATS.floorPrice} ETH</div>
+                      <div className="font-semibold">{collectionStats.floorPrice} ETH</div>
                     </div>
                     <div>
                       <div className="text-xs text-muted-foreground">24h Volume</div>
-                      <div className="font-semibold">{MOCK_COLLECTION_STATS.volume24h} ETH</div>
+                      <div className="font-semibold">{collectionStats.volume24h} ETH</div>
                     </div>
                   </div>
                 </CardContent>

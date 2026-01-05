@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit: blockchain operations (20 req/min with 60s block)
+  const rateCheck = await rateLimitCheck(request, "blockchain");
+  if (rateCheck.blocked) return rateCheck.response;
+
   try {
     const { id } = await context.params;
     const body = await request.json();

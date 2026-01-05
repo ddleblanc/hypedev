@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { fetchCollectionStats } from '@/lib/graph-client';
+import { rateLimitCheck } from '@/lib/rate-limit';
+import { sanitizeText, sanitizeIpfsUrl } from '@/lib/sanitize';
+import { generateSlug } from '@/lib/utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -139,6 +142,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: blockchain operations (20 req/min with 60s block)
+  const rateCheck = await rateLimitCheck(request, "blockchain");
+  if (rateCheck.blocked) return rateCheck.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get('address');
@@ -188,6 +195,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize user-provided text fields to prevent XSS
+    const sanitizedName = sanitizeText(name);
+    const sanitizedSymbol = sanitizeText(symbol);
+    const sanitizedDescription = description ? sanitizeText(description) : null;
+
+    // Validate and sanitize IPFS URLs
+    const sanitizedImage = image ? sanitizeIpfsUrl(image) : null;
+    const sanitizedBannerImage = bannerImage ? sanitizeIpfsUrl(bannerImage) : null;
+
     // Find user
     const user = await auth.getUserByWallet(address);
     if (!user) {
@@ -225,16 +241,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Generate unique slug from collection name
+    const baseSlug = generateSlug(sanitizedName);
+    let slug = baseSlug;
+    let slugCounter = 0;
+
+    // Check for existing slugs and make unique if necessary
+    while (true) {
+      const existingSlug = await prisma.collection.findUnique({
+        where: { slug },
+      });
+      if (!existingSlug) break;
+      slugCounter++;
+      slug = `${baseSlug}${slugCounter}`;
+    }
+
     // Create new project if needed
     let finalProjectId = projectId;
     if (project && !projectId) {
+      // Sanitize project fields
+      const sanitizedProjectName = sanitizeText(project.name);
+      // description is required in schema, sanitize it (defaults to empty string if missing)
+      const sanitizedProjectDescription = sanitizeText(project.description || '');
+      const sanitizedProjectBanner = project.banner ? sanitizeIpfsUrl(project.banner) : null;
+
       const newProject = await prisma.project.create({
         data: {
-          name: project.name,
-          description: project.description,
+          name: sanitizedProjectName,
+          description: sanitizedProjectDescription,
           genre: project.genre || null,
-          concept: project.concept || null,
-          banner: project.banner || null,
+          concept: project.concept ? sanitizeText(project.concept) : null,
+          banner: sanitizedProjectBanner,
           creatorId: user.id,
           status: 'active',
         },
@@ -242,16 +279,17 @@ export async function POST(request: NextRequest) {
       finalProjectId = newProject.id;
     }
 
-    // Create collection with IPFS URLs
+    // Create collection with sanitized data
     const newCollection = await prisma.collection.create({
       data: {
         projectId: finalProjectId,
-        name,
-        symbol,
-        description,
-        image,  // IPFS URL from Thirdweb storage
-        bannerImage,  // IPFS URL from Thirdweb storage
-        profileImage: image,  // Using collection image as profile image for now
+        slug,
+        name: sanitizedName,
+        symbol: sanitizedSymbol,
+        description: sanitizedDescription,
+        image: sanitizedImage,  // Sanitized IPFS URL from Thirdweb storage
+        bannerImage: sanitizedBannerImage,  // Sanitized IPFS URL from Thirdweb storage
+        profileImage: sanitizedImage,  // Using collection image as profile image for now
         address: contractAddress.toLowerCase(),
         creatorAddress: address.toLowerCase(),
         royaltyPercentage: parseFloat(royaltyPercentage) || 5,
@@ -314,6 +352,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  // Rate limit: blockchain operations (20 req/min with 60s block)
+  const rateCheck = await rateLimitCheck(request, "blockchain");
+  if (rateCheck.blocked) return rateCheck.response;
+
   try {
     const body = await request.json();
     const { collectionId, sharedMetadata, walletAddress } = body;

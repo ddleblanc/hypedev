@@ -12,7 +12,7 @@ import { StudioDashboard, StudioProjects, StudioCollections, StudioNFTs, StudioA
 // import loadingAnimation from '/public/assets/anim/loading.json';
 
 interface StudioViewProps {
-  setViewMode?: (mode: 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'launchpad' | 'museum' | 'studio') => void;
+  setViewMode?: (mode: 'home' | 'trade' | 'p2p' | 'marketplace' | 'play' | 'casual' | 'drops' | 'museum' | 'studio') => void;
 }
 
 // Types from the old studio

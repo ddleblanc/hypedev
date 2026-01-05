@@ -1,14 +1,16 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { fetchListings, fetchAuctions, fetchOffers } from '@/lib/graph-client';
-
-const prisma = new PrismaClient();
+import { NextResponse, NextRequest } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { fetchListings, fetchAuctions, fetchOffersBatch } from '@/lib/graph-client';
+import { rateLimit } from '@/lib/rate-limit';
 const SEPOLIA_CHAIN_ID = 11155111;
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const { id: collectionId } = await params;
     const { searchParams } = new URL(request.url);
@@ -67,14 +69,9 @@ export async function GET(
           auctionsMap.set(auction.tokenId.toString(), auction);
         });
 
-        // Fetch offers for listed tokens (batch in smaller chunks)
+        // Batch fetch offers for all tokens in a single request (avoid N+1)
         const tokenIds = nfts.map(nft => nft.tokenId);
-        for (const tokenId of tokenIds.slice(0, 20)) { // Limit to first 20 to avoid too many requests
-          const offers = await fetchOffers(SEPOLIA_CHAIN_ID, collection.address, tokenId, 'CREATED', 5);
-          if (offers.length > 0) {
-            offersMap.set(tokenId, offers[0]); // Store highest offer
-          }
-        }
+        offersMap = await fetchOffersBatch(SEPOLIA_CHAIN_ID, collection.address, tokenIds, 'CREATED', 100);
       } catch (graphError) {
         console.error('Error fetching from subgraph:', graphError);
         // Continue without subgraph data
@@ -153,7 +150,5 @@ export async function GET(
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

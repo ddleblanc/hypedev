@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { logFollow } from '@/lib/activity'
+import { rateLimitCheck } from '@/lib/rate-limit'
 
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ address: string }> }
 ) {
+  // Rate limit: write operations (30 req/min)
+  const rateCheck = await rateLimitCheck(request, "apiWrite")
+  if (rateCheck.blocked) return rateCheck.response
+
   const params = await context.params;
   try {
     const { address } = params
@@ -105,6 +110,10 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ address: string }> }
 ) {
+  // Rate limit: write operations (30 req/min)
+  const rateCheck = await rateLimitCheck(request, "apiWrite")
+  if (rateCheck.blocked) return rateCheck.response
+
   const params = await context.params;
   try {
     const { address } = params

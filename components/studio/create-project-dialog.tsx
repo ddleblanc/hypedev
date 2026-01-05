@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Upload, ImageIcon, Sparkles, Folder, Loader2 } from "lucide-react";
+import { trpc } from "@/lib/trpc/client";
 
 interface CreateProjectDialogProps {
   open: boolean;
@@ -70,7 +71,6 @@ const CONCEPTS = [
 
 export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreateProjectDialogProps) {
   const { user } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -79,40 +79,38 @@ export function CreateProjectDialog({ open, onOpenChange, onSuccess }: CreatePro
     concept: "",
   });
 
+  // tRPC mutation for creating projects
+  const createProjectMutation = trpc.studio.projects.create.useMutation({
+    onSuccess: (data) => {
+      onSuccess?.(data.project);
+      onOpenChange(false);
+      setFormData({
+        name: "",
+        description: "",
+        banner: "",
+        genre: "",
+        concept: "",
+      });
+    },
+    onError: (error) => {
+      console.error("Error creating project:", error);
+    },
+  });
+
+  const isLoading = createProjectMutation.isPending;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.walletAddress) return;
 
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/studio/projects?address=${user.walletAddress}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        onSuccess?.(data.project);
-        onOpenChange(false);
-        setFormData({
-          name: "",
-          description: "",
-          banner: "",
-          genre: "",
-          concept: "",
-        });
-      } else {
-        const errorData = await response.json();
-        console.error('Error creating project:', errorData.error);
-      }
-    } catch (error) {
-      console.error('Error creating project:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    createProjectMutation.mutate({
+      address: user.walletAddress,
+      name: formData.name,
+      description: formData.description,
+      banner: formData.banner || undefined,
+      genre: formData.genre || undefined,
+      concept: formData.concept || undefined,
+    });
   };
 
   const handleInputChange = (field: string, value: string) => {

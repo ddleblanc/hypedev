@@ -1,11 +1,12 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { ReviewScreen } from '@/components/p2p/board-review/review-screen';
 import { useP2PSelectionFlow } from '@/contexts/p2p-selection-flow-context';
-import { useWalletAuthOptimized } from '@/hooks/use-wallet-auth-optimized';
+import { useAuth } from '@/contexts/auth-context';
+import { trpc } from '@/lib/trpc/client';
 
 interface NFT {
   id: string;
@@ -23,89 +24,116 @@ interface NFT {
 function BoardReviewPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const { selectedTraderNFTs, selectedUserNFTs, traderAddress, resetFlow } = useP2PSelectionFlow();
 
   const [traderNFTs, setTraderNFTs] = useState<NFT[]>([]);
   const [userNFTs, setUserNFTs] = useState<NFT[]>([]);
-  const [traderName, setTraderName] = useState<string | undefined>();
-  const [isLoading, setIsLoading] = useState(true);
 
   const traderParam = searchParams?.get('trader') || traderAddress;
   const traderNftIdsParam = searchParams?.get('traderNfts');
   const userNftIdsParam = searchParams?.get('userNfts');
 
-  // Load NFT data
+  // Use context data if available
+  const hasContextData = selectedTraderNFTs.length > 0 && selectedUserNFTs.length > 0;
+
+  // tRPC query for trader's profile (to get username)
+  const traderProfileQuery = trpc.user.profile.byAddress.useQuery(
+    { address: traderParam || '' },
+    {
+      enabled: !!traderParam,
+    }
+  );
+
+  // tRPC queries for NFTs (only if we need to load from URL params)
+  const traderNftsQuery = trpc.user.nfts.list.useQuery(
+    {
+      address: traderParam || '',
+      filter: 'owned',
+    },
+    {
+      enabled: !!traderParam && !hasContextData && !!traderNftIdsParam,
+    }
+  );
+
+  const userNftsQuery = trpc.user.nfts.list.useQuery(
+    {
+      address: user?.walletAddress || '',
+      filter: 'owned',
+    },
+    {
+      enabled: !!user?.walletAddress && !hasContextData && !!userNftIdsParam,
+    }
+  );
+
+  // tRPC mutation for creating trade
+  const createTradeMutation = trpc.p2p.trades.create.useMutation();
+
+  const traderName = traderProfileQuery.data?.username;
+
+  // Load NFT data from context or URL params
   useEffect(() => {
-    const loadNFTs = async () => {
-      try {
-        setIsLoading(true);
+    // Priority 1: Use context selections if available
+    if (hasContextData) {
+      setTraderNFTs(selectedTraderNFTs);
+      setUserNFTs(selectedUserNFTs);
+      return;
+    }
 
-        // Priority 1: Use context selections if available
-        if (selectedTraderNFTs.length > 0 && selectedUserNFTs.length > 0) {
-          setTraderNFTs(selectedTraderNFTs);
-          setUserNFTs(selectedUserNFTs);
-          setIsLoading(false);
-          return;
-        }
+    // Priority 2: Load from URL params using tRPC query results
+    if (traderNftIdsParam && userNftIdsParam && traderParam && user?.walletAddress) {
+      const traderNftIds = traderNftIdsParam.split(',').filter(Boolean);
+      const userNftIds = userNftIdsParam.split(',').filter(Boolean);
 
-        // Priority 2: Load from URL params
-        if (traderNftIdsParam && userNftIdsParam && traderParam && user?.walletAddress) {
-          const traderNftIds = traderNftIdsParam.split(',').filter(Boolean);
-          const userNftIds = userNftIdsParam.split(',').filter(Boolean);
-
-          // Fetch trader's NFTs
-          const traderResponse = await fetch(`/api/user/${traderParam}/nfts`);
-          const traderData = await traderResponse.json();
-
-          if (traderData.success) {
-            const traderNftList = traderData.data.nfts || [];
-            const selectedTrader = traderNftList.filter((nft: NFT) =>
-              traderNftIds.includes(nft.id)
-            );
-            setTraderNFTs(selectedTrader);
-          }
-
-          // Fetch user's NFTs
-          const userResponse = await fetch(`/api/user/${user.walletAddress}/nfts`);
-          const userData = await userResponse.json();
-
-          if (userData.success) {
-            const userNftList = userData.data.nfts || [];
-            const selectedUser = userNftList.filter((nft: NFT) =>
-              userNftIds.includes(nft.id)
-            );
-            setUserNFTs(selectedUser);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load NFTs:', error);
-      } finally {
-        setIsLoading(false);
+      // Filter trader NFTs
+      if (traderNftsQuery.data?.nfts) {
+        const selectedTrader = traderNftsQuery.data.nfts
+          .filter((nft) => traderNftIds.includes(nft.id))
+          .map((nft) => ({
+            id: nft.id,
+            tokenId: nft.tokenId,
+            name: nft.name,
+            image: nft.image || '',
+            collection: nft.collection
+              ? {
+                  name: nft.collection.name,
+                  symbol: '',
+                }
+              : undefined,
+          }));
+        setTraderNFTs(selectedTrader);
       }
-    };
 
-    loadNFTs();
-  }, [traderNftIdsParam, userNftIdsParam, traderParam, user, selectedTraderNFTs, selectedUserNFTs]);
-
-  // Fetch trader info
-  useEffect(() => {
-    if (!traderParam) return;
-
-    const fetchTraderInfo = async () => {
-      try {
-        const response = await fetch(`/api/user/${traderParam}`);
-        const data = await response.json();
-        if (data.success && data.data && data.data.user) {
-          setTraderName(data.data.user.username);
-        }
-      } catch (error) {
-        console.error('Failed to fetch trader info:', error);
+      // Filter user NFTs
+      if (userNftsQuery.data?.nfts) {
+        const selectedUser = userNftsQuery.data.nfts
+          .filter((nft) => userNftIds.includes(nft.id))
+          .map((nft) => ({
+            id: nft.id,
+            tokenId: nft.tokenId,
+            name: nft.name,
+            image: nft.image || '',
+            collection: nft.collection
+              ? {
+                  name: nft.collection.name,
+                  symbol: '',
+                }
+              : undefined,
+          }));
+        setUserNFTs(selectedUser);
       }
-    };
-
-    fetchTraderInfo();
-  }, [traderParam]);
+    }
+  }, [
+    hasContextData,
+    selectedTraderNFTs,
+    selectedUserNFTs,
+    traderNftIdsParam,
+    userNftIdsParam,
+    traderParam,
+    user,
+    traderNftsQuery.data,
+    userNftsQuery.data,
+  ]);
 
   const handleBack = () => {
     // Go back to Step 2 (user offer selection)
@@ -143,43 +171,33 @@ function BoardReviewPageContent() {
     }
 
     try {
-      // Create the trade offer
-      const response = await fetch('/api/p2p/trades', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          initiatorAddress: user.walletAddress,
-          counterpartyAddress: traderParam,
-          initiatorNFTs: userNFTs.map((nft) => ({
-            nftId: nft.id,
-            tokenId: nft.tokenId,
-          })),
-          counterpartyNFTs: traderNFTs.map((nft) => ({
-            nftId: nft.id,
-            tokenId: nft.tokenId,
-          })),
-          message: message || undefined,
-          status: 'PENDING',
-        }),
+      // Create the trade offer using tRPC mutation
+      await createTradeMutation.mutateAsync({
+        initiatorAddress: user.walletAddress,
+        counterpartyAddress: traderParam,
+        initiatorItems: userNFTs.map((nft) => ({
+          nftId: nft.id,
+        })),
+        counterpartyItems: traderNFTs.map((nft) => ({
+          nftId: nft.id,
+        })),
+        metadata: message ? { message } : undefined,
       });
 
-      const data = await response.json();
+      // Clear the selection flow
+      resetFlow();
 
-      if (data.success) {
-        // Clear the selection flow
-        resetFlow();
-
-        // Navigate to the P2P chat view with the trader
-        router.push(`/p2p?trader=${traderParam}`);
-      } else {
-        console.error('Failed to create trade:', data.error);
-        alert('Failed to send offer. Please try again.');
-      }
+      // Navigate to the P2P chat view with the trader
+      router.push(`/p2p?trader=${traderParam}`);
     } catch (error) {
       console.error('Error sending offer:', error);
       alert('Failed to send offer. Please try again.');
     }
   };
+
+  const isLoading =
+    (!hasContextData && (traderNftsQuery.isLoading || userNftsQuery.isLoading)) ||
+    traderProfileQuery.isLoading;
 
   if (isLoading) {
     return (
@@ -218,7 +236,7 @@ function BoardReviewPageContent() {
     <ReviewScreen
       traderNFTs={traderNFTs}
       userNFTs={userNFTs}
-      traderName={traderName}
+      traderName={traderName || undefined}
       traderAddress={traderParam || ''}
       onBack={handleBack}
       onEditTraderNFTs={handleEditTraderNFTs}

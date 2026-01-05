@@ -1,19 +1,21 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextResponse, NextRequest } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { createThirdwebClient, getContract, defineChain } from 'thirdweb';
-import { getNFTs, totalSupply } from 'thirdweb/extensions/erc721';
+import { totalSupply } from 'thirdweb/extensions/erc721';
 import { getCachedFloorPrice } from '@/lib/marketplace/floor-price';
-
-const prisma = new PrismaClient();
+import { rateLimit } from '@/lib/rate-limit';
 
 const client = createThirdwebClient({
   clientId: process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID!,
 });
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const { id: collectionId } = await params;
 
@@ -166,7 +168,5 @@ export async function GET(
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

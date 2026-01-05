@@ -47,6 +47,7 @@ import { client } from '@/lib/thirdweb';
 import { ethereum, polygon, arbitrum, optimism, base, sepolia } from 'thirdweb/chains';
 import { setupClaimConditions, type ClaimCondition } from '@/lib/nft-minting';
 import { NATIVE_TOKEN_ADDRESS } from 'thirdweb';
+import { trpc } from '@/lib/trpc/client';
 
 interface CreateCollectionDialogProps {
   open: boolean;
@@ -80,17 +81,20 @@ const getThirdwebChain = (chainId: number) => {
 
 type DeploymentStep = 'setup' | 'prepare' | 'deploy' | 'save' | 'complete';
 
-export function CreateCollectionDialog({ 
-  open, 
-  onOpenChange, 
-  projects, 
+export function CreateCollectionDialog({
+  open,
+  onOpenChange,
+  projects,
   selectedProject,
-  onSuccess 
+  onSuccess
 }: CreateCollectionDialogProps) {
   const { user } = useAuth();
   const account = useActiveAccount();
   const [currentStep, setCurrentStep] = useState<DeploymentStep>('setup');
   const [progress, setProgress] = useState(0);
+
+  // tRPC mutation
+  const createCollectionMutation = trpc.studio.collections.create.useMutation();
   
   const [formData, setFormData] = useState({
     projectId: selectedProject?.id || "",
@@ -251,34 +255,24 @@ export function CreateCollectionDialog({
 
       setCurrentStep('save');
 
-      // Save to database
-      const response = await fetch(`/api/studio/collections?address=${user.walletAddress}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          contractAddress: contractAddress,
-          contractType: formData.contractType,
-          chainId: parseInt(formData.chainId),
-          royaltyPercentage: parseInt(formData.royaltyPercentage),
-          maxSupply: formData.maxSupply ? parseInt(formData.maxSupply) : null,
-          claimPhases: claimPhases.length > 0 ? JSON.stringify(claimPhases) : null,
-        }),
+      // Save to database via tRPC
+      const data = await createCollectionMutation.mutateAsync({
+        ...formData,
+        address: contractAddress,
+        contractAddress: contractAddress,
+        contractType: formData.contractType,
+        chainId: parseInt(formData.chainId),
+        royaltyPercentage: parseInt(formData.royaltyPercentage),
+        maxSupply: formData.maxSupply ? parseInt(formData.maxSupply) : undefined,
+        claimPhases: claimPhases.length > 0 ? JSON.stringify(claimPhases) : undefined,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setCurrentStep('complete');
-        
-        setTimeout(() => {
-          onSuccess?.(data.collection);
-          onOpenChange(false);
-        }, 2000);
-      } else {
-        throw new Error('Failed to save collection to database');
-      }
+      setCurrentStep('complete');
+
+      setTimeout(() => {
+        onSuccess?.(data.collection);
+        onOpenChange(false);
+      }, 2000);
 
     } catch (error) {
       console.error('Error deploying collection:', error);

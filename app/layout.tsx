@@ -10,10 +10,12 @@ import { BackgroundCarouselProvider } from "@/contexts/background-carousel-conte
 import { P2PHeaderProvider } from "@/contexts/p2p-header-context";
 import { P2PSelectionFlowProvider } from "@/contexts/p2p-selection-flow-context";
 import { ShoppingCartProvider } from "@/contexts/shopping-cart-context";
+import { ChatProvider } from "@/contexts/chat-context";
 import { FloatingTransactionPill } from "@/components/transaction/floating-transaction-pill";
 import { ShoppingCartDrawer } from "@/components/marketplace/shopping-cart-drawer";
 import { LayoutWrapper } from "@/components/layout-wrapper";
 import { Toaster } from "@/components/ui/toaster";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,30 +32,34 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={inter.className}>
-        <Providers>
-          <BackgroundCarouselProvider>
-            <AppNavigationProvider>
-              <HomepageModeProvider>
-                <StudioProvider>
-                <P2PHeaderProvider>
-                  <P2PSelectionFlowProvider>
-                  <ShoppingCartProvider>
-                    <PersistentBackground>
-                      <LayoutWrapper>
-                        {children}
-                      </LayoutWrapper>
-                    </PersistentBackground>
-                    <ShoppingCartDrawer />
-                  </ShoppingCartProvider>
-                  </P2PSelectionFlowProvider>
-                </P2PHeaderProvider>
-              </StudioProvider>
-              </HomepageModeProvider>
-            </AppNavigationProvider>
-          </BackgroundCarouselProvider>
-          <FloatingTransactionPill />
-          <Toaster />
-        </Providers>
+        <ErrorBoundary>
+          <Providers>
+            <BackgroundCarouselProvider>
+              <AppNavigationProvider>
+                <HomepageModeProvider>
+                  <StudioProvider>
+                  <P2PHeaderProvider>
+                    <P2PSelectionFlowProvider>
+                    <ShoppingCartProvider>
+                      <ChatProvider>
+                        <PersistentBackground>
+                          <LayoutWrapper>
+                            {children}
+                          </LayoutWrapper>
+                        </PersistentBackground>
+                        <ShoppingCartDrawer />
+                      </ChatProvider>
+                    </ShoppingCartProvider>
+                    </P2PSelectionFlowProvider>
+                  </P2PHeaderProvider>
+                </StudioProvider>
+                </HomepageModeProvider>
+              </AppNavigationProvider>
+            </BackgroundCarouselProvider>
+            <FloatingTransactionPill />
+            <Toaster />
+          </Providers>
+        </ErrorBoundary>
       </body>
     </html>
   );

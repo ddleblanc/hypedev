@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useActiveAccount } from "thirdweb/react";
 import { sweepFloor } from "@/lib/marketplace";
+import { trpc } from "@/lib/trpc/client";
 
 interface FloorNFT {
   id: string;
@@ -97,6 +98,7 @@ interface SweepPreviewResponse {
 
 export function SweepFloorDialog({ open, onOpenChange, collection, onSuccess }: SweepFloorDialogProps) {
   const account = useActiveAccount();
+  const recordSweepMutation = trpc.marketplace.sweep.record.useMutation();
   const [currentStep, setCurrentStep] = useState<SweepStep>("configure");
   const [maxBudget, setMaxBudget] = useState("");
   const [maxItems, setMaxItems] = useState("10");
@@ -118,57 +120,39 @@ export function SweepFloorDialog({ open, onOpenChange, collection, onSuccess }: 
   };
   const grandTotal = totalPrice + fees.marketplaceFee + fees.gasEstimate;
 
-  // Fetch floor NFTs from API when dialog opens
-  const fetchFloorNFTs = useCallback(async () => {
-    if (!collection.contractAddress) return;
-
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams({
-        collection: collection.contractAddress,
-        maxItems: maxItems,
-      });
-      if (maxBudget) {
-        params.append('maxTotalPrice', maxBudget);
-      }
-
-      const response = await fetch(`/api/marketplace/sweep?${params}`);
-      const data: SweepPreviewResponse = await response.json();
-
-      if (data.success && data.listings) {
-        const nfts: FloorNFT[] = data.listings.map((listing, index) => ({
-          id: listing.nft?.id || listing.listingId,
-          listingId: listing.listingId,
-          tokenId: listing.tokenId,
-          name: listing.nft?.name || `#${listing.tokenId}`,
-          image: listing.nft?.image || '/placeholder-nft.png',
-          price: parseFloat(listing.priceEth),
-          priceWei: listing.priceWei,
-          rarity: 'Common', // TODO: Get from NFT metadata when available
-          sellerAddress: listing.sellerAddress,
-          selected: index < parseInt(maxItems),
-        }));
-        setFloorNFTs(nfts);
-      } else {
-        setFloorNFTs([]);
-        if (data.error) {
-          console.error('Sweep preview error:', data.error);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching floor NFTs:', err);
-      setFloorNFTs([]);
-    } finally {
-      setIsLoading(false);
+  // Fetch floor NFTs via tRPC
+  const sweepPreviewQuery = trpc.marketplace.sweep.preview.useQuery(
+    {
+      collection: collection.contractAddress,
+      maxItems: parseInt(maxItems),
+      maxTotalPrice: maxBudget ? parseFloat(maxBudget) : undefined,
+    },
+    {
+      enabled: open && !!collection.contractAddress,
     }
-  }, [collection.contractAddress, maxItems, maxBudget]);
+  );
 
-  // Fetch floor NFTs when dialog opens or params change
+  // Update floor NFTs when query data changes
   useEffect(() => {
-    if (open && collection.contractAddress) {
-      fetchFloorNFTs();
+    if (sweepPreviewQuery.data?.listings) {
+      const nfts: FloorNFT[] = sweepPreviewQuery.data.listings.map((listing, index) => ({
+        id: listing.nft?.id || listing.listingId,
+        listingId: listing.listingId,
+        tokenId: listing.tokenId,
+        name: listing.nft?.name || `#${listing.tokenId}`,
+        image: listing.nft?.image || '/placeholder-nft.png',
+        price: parseFloat(listing.priceEth),
+        priceWei: listing.priceWei,
+        rarity: 'Common', // TODO: Get from NFT metadata when available
+        sellerAddress: listing.sellerAddress,
+        selected: index < parseInt(maxItems),
+      }));
+      setFloorNFTs(nfts);
+    } else {
+      setFloorNFTs([]);
     }
-  }, [open, collection.contractAddress, fetchFloorNFTs]);
+    setIsLoading(sweepPreviewQuery.isLoading);
+  }, [sweepPreviewQuery.data, sweepPreviewQuery.isLoading, maxItems]);
 
   // Auto-select logic
   useEffect(() => {
@@ -226,17 +210,13 @@ export function SweepFloorDialog({ open, onOpenChange, collection, onSuccess }: 
       setSuccessfulPurchases(successListings);
       setProcessedCount(result.transactions.length);
 
-      // Record purchases in database
+      // Record purchases in database via tRPC
       if (result.transactions.length > 0) {
         try {
-          await fetch('/api/marketplace/sweep', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              collectionAddress: collection.contractAddress,
-              transactions: result.transactions,
-              buyerAddress: account.address,
-            }),
+          await recordSweepMutation.mutateAsync({
+            collectionAddress: collection.contractAddress,
+            transactions: result.transactions,
+            buyerAddress: account.address,
           });
         } catch (recordError) {
           console.error('Failed to record sweep in database:', recordError);

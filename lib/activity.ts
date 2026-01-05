@@ -1,4 +1,8 @@
 import { prisma } from './prisma';
+import {
+  broadcastNotification,
+  type NotificationEvent,
+} from './notification-broadcaster';
 
 export type ActivityType =
   // Marketplace
@@ -57,6 +61,129 @@ export async function createActivity(params: CreateActivityParams) {
 }
 
 /**
+ * Notification priorities
+ */
+type NotificationPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+
+/**
+ * Notification action types
+ */
+type NotificationActionType =
+  | 'ACCEPT_OFFER'
+  | 'DECLINE_OFFER'
+  | 'ACCEPT_TRADE'
+  | 'DECLINE_TRADE'
+  | 'FOLLOW_BACK'
+  | 'PLACE_BID'
+  | 'VIEW_ITEM';
+
+interface CreateNotificationParams {
+  userId: string;
+  activityId?: string;
+  type: ActivityType;
+  title: string;
+  message?: string;
+  actionType?: NotificationActionType;
+  priority?: NotificationPriority;
+  isTimeSensitive?: boolean;
+  expiresAt?: Date;
+  nftId?: string;
+  collectionId?: string;
+  tradeId?: string;
+  offerId?: string;
+  relatedUserId?: string;
+  relatedAddress?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Create a notification and broadcast it in real-time
+ */
+async function createAndBroadcastNotification(
+  params: CreateNotificationParams
+): Promise<void> {
+  try {
+    const notification = await prisma.notification.create({
+      data: {
+        userId: params.userId,
+        activityId: params.activityId,
+        type: params.type,
+        title: params.title,
+        message: params.message,
+        actionType: params.actionType,
+        priority: params.priority ?? 'NORMAL',
+        isTimeSensitive: params.isTimeSensitive ?? false,
+        expiresAt: params.expiresAt,
+        nftId: params.nftId,
+        collectionId: params.collectionId,
+        tradeId: params.tradeId,
+        offerId: params.offerId,
+        relatedUserId: params.relatedUserId,
+        relatedAddress: params.relatedAddress,
+        metadata: (params.metadata ?? null) as Parameters<typeof prisma.notification.create>[0]['data']['metadata'],
+      },
+    });
+
+    // Format for broadcasting
+    const event: NotificationEvent = {
+      id: notification.id,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      priority: notification.priority,
+      actionType: notification.actionType,
+      actionStatus: notification.actionStatus,
+      isTimeSensitive: notification.isTimeSensitive,
+      expiresAt: notification.expiresAt?.toISOString() ?? null,
+      nftId: notification.nftId,
+      collectionId: notification.collectionId,
+      tradeId: notification.tradeId,
+      offerId: notification.offerId,
+      relatedUserId: notification.relatedUserId,
+      relatedAddress: notification.relatedAddress,
+      metadata: notification.metadata as Record<string, unknown> | null,
+      createdAt: notification.createdAt.toISOString(),
+    };
+
+    // Broadcast to user's active connections
+    broadcastNotification(params.userId, event);
+  } catch (error) {
+    // Log but don't throw - notification failure shouldn't break activity logging
+    console.error('[Activity] Failed to create notification:', error);
+  }
+}
+
+/**
+ * Get user display name for notification messages
+ */
+async function getUserDisplayName(userId: string): Promise<string> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true, walletAddress: true },
+    });
+    return user?.username ?? (user?.walletAddress ? user.walletAddress.slice(0, 8) + '...' : 'Someone');
+  } catch {
+    return 'Someone';
+  }
+}
+
+/**
+ * Get NFT display name for notification messages
+ */
+async function getNftDisplayName(nftId: string): Promise<string> {
+  try {
+    const nft = await prisma.nft.findUnique({
+      where: { id: nftId },
+      select: { name: true, tokenId: true },
+    });
+    return nft?.name ?? (nft?.tokenId ? `Token #${nft.tokenId}` : 'an NFT');
+  } catch {
+    return 'an NFT';
+  }
+}
+
+/**
  * Log a marketplace listing creation
  */
 export async function logListing(
@@ -108,7 +235,7 @@ export async function logPurchase(
   collectionId?: string,
   txHash?: string
 ) {
-  await Promise.all([
+  const [, sellerActivity] = await Promise.all([
     createActivity({
       userId: buyerId,
       type: 'purchase',
@@ -130,6 +257,26 @@ export async function logPurchase(
       transactionHash: txHash,
     }),
   ]);
+
+  // Get display names for notification message
+  const [buyerName, nftName] = await Promise.all([
+    getUserDisplayName(buyerId),
+    getNftDisplayName(nftId),
+  ]);
+
+  // Notify seller of sale
+  await createAndBroadcastNotification({
+    userId: sellerId,
+    activityId: sellerActivity.id,
+    type: 'listing_sold',
+    title: 'Item Sold!',
+    message: `${buyerName} purchased ${nftName} for ${price} ETH`,
+    priority: 'HIGH',
+    nftId,
+    collectionId,
+    relatedUserId: buyerId,
+    metadata: { price, currency: 'ETH', transactionHash: txHash },
+  });
 }
 
 /**
@@ -141,7 +288,7 @@ export async function logTradeCompleted(
   tradeId: string,
   metadata?: { [key: string]: string | number | boolean | null }
 ) {
-  await Promise.all([
+  const [initiatorActivity, counterpartyActivity] = await Promise.all([
     createActivity({
       userId: initiatorId,
       type: 'trade_completed',
@@ -157,6 +304,38 @@ export async function logTradeCompleted(
       metadata,
     }),
   ]);
+
+  // Get display names for notification messages
+  const [initiatorName, counterpartyName] = await Promise.all([
+    getUserDisplayName(initiatorId),
+    getUserDisplayName(counterpartyId),
+  ]);
+
+  // Notify both parties of trade completion
+  await Promise.all([
+    createAndBroadcastNotification({
+      userId: initiatorId,
+      activityId: initiatorActivity.id,
+      type: 'trade_completed',
+      title: 'Trade Completed',
+      message: `Your trade with ${counterpartyName} has been completed successfully`,
+      priority: 'HIGH',
+      tradeId,
+      relatedUserId: counterpartyId,
+      metadata: metadata as Record<string, unknown>,
+    }),
+    createAndBroadcastNotification({
+      userId: counterpartyId,
+      activityId: counterpartyActivity.id,
+      type: 'trade_completed',
+      title: 'Trade Completed',
+      message: `Your trade with ${initiatorName} has been completed successfully`,
+      priority: 'HIGH',
+      tradeId,
+      relatedUserId: initiatorId,
+      metadata: metadata as Record<string, unknown>,
+    }),
+  ]);
 }
 
 /**
@@ -167,7 +346,7 @@ export async function logTradeInitiated(
   counterpartyId: string,
   tradeId: string
 ) {
-  await Promise.all([
+  const [, counterpartyActivity] = await Promise.all([
     createActivity({
       userId: initiatorId,
       type: 'trade_initiated',
@@ -181,6 +360,23 @@ export async function logTradeInitiated(
       relatedUserId: initiatorId,
     }),
   ]);
+
+  // Get display name for notification message
+  const initiatorName = await getUserDisplayName(initiatorId);
+
+  // Notify counterparty of new trade request (actionable)
+  await createAndBroadcastNotification({
+    userId: counterpartyId,
+    activityId: counterpartyActivity.id,
+    type: 'trade_received',
+    title: 'New Trade Request',
+    message: `${initiatorName} wants to trade with you`,
+    actionType: 'ACCEPT_TRADE',
+    priority: 'HIGH',
+    isTimeSensitive: true,
+    tradeId,
+    relatedUserId: initiatorId,
+  });
 }
 
 /**
@@ -211,7 +407,7 @@ export async function logTradeCanceled(
  * Log a follow action - creates activity for both follower and followee
  */
 export async function logFollow(followerId: string, followingId: string) {
-  await Promise.all([
+  const [, followingActivity] = await Promise.all([
     createActivity({
       userId: followerId,
       type: 'user_followed',
@@ -223,6 +419,21 @@ export async function logFollow(followerId: string, followingId: string) {
       relatedUserId: followerId,
     }),
   ]);
+
+  // Get display name for notification message
+  const followerName = await getUserDisplayName(followerId);
+
+  // Notify followed user (actionable - can follow back)
+  await createAndBroadcastNotification({
+    userId: followingId,
+    activityId: followingActivity.id,
+    type: 'user_followed_by',
+    title: 'New Follower',
+    message: `${followerName} started following you`,
+    actionType: 'FOLLOW_BACK',
+    priority: 'NORMAL',
+    relatedUserId: followerId,
+  });
 }
 
 /**
@@ -287,13 +498,35 @@ export async function logLootboxOpened(
   collectionId?: string,
   metadata?: { [key: string]: string | number | boolean | null }
 ) {
-  return createActivity({
+  const activity = await createActivity({
     userId,
     type: 'lootbox_opened',
     nftId,
     collectionId,
     metadata,
   });
+
+  // Get NFT name for notification message if an NFT was won
+  let message = 'You opened a lootbox!';
+  if (nftId) {
+    const nftName = await getNftDisplayName(nftId);
+    message = `You won ${nftName} from a lootbox!`;
+  }
+
+  // Notify user of their lootbox result
+  await createAndBroadcastNotification({
+    userId,
+    activityId: activity.id,
+    type: 'lootbox_opened',
+    title: 'Lootbox Opened!',
+    message,
+    priority: nftId ? 'HIGH' : 'NORMAL',
+    nftId,
+    collectionId,
+    metadata: metadata as Record<string, unknown>,
+  });
+
+  return activity;
 }
 
 /**
@@ -333,7 +566,29 @@ export async function logNftTransfer(
     );
   }
 
-  await Promise.all(activities);
+  const results = await Promise.all(activities);
+
+  // Notify receiver if they're in our system
+  if (receiverId) {
+    const receiverActivity = results[1];
+    const [senderName, nftName] = await Promise.all([
+      getUserDisplayName(senderId),
+      getNftDisplayName(nftId),
+    ]);
+
+    await createAndBroadcastNotification({
+      userId: receiverId,
+      activityId: receiverActivity.id,
+      type: 'nft_received',
+      title: 'NFT Received',
+      message: `${senderName} sent you ${nftName}`,
+      priority: 'HIGH',
+      nftId,
+      collectionId,
+      relatedUserId: senderId,
+      metadata: { transactionHash: txHash },
+    });
+  }
 }
 
 /**
@@ -369,9 +624,10 @@ export async function logBidPlaced(
   listingId: string,
   bidAmount: number,
   collectionId?: string,
-  txHash?: string
+  txHash?: string,
+  previousBidderId?: string
 ) {
-  return createActivity({
+  const activity = await createActivity({
     userId,
     type: 'bid_placed',
     nftId,
@@ -382,6 +638,45 @@ export async function logBidPlaced(
     relatedUserId: sellerId,
     transactionHash: txHash,
   });
+
+  // Get display names for notifications
+  const [bidderName, nftName] = await Promise.all([
+    getUserDisplayName(userId),
+    getNftDisplayName(nftId),
+  ]);
+
+  // Notify seller of new bid
+  await createAndBroadcastNotification({
+    userId: sellerId,
+    activityId: activity.id,
+    type: 'bid_placed',
+    title: 'New Bid',
+    message: `${bidderName} placed a bid of ${bidAmount} ETH on ${nftName}`,
+    priority: 'NORMAL',
+    nftId,
+    collectionId,
+    relatedUserId: userId,
+    metadata: { bidAmount, currency: 'ETH', listingId },
+  });
+
+  // Notify previous high bidder they've been outbid (if applicable)
+  if (previousBidderId && previousBidderId !== userId) {
+    await createAndBroadcastNotification({
+      userId: previousBidderId,
+      type: 'bid_placed',
+      title: 'Outbid!',
+      message: `You've been outbid on ${nftName}. New bid: ${bidAmount} ETH`,
+      actionType: 'PLACE_BID',
+      priority: 'URGENT',
+      isTimeSensitive: true,
+      nftId,
+      collectionId,
+      relatedUserId: userId,
+      metadata: { bidAmount, currency: 'ETH', listingId },
+    });
+  }
+
+  return activity;
 }
 
 /**
@@ -396,7 +691,7 @@ export async function logAuctionWon(
   collectionId?: string,
   txHash?: string
 ) {
-  await Promise.all([
+  const [winnerActivity, sellerActivity] = await Promise.all([
     createActivity({
       userId: winnerId,
       type: 'auction_won',
@@ -420,6 +715,40 @@ export async function logAuctionWon(
       transactionHash: txHash,
     }),
   ]);
+
+  // Get display names for notifications
+  const [winnerName, nftName] = await Promise.all([
+    getUserDisplayName(winnerId),
+    getNftDisplayName(nftId),
+  ]);
+
+  // Notify winner
+  await createAndBroadcastNotification({
+    userId: winnerId,
+    activityId: winnerActivity.id,
+    type: 'auction_won',
+    title: 'Auction Won!',
+    message: `Congratulations! You won the auction for ${nftName} with a bid of ${finalPrice} ETH`,
+    priority: 'HIGH',
+    nftId,
+    collectionId,
+    relatedUserId: sellerId,
+    metadata: { finalPrice, currency: 'ETH', transactionHash: txHash },
+  });
+
+  // Notify seller of sale
+  await createAndBroadcastNotification({
+    userId: sellerId,
+    activityId: sellerActivity.id,
+    type: 'listing_sold',
+    title: 'Auction Sold!',
+    message: `${winnerName} won your auction for ${nftName} at ${finalPrice} ETH`,
+    priority: 'HIGH',
+    nftId,
+    collectionId,
+    relatedUserId: winnerId,
+    metadata: { finalPrice, currency: 'ETH', transactionHash: txHash },
+  });
 }
 
 /**
@@ -465,7 +794,33 @@ export async function logOfferMade(
     );
   }
 
-  await Promise.all(activities);
+  const results = await Promise.all(activities);
+
+  // Create notification for NFT owner (if in system)
+  if (ownerId) {
+    const ownerActivity = results[1];
+    const [offerorName, nftName] = await Promise.all([
+      getUserDisplayName(offerorId),
+      getNftDisplayName(nftId),
+    ]);
+
+    // Notify owner of new offer (actionable)
+    await createAndBroadcastNotification({
+      userId: ownerId,
+      activityId: ownerActivity.id,
+      type: 'offer_received',
+      title: 'New Offer Received',
+      message: `${offerorName} offered ${offerAmount} ETH for ${nftName}`,
+      actionType: 'ACCEPT_OFFER',
+      priority: 'HIGH',
+      isTimeSensitive: true,
+      nftId,
+      collectionId,
+      offerId,
+      relatedUserId: offerorId,
+      metadata: { offerAmount, currency: 'ETH', transactionHash: txHash },
+    });
+  }
 }
 
 /**
@@ -480,7 +835,7 @@ export async function logOfferAccepted(
   collectionId?: string,
   txHash?: string
 ) {
-  await Promise.all([
+  const [, offerorActivity] = await Promise.all([
     createActivity({
       userId: ownerId,
       type: 'offer_accepted',
@@ -504,6 +859,27 @@ export async function logOfferAccepted(
       transactionHash: txHash,
     }),
   ]);
+
+  // Get display names for notification message
+  const [ownerName, nftName] = await Promise.all([
+    getUserDisplayName(ownerId),
+    getNftDisplayName(nftId),
+  ]);
+
+  // Notify offeror that their offer was accepted
+  await createAndBroadcastNotification({
+    userId: offerorId,
+    activityId: offerorActivity.id,
+    type: 'offer_accepted',
+    title: 'Offer Accepted!',
+    message: `${ownerName} accepted your offer of ${acceptedAmount} ETH for ${nftName}`,
+    priority: 'HIGH',
+    nftId,
+    collectionId,
+    offerId,
+    relatedUserId: ownerId,
+    metadata: { acceptedAmount, currency: 'ETH', transactionHash: txHash },
+  });
 }
 
 /**

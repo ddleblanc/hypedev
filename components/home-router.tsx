@@ -1,12 +1,12 @@
 "use client";
 
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { HomepageContainer, PublicHomepageContainer } from "@/components/homepage/homepage-container";
 import Lottie from "lottie-react";
 import loadingAnimation from "@/public/assets/anim/loading.json";
 
 export function HomeRouter() {
-  const { user, isLoading, isConnected } = useWalletAuthOptimized();
+  const { user, isLoading, isConnected } = useAuth();
 
   // Show loading state while checking authentication
   if (isLoading) {

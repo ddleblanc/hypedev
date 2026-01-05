@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
 import { useP2PBackground } from '@/hooks/use-p2p-background';
-import { ArrowLeft, Users, Layers, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Users, Layers } from 'lucide-react';
 import { TraderSelectionSheet } from '@/components/p2p/trader-selection-sheet';
 import { MediaRenderer } from '@/components/media-renderer';
 import { MobileNav } from '@/components/p2p/mobile-nav';
+import { trpc } from '@/lib/trpc/client';
 
 interface NFT {
   id: string;
@@ -46,75 +47,67 @@ export default function CollectionBrowsePage() {
   const { setCollectionBackground, restoreDefaultBackground } = useP2PBackground();
   const collectionId = params.id as string;
 
-  const [collection, setCollection] = useState<Collection | null>(null);
-  const [nfts, setNfts] = useState<NFT[]>([]);
   const [stackedNFTs, setStackedNFTs] = useState<StackedNFT[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedNFT, setSelectedNFT] = useState<StackedNFT | null>(null);
   const [showTraderSheet, setShowTraderSheet] = useState(false);
 
+  // tRPC query for collection details
+  const collectionQuery = trpc.marketplace.collections.byId.useQuery(
+    { id: collectionId },
+    { enabled: !!collectionId }
+  );
+
+  // tRPC query for collection NFTs
+  const nftsQuery = trpc.marketplace.collections.nfts.useQuery(
+    { collectionId, limit: 100 },
+    { enabled: !!collectionId }
+  );
+
+  const collection: Collection | null = useMemo(() => {
+    if (!collectionQuery.data) return null;
+    return {
+      id: collectionQuery.data.id,
+      name: collectionQuery.data.name,
+      symbol: collectionQuery.data.symbol || '',
+      bannerImage: collectionQuery.data.bannerImage,
+      image: collectionQuery.data.image,
+      floorPrice: collectionQuery.data.floorPrice,
+    };
+  }, [collectionQuery.data]);
+
+  // Set background when collection data loads
   useEffect(() => {
-    fetchCollectionData();
-    fetchNFTs();
-  }, [collectionId]);
-
-  const fetchCollectionData = async () => {
-    try {
-      const response = await fetch(`/api/public/collections/${collectionId}`);
-      const data = await response.json();
-
-      if (data.success && data.collection) {
-        const collectionData = data.collection;
-        setCollection(collectionData);
-
-        // Note: Overlay is already set by navigation hook for immediate transition
-        // Only set it here as fallback if user navigates directly to this URL
-        const bannerImage = collectionData.bannerImage || collectionData.image;
-        if (bannerImage) {
-          setCollectionBackground(bannerImage);
-        }
+    if (collection) {
+      const bannerImage = collection.bannerImage || collection.image;
+      if (bannerImage) {
+        setCollectionBackground(bannerImage);
       }
-    } catch (error) {
-      console.error('Failed to fetch collection:', error);
     }
-  };
+  }, [collection, setCollectionBackground]);
 
-  const fetchNFTs = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`/api/marketplace/collection/${collectionId}/nfts?limit=100`);
-      const data = await response.json();
+  // Stack NFTs when data loads
+  useEffect(() => {
+    if (!nftsQuery.data?.nfts) return;
 
-      if (data.success && data.nfts) {
-        // Map the marketplace API response to our NFT interface
-        const nftList: NFT[] = data.nfts.map((nft: any) => ({
-          id: nft.id.toString(),
-          dbId: nft.dbId, // Database UUID for exact matching
-          tokenId: nft.id.toString(),
-          name: nft.name,
-          image: nft.image,
-          rarityTier: nft.rarity,
-          rarityScore: nft.rank,
-          listingPrice: parseFloat(nft.price) || undefined,
-          ownerAddress: nft.owner || undefined,
-          collection: {
-            name: collection?.name || '',
-            symbol: collection?.symbol || '',
-          },
-        }));
+    const nftList: NFT[] = nftsQuery.data.nfts.map((nft) => ({
+      id: nft.id.toString(),
+      dbId: nft.dbId,
+      tokenId: nft.id.toString(),
+      name: nft.name,
+      image: nft.image || '',
+      rarityTier: nft.rarity || undefined,
+      rarityScore: nft.rank || undefined,
+      listingPrice: nft.listingPrice ? parseFloat(nft.listingPrice.toString()) : undefined,
+      ownerAddress: nft.owner || undefined,
+      collection: collection
+        ? {
+            name: collection.name,
+            symbol: collection.symbol,
+          }
+        : undefined,
+    }));
 
-        setNfts(nftList);
-        // Stack identical NFTs
-        stackNFTs(nftList);
-      }
-    } catch (error) {
-      console.error('Failed to fetch NFTs:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const stackNFTs = (nftList: NFT[]) => {
+    // Stack identical NFTs
     const nftMap = new Map<string, StackedNFT>();
 
     nftList.forEach((nft) => {
@@ -134,9 +127,8 @@ export default function CollectionBrowsePage() {
       }
     });
 
-    const stacked = Array.from(nftMap.values());
-    setStackedNFTs(stacked);
-  };
+    setStackedNFTs(Array.from(nftMap.values()));
+  }, [nftsQuery.data, collection]);
 
   const handleNFTClick = (stackedNFT: StackedNFT) => {
     setSelectedNFT(stackedNFT);
@@ -164,6 +156,8 @@ export default function CollectionBrowsePage() {
         return 'from-gray-500 to-gray-600';
     }
   };
+
+  const isLoading = collectionQuery.isLoading || nftsQuery.isLoading;
 
   return (
     <>

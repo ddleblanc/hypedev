@@ -1,13 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { z } from 'zod';
-import { getListingById } from '@/lib/marketplace';
-import { auth } from '@/lib/auth';
-import { logListing, logListingCanceled } from '@/lib/activity';
-import { requireAuthMatch, AuthError } from '@/lib/thirdweb-auth';
+import { NextRequest } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { getListingById } from "@/lib/marketplace";
+import { auth } from "@/lib/auth";
+import { logListing, logListingCanceled } from "@/lib/activity";
+import { requireAuthMatch, AuthError } from "@/lib/thirdweb-auth";
+import { rateLimitCheck } from "@/lib/rate-limit";
+import { ResultAsync, ok, err } from "@/lib/result";
+import { resultToResponse, resultToResponseWithRateLimit } from "@/lib/api-utils";
+import {
+  validationError,
+  notFoundError,
+  databaseError,
+  badRequestError,
+  unauthorizedError,
+  forbiddenError,
+  type AnyAppError,
+} from "@/lib/errors";
 
-// Schema for creating a listing record
-const createListingSchema = z.object({
+// Zod schemas for validation
+const CreateListingSchema = z.object({
   nftId: z.string(),
   listingId: z.string(),
   sellerAddress: z.string(),
@@ -20,11 +32,17 @@ const createListingSchema = z.object({
   quantity: z.number().int().positive().default(1),
 });
 
-// Schema for updating a listing
-const updateListingSchema = z.object({
+const UpdateListingSchema = z.object({
   listingId: z.string(),
   pricePerToken: z.number().positive().optional(),
-  status: z.enum(['ACTIVE', 'SOLD', 'CANCELLED', 'EXPIRED']).optional(),
+  status: z.enum(["ACTIVE", "SOLD", "CANCELLED", "EXPIRED"]).optional(),
+});
+
+const GetListingsQuerySchema = z.object({
+  seller: z.string().optional(),
+  status: z.enum(["ACTIVE", "SOLD", "CANCELLED", "EXPIRED"]).default("ACTIVE"),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
 });
 
 /**
@@ -32,41 +50,60 @@ const updateListingSchema = z.object({
  * Create a new listing record in the database after on-chain transaction
  */
 export async function POST(request: NextRequest) {
+  // Rate limit API writes
+  const rateLimit = await rateLimitCheck(request, "apiWrite");
+  if (rateLimit.blocked) return rateLimit.response;
+
+  // Parse JSON body
+  const bodyResult = await ResultAsync.fromPromise(
+    request.json() as Promise<unknown>,
+    () => badRequestError("Invalid JSON body")
+  );
+
+  if (bodyResult.isErr()) {
+    return resultToResponseWithRateLimit(err<never, AnyAppError>(bodyResult.error), rateLimit);
+  }
+
+  // Validate input
+  const parseResult = CreateListingSchema.safeParse(bodyResult.value);
+  if (!parseResult.success) {
+    return resultToResponseWithRateLimit(err(validationError(parseResult.error)), rateLimit);
+  }
+
+  const validatedData = parseResult.data;
+
+  // Verify the caller is the seller
   try {
-    const body = await request.json();
-    const validatedData = createListingSchema.parse(body);
-
-    // Verify the caller is the seller
-    try {
-      await requireAuthMatch(validatedData.sellerAddress);
-    } catch (authError) {
-      if (authError instanceof AuthError) {
-        return NextResponse.json(
-          { success: false, error: authError.message },
-          { status: authError.status }
-        );
-      }
-      throw authError;
+    await requireAuthMatch(validatedData.sellerAddress);
+  } catch (authError) {
+    if (authError instanceof AuthError) {
+      return resultToResponseWithRateLimit(
+        err(
+          authError.status === 401
+            ? unauthorizedError(authError.message)
+            : forbiddenError(authError.message)
+        ),
+        rateLimit
+      );
     }
+    throw authError;
+  }
 
-    // Verify the listing exists on-chain
-    // Note: There may be a delay between tx confirmation and indexing
-    let onChainListing = null;
-    try {
-      onChainListing = await getListingById(validatedData.listingId);
-    } catch (chainError) {
-      console.error('Error fetching on-chain listing:', chainError);
-      // Continue anyway - the listing was just created so may not be indexed yet
-    }
-
+  // Verify the listing exists on-chain (non-blocking)
+  try {
+    const onChainListing = await getListingById(validatedData.listingId);
     if (!onChainListing) {
-      console.warn(`Listing ${validatedData.listingId} not found on-chain yet, proceeding with DB save anyway`);
-      // Don't fail - the tx succeeded so the listing should exist, might just not be indexed yet
+      console.warn(
+        `Listing ${validatedData.listingId} not found on-chain yet, proceeding with DB save anyway`
+      );
     }
+  } catch (chainError) {
+    console.error("Error fetching on-chain listing:", chainError);
+  }
 
-    // Create the listing record and update NFT in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create the marketplace listing
+  // Create listing and update NFT in transaction
+  const result = await ResultAsync.fromPromise(
+    prisma.$transaction(async (tx) => {
       const listing = await tx.marketplaceListing.create({
         data: {
           listingId: validatedData.listingId,
@@ -76,76 +113,45 @@ export async function POST(request: NextRequest) {
           tokenId: validatedData.tokenId,
           quantity: validatedData.quantity,
           pricePerToken: validatedData.pricePerToken,
-          listingType: 'direct',
+          listingType: "direct",
           startTimestamp: new Date(validatedData.startTimestamp),
           endTimestamp: new Date(validatedData.endTimestamp),
           transactionHash: validatedData.transactionHash,
-          status: 'ACTIVE',
+          status: "ACTIVE",
         },
       });
 
-      // Update the NFT with listing information
       const updatedNft = await tx.nft.update({
         where: { id: validatedData.nftId },
         data: {
           isListed: true,
           listingPrice: validatedData.pricePerToken,
           listingId: validatedData.listingId,
-          listingType: 'direct',
+          listingType: "direct",
           listingExpiry: new Date(validatedData.endTimestamp),
           listedAt: new Date(),
         },
       });
 
       return { listing, updatedNft };
-    });
+    }),
+    (e) => databaseError(e)
+  );
 
-    // Log the listing activity
-    try {
-      const seller = await auth.getUserByWallet(validatedData.sellerAddress);
-      if (seller) {
-        // Get collection ID from NFT
-        const nftWithCollection = await prisma.nft.findUnique({
-          where: { id: validatedData.nftId },
-          select: { collectionId: true },
-        });
-        await logListing(
-          seller.id,
-          validatedData.nftId,
-          validatedData.listingId,
-          validatedData.pricePerToken,
-          nftWithCollection?.collectionId,
-          validatedData.transactionHash
-        );
-      }
-    } catch (activityError) {
-      // Don't fail the request if activity logging fails
-      console.error('Failed to log listing activity:', activityError);
-    }
-
-    return NextResponse.json({
-      success: true,
-      listing: result.listing,
-      nft: result.updatedNft,
-    });
-  } catch (error) {
-    console.error('Error creating listing:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
-    }
-
-    // Include more details for debugging
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('Listing creation failed:', errorMessage);
-    return NextResponse.json(
-      { success: false, error: `Failed to create listing record: ${errorMessage}` },
-      { status: 500 }
-    );
+  if (result.isErr()) {
+    return resultToResponseWithRateLimit(err<never, AnyAppError>(result.error), rateLimit);
   }
+
+  // Log activity (non-blocking)
+  logListingActivity(validatedData).catch(console.error);
+
+  return resultToResponseWithRateLimit(
+    ok({
+      listing: result.value.listing,
+      nft: result.value.updatedNft,
+    }),
+    rateLimit
+  );
 }
 
 /**
@@ -153,24 +159,37 @@ export async function POST(request: NextRequest) {
  * Fetch listings - by seller address, or all active listings
  */
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const sellerAddress = searchParams.get('seller');
-    const status = searchParams.get('status') || 'ACTIVE';
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const skip = (page - 1) * limit;
+  // Rate limit API reads
+  const rateLimitGet = await rateLimitCheck(request, "api");
+  if (rateLimitGet.blocked) return rateLimitGet.response;
 
-    const where: any = {
-      status: status as any,
-      listingType: 'direct',
-    };
+  const searchParams = request.nextUrl.searchParams;
 
-    if (sellerAddress) {
-      where.sellerAddress = sellerAddress.toLowerCase();
-    }
+  // Validate query parameters
+  const parseResult = GetListingsQuerySchema.safeParse({
+    seller: searchParams.get("seller") || undefined,
+    status: searchParams.get("status") || "ACTIVE",
+    page: searchParams.get("page") || 1,
+    limit: searchParams.get("limit") || 20,
+  });
 
-    const [listings, total] = await Promise.all([
+  if (!parseResult.success) {
+    return resultToResponseWithRateLimit(err(validationError(parseResult.error)), rateLimitGet);
+  }
+
+  const { seller, status, page, limit } = parseResult.data;
+  const skip = (page - 1) * limit;
+
+  // Build where clause
+  const where = {
+    status: status as "ACTIVE" | "SOLD" | "CANCELLED" | "EXPIRED",
+    listingType: "direct" as const,
+    ...(seller && { sellerAddress: seller.toLowerCase() }),
+  };
+
+  // Execute query
+  const result = await ResultAsync.fromPromise(
+    Promise.all([
       prisma.marketplaceListing.findMany({
         where,
         include: {
@@ -188,15 +207,17 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         skip,
         take: limit,
       }),
       prisma.marketplaceListing.count({ where }),
-    ]);
+    ]),
+    (e) => databaseError(e)
+  );
 
-    return NextResponse.json({
-      success: true,
+  return resultToResponseWithRateLimit(
+    result.map(([listings, total]) => ({
       listings,
       pagination: {
         page,
@@ -204,14 +225,9 @@ export async function GET(request: NextRequest) {
         total,
         totalPages: Math.ceil(total / limit),
       },
-    });
-  } catch (error) {
-    console.error('Error fetching listings:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch listings' },
-      { status: 500 }
-    );
-  }
+    })),
+    rateLimitGet
+  );
 }
 
 /**
@@ -219,21 +235,39 @@ export async function GET(request: NextRequest) {
  * Update listing status (for cancellation or completion)
  */
 export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const validatedData = updateListingSchema.parse(body);
+  // Rate limit API writes
+  const rateLimitPut = await rateLimitCheck(request, "apiWrite");
+  if (rateLimitPut.blocked) return rateLimitPut.response;
 
-    const result = await prisma.$transaction(async (tx) => {
-      // Get the listing to find the associated NFT
+  // Parse JSON body
+  const bodyResult = await ResultAsync.fromPromise(
+    request.json() as Promise<unknown>,
+    () => badRequestError("Invalid JSON body")
+  );
+
+  if (bodyResult.isErr()) {
+    return resultToResponseWithRateLimit(err<never, AnyAppError>(bodyResult.error), rateLimitPut);
+  }
+
+  // Validate input
+  const parseResult = UpdateListingSchema.safeParse(bodyResult.value);
+  if (!parseResult.success) {
+    return resultToResponseWithRateLimit(err(validationError(parseResult.error)), rateLimitPut);
+  }
+
+  const validatedData = parseResult.data;
+
+  // Execute update in transaction
+  const result = await ResultAsync.fromPromise(
+    prisma.$transaction(async (tx) => {
       const existingListing = await tx.marketplaceListing.findUnique({
         where: { listingId: validatedData.listingId },
       });
 
       if (!existingListing) {
-        throw new Error('Listing not found');
+        throw new Error("Listing not found");
       }
 
-      // Update the listing
       const listing = await tx.marketplaceListing.update({
         where: { listingId: validatedData.listingId },
         data: {
@@ -242,8 +276,8 @@ export async function PUT(request: NextRequest) {
         },
       });
 
-      // If listing is cancelled or sold, update NFT
-      if (validatedData.status === 'CANCELLED' || validatedData.status === 'SOLD') {
+      // Clear NFT listing data if cancelled or sold
+      if (validatedData.status === "CANCELLED" || validatedData.status === "SOLD") {
         await tx.nft.update({
           where: { id: existingListing.nftId },
           data: {
@@ -258,92 +292,94 @@ export async function PUT(request: NextRequest) {
       }
 
       return listing;
-    });
-
-    return NextResponse.json({
-      success: true,
-      listing: result,
-    });
-  } catch (error) {
-    console.error('Error updating listing:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
+    }),
+    (e) => {
+      if (e instanceof Error && e.message === "Listing not found") {
+        return notFoundError("Listing", validatedData.listingId);
+      }
+      return databaseError(e);
     }
+  );
 
-    return NextResponse.json(
-      { success: false, error: 'Failed to update listing' },
-      { status: 500 }
-    );
-  }
+  return resultToResponseWithRateLimit(result.map((listing) => ({ listing })), rateLimitPut);
 }
 
 /**
  * DELETE /api/marketplace/listings
  * Cancel a listing (mark as cancelled)
- * Requires authenticated seller
  */
 export async function DELETE(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const listingId = searchParams.get('listingId');
+  // Rate limit API writes
+  const rateLimitDelete = await rateLimitCheck(request, "apiWrite");
+  if (rateLimitDelete.blocked) return rateLimitDelete.response;
 
-    if (!listingId) {
-      return NextResponse.json(
-        { success: false, error: 'Listing ID is required' },
-        { status: 400 }
-      );
-    }
+  const searchParams = request.nextUrl.searchParams;
+  const listingId = searchParams.get("listingId");
 
-    // Find the listing first to get seller address
-    const existingListing = await prisma.marketplaceListing.findUnique({
+  if (!listingId) {
+    return resultToResponseWithRateLimit(err(badRequestError("Listing ID is required")), rateLimitDelete);
+  }
+
+  // Find the listing
+  const listingResult = await ResultAsync.fromPromise(
+    prisma.marketplaceListing.findUnique({
       where: { listingId },
-    });
+    }),
+    (e) => databaseError(e)
+  );
 
-    if (!existingListing) {
-      return NextResponse.json(
-        { success: false, error: 'Listing not found' },
-        { status: 404 }
+  if (listingResult.isErr()) {
+    return resultToResponseWithRateLimit(err<never, AnyAppError>(listingResult.error), rateLimitDelete);
+  }
+
+  const existingListing = listingResult.value;
+  if (!existingListing) {
+    return resultToResponseWithRateLimit(err(notFoundError("Listing", listingId)), rateLimitDelete);
+  }
+
+  // Verify the caller is the seller
+  try {
+    await requireAuthMatch(existingListing.sellerAddress);
+  } catch (authError) {
+    if (authError instanceof AuthError) {
+      return resultToResponseWithRateLimit(
+        err(
+          authError.status === 401
+            ? unauthorizedError(authError.message)
+            : forbiddenError(authError.message)
+        ),
+        rateLimitDelete
       );
     }
+    throw authError;
+  }
 
-    // Verify the caller is the seller
-    try {
-      await requireAuthMatch(existingListing.sellerAddress);
-    } catch (authError) {
-      if (authError instanceof AuthError) {
-        return NextResponse.json(
-          { success: false, error: authError.message },
-          { status: authError.status }
-        );
-      }
-      throw authError;
-    }
-
-    // Get user for activity logging
-    const user = await auth.getUserByWallet(existingListing.sellerAddress);
-
-    // Verify the listing is cancelled on-chain before updating database
-    // This ensures the user actually completed the on-chain cancellation
+  // Verify listing is cancelled on-chain
+  try {
     const onChainListing = await getListingById(listingId);
-
-    // If listing still exists and is active on-chain, don't update DB yet
-    // Status can be a string or number depending on thirdweb version
-    if (onChainListing && (onChainListing.status === 'CREATED' || Number(onChainListing.status) === 1)) {
-      return NextResponse.json(
-        { success: false, error: 'Listing is still active on-chain. Please complete the cancellation transaction first.' },
-        { status: 400 }
+    if (
+      onChainListing &&
+      (onChainListing.status === "CREATED" || Number(onChainListing.status) === 1)
+    ) {
+      return resultToResponseWithRateLimit(
+        err(
+          badRequestError(
+            "Listing is still active on-chain. Please complete the cancellation transaction first."
+          )
+        ),
+        rateLimitDelete
       );
     }
+  } catch {
+    // Ignore errors - listing may not exist on-chain anymore
+  }
 
-    // Cancel the listing and update NFT
-    const result = await prisma.$transaction(async (tx) => {
+  // Cancel listing and update NFT
+  const result = await ResultAsync.fromPromise(
+    prisma.$transaction(async (tx) => {
       const listing = await tx.marketplaceListing.update({
         where: { listingId },
-        data: { status: 'CANCELLED' },
+        data: { status: "CANCELLED" },
       });
 
       await tx.nft.update({
@@ -359,36 +395,55 @@ export async function DELETE(request: NextRequest) {
       });
 
       return listing;
-    });
+    }),
+    (e) => databaseError(e)
+  );
 
-    // Log the cancellation activity
-    if (user) {
-      try {
-        // Get collection ID from NFT
-        const nftWithCollection = await prisma.nft.findUnique({
-          where: { id: existingListing.nftId },
-          select: { collectionId: true },
-        });
-        await logListingCanceled(
-          user.id,
-          existingListing.nftId,
-          listingId,
-          nftWithCollection?.collectionId
-        );
-      } catch (activityError) {
-        console.error('Failed to log listing cancellation activity:', activityError);
-      }
-    }
+  if (result.isErr()) {
+    return resultToResponseWithRateLimit(err<never, AnyAppError>(result.error), rateLimitDelete);
+  }
 
-    return NextResponse.json({
-      success: true,
-      listing: result,
+  // Log cancellation (non-blocking)
+  logCancellationActivity(existingListing, listingId).catch(console.error);
+
+  return resultToResponseWithRateLimit(ok({ listing: result.value }), rateLimitDelete);
+}
+
+// Helper function to log listing activity
+async function logListingActivity(data: z.infer<typeof CreateListingSchema>) {
+  const seller = await auth.getUserByWallet(data.sellerAddress);
+  if (seller) {
+    const nftWithCollection = await prisma.nft.findUnique({
+      where: { id: data.nftId },
+      select: { collectionId: true },
     });
-  } catch (error) {
-    console.error('Error cancelling listing:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to cancel listing' },
-      { status: 500 }
+    await logListing(
+      seller.id,
+      data.nftId,
+      data.listingId,
+      data.pricePerToken,
+      nftWithCollection?.collectionId,
+      data.transactionHash
+    );
+  }
+}
+
+// Helper function to log cancellation activity
+async function logCancellationActivity(
+  listing: { sellerAddress: string; nftId: string },
+  listingId: string
+) {
+  const user = await auth.getUserByWallet(listing.sellerAddress);
+  if (user) {
+    const nftWithCollection = await prisma.nft.findUnique({
+      where: { id: listing.nftId },
+      select: { collectionId: true },
+    });
+    await logListingCanceled(
+      user.id,
+      listing.nftId,
+      listingId,
+      nftWithCollection?.collectionId
     );
   }
 }

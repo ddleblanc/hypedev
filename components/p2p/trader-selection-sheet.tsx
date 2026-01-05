@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { X, Star, TrendingUp, Package, ArrowRight } from 'lucide-react';
 import { MediaRenderer } from '@/components/media-renderer';
 import { useP2PSelectionFlow } from '@/contexts/p2p-selection-flow-context';
+import { trpc } from '@/lib/trpc/client';
 
 interface NFT {
   id: string;
@@ -21,8 +21,8 @@ interface NFT {
 interface Trader {
   id: string;
   walletAddress: string;
-  username?: string;
-  avatar?: string;
+  username?: string | null;
+  avatar?: string | null;
   rating: number;
   completedTrades: number;
   successRate: number;
@@ -41,46 +41,14 @@ interface TraderSelectionSheetProps {
 export function TraderSelectionSheet({ nft, owners, collectionName, onClose }: TraderSelectionSheetProps) {
   const router = useRouter();
   const { resetFlow } = useP2PSelectionFlow();
-  const [traders, setTraders] = useState<Trader[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchTraders();
-  }, [nft.id, owners]);
+  // Fetch traders using tRPC
+  const { data, isLoading } = trpc.p2p.traders.byAddresses.useQuery(
+    { addresses: owners, nftId: nft.id },
+    { enabled: owners.length > 0 }
+  );
 
-  const fetchTraders = async () => {
-    try {
-      setIsLoading(true);
-      // Fetch trader data for owners
-      const response = await fetch('/api/p2p/traders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addresses: owners, nftId: nft.id }),
-      });
-
-      const data = await response.json();
-      setTraders(data.traders || []);
-    } catch (error) {
-      console.error('Failed to fetch traders:', error);
-      // Mock data for development
-      setTraders(
-        owners.map((address, i) => ({
-          id: address,
-          walletAddress: address,
-          username: `Trader ${i + 1}`,
-          avatar: '/assets/img/default-avatar.png',
-          rating: 4.5 + Math.random() * 0.5,
-          completedTrades: Math.floor(Math.random() * 100) + 10,
-          successRate: 85 + Math.floor(Math.random() * 15),
-          collectionCompletion: Math.floor(Math.random() * 100),
-          availableCopies: Math.floor(Math.random() * 3) + 1,
-          tier: ['DIAMOND', 'GOLD', 'SILVER', 'BRONZE'][Math.floor(Math.random() * 4)] as Trader['tier'],
-        }))
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const traders: Trader[] = data?.traders ?? [];
 
   const handleSelectTrader = (trader: Trader) => {
     // Clear any previous trade selections before starting a new flow

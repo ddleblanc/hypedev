@@ -1,6 +1,8 @@
 export interface CollectionItem {
-  id: number;
+  id: number | string;
   dbId?: string; // Database UUID
+  tokenId?: string; // Database tokenId (may be compound format like "timestamp-index")
+  onChainTokenId?: string | null; // Actual on-chain tokenId for blockchain operations
   name: string;
   price: string;
   lastSale: string;

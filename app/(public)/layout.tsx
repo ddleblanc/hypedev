@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { NFTMarketplaceSidebar } from "@/components/nft-marketplace-sidebar";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function PublicLayout({
   children,
@@ -12,7 +12,7 @@ export default function PublicLayout({
   children: ReactNode;
 }) {
   // const pathname = usePathname();
-  // const { user, isConnected } = useWalletAuthOptimized();
+  // const { user, isConnected } = useAuth();
 
   // // Check if this is a marketplace route accessed by non-authenticated users
   // const isPublicMarketplaceRoute = pathname.startsWith('/marketplace') && (!user || !isConnected);

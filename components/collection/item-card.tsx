@@ -18,6 +18,7 @@ interface ItemCardProps {
     contractAddress: string;
   };
   onBuyNow?: (item: CollectionItem) => void;
+  onMakeOffer?: (item: CollectionItem) => void;
 }
 
 // Get border color based on item status
@@ -27,7 +28,7 @@ function getStatusBorderColor(item: CollectionItem): string {
   return "border-l-transparent";
 }
 
-export function ItemCard({ item, onClick, collection, onBuyNow }: ItemCardProps) {
+export function ItemCard({ item, onClick, collection, onBuyNow, onMakeOffer }: ItemCardProps) {
   const { addItem, isInCart } = useShoppingCart();
   const statusBorder = getStatusBorderColor(item);
   const inCart = isInCart(String(item.id));
@@ -135,7 +136,12 @@ export function ItemCard({ item, onClick, collection, onBuyNow }: ItemCardProps)
                 <Button
                   size="sm"
                   className="flex-1 bg-blue-600 text-white hover:bg-blue-700 h-7 text-xs font-medium"
-                  onClick={(e) => { e.stopPropagation(); /* TODO: Open offer dialog */ }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onMakeOffer) {
+                      onMakeOffer(item);
+                    }
+                  }}
                 >
                   <Tag className="w-3 h-3 mr-1" />
                   Make Offer

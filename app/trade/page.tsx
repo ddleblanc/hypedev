@@ -8,7 +8,7 @@ export default function TradePage() {
 
   const handleNavigate = (newMode: string) => {
     if (newMode === 'home') {
-      router.push('/');
+      router.push('/home');
     } else {
       router.push(`/${newMode}`);
     }

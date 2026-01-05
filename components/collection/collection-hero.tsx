@@ -4,7 +4,7 @@ import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Play, Pause, Volume2, VolumeX, ArrowLeft, ShoppingCart, Check, Plus,
-  Share2, Globe, Twitter, Verified
+  Share2, Globe, Twitter, Verified, Layers
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -14,6 +14,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { MediaRenderer } from "@/components/MediaRenderer";
+import { CollectionOfferDialog } from "@/components/collection/collection-offer-dialog";
+import { CollectionOffersBadge } from "@/components/collection/collection-offers-panel";
+import { useActiveAccount } from "thirdweb/react";
 
 interface CollectionHeroProps {
   collection: any;
@@ -32,9 +35,21 @@ function formatCompact(num: number): string {
 export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, onShare }: CollectionHeroProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+  const [showOfferDialog, setShowOfferDialog] = useState(false);
 
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const account = useActiveAccount();
+
+  // Prepare collection data for offer dialog
+  const collectionForOffer = collection ? {
+    id: collection.id,
+    name: collection.title,
+    address: collection.contractAddress,
+    image: collection.image || collection.bannerImage,
+    floorPrice: collection.stats?.floorPrice ? parseFloat(collection.stats.floorPrice) : null,
+    totalSupply: collection.stats?.totalSupply,
+  } : null;
 
   const togglePlayPause = () => {
     if (videoRef.current) {
@@ -143,7 +158,7 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
           <div>
             <p className="text-xs text-white/50 mb-0.5">Floor</p>
             <p className="text-xl font-semibold text-white">
-              {parseFloat(collection.stats.floorPrice || 0).toFixed(2)} ETH
+              {parseFloat(collection.stats.floorPrice || 0).toFixed(5)} ETH
             </p>
           </div>
           <Separator orientation="vertical" className="h-10 bg-white/20" />
@@ -169,6 +184,13 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
           </div>
         </div>
 
+        {/* Best Offer Badge */}
+        {collection?.id && (
+          <div className="mb-3">
+            <CollectionOffersBadge collectionId={collection.id} />
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="flex items-center gap-3">
           <Button
@@ -178,6 +200,17 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
             <ShoppingCart className="w-4 h-4 mr-2" />
             Buy Now
           </Button>
+          {account && (
+            <Button
+              size="default"
+              variant="outline"
+              className="border-[rgb(163,255,18)]/50 text-[rgb(163,255,18)] hover:bg-[rgb(163,255,18)]/10 transition-colors duration-150"
+              onClick={() => setShowOfferDialog(true)}
+            >
+              <Layers className="w-4 h-4 mr-2" />
+              Make Offer
+            </Button>
+          )}
           <Button
             size="default"
             variant="outline"
@@ -288,6 +321,16 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
             <ShoppingCart className="w-4 h-4 mr-1" />
             Buy
           </Button>
+          {account && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="border-[rgb(163,255,18)]/50 text-[rgb(163,255,18)] hover:bg-[rgb(163,255,18)]/10 h-9 w-9"
+              onClick={() => setShowOfferDialog(true)}
+            >
+              <Layers className="w-4 h-4" />
+            </Button>
+          )}
           <Button
             size="icon"
             variant="outline"
@@ -306,6 +349,14 @@ export function CollectionHero({ collection, isWatchlisted, onWatchlistToggle, o
           </Button>
         </div>
       </div>
+
+      {/* Collection Offer Dialog */}
+      <CollectionOfferDialog
+        open={showOfferDialog}
+        onOpenChange={setShowOfferDialog}
+        collection={collectionForOffer}
+        onSuccess={() => setShowOfferDialog(false)}
+      />
     </div>
   );
 }

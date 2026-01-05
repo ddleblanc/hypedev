@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter, useParams } from 'next/navigation';
-import { useWalletAuthOptimized } from '@/hooks/use-wallet-auth-optimized';
+import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { trpc } from '@/lib/trpc/client';
 
 // Profile Components
 import { ProfileHeader } from '@/components/profile/profile-header';
@@ -17,26 +18,6 @@ import { ProfileFavorites, type FavoriteItem } from '@/components/profile/profil
 // UI Components
 import { Button } from '@/components/ui/button';
 import { Menu, X, AlertTriangle } from 'lucide-react';
-
-interface UserProfile {
-  id: string;
-  walletAddress: string;
-  username?: string | null;
-  bio?: string | null;
-  profilePicture?: string | null;
-  bannerImage?: string | null;
-  isCreator: boolean;
-  creatorApprovedAt?: Date | null;
-  socials?: { platform: string; url: string }[];
-}
-
-interface ProfileStats {
-  nftsOwned: number;
-  collectionsOwned: number;
-  followers: number;
-  following: number;
-  volumeTraded?: string;
-}
 
 interface Collection {
   id: string;
@@ -54,23 +35,23 @@ const defaultFilters: ProfileFilters = {
   searchQuery: '',
 };
 
+// Map filter sortBy values to API sortBy values
+const sortByMap: Record<string, 'recent' | 'oldest' | 'price-low' | 'price-high' | 'rarity-rare' | 'rarity-common' | 'most-liked'> = {
+  'recently_listed': 'recent',
+  'price_low': 'price-low',
+  'price_high': 'price-high',
+  'oldest': 'oldest',
+  'rarity_rare': 'rarity-rare',
+  'rarity_common': 'rarity-common',
+  'most_liked': 'most-liked',
+};
+
 export default function PublicProfilePage() {
   const router = useRouter();
   const params = useParams();
   const address = params.address as string;
-  const { user: currentUser, isLoading: authLoading } = useWalletAuthOptimized();
+  const { user: currentUser, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
-
-  // Profile state
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [stats, setStats] = useState<ProfileStats>({
-    nftsOwned: 0,
-    collectionsOwned: 0,
-    followers: 0,
-    following: 0,
-  });
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<ProfileTab>('collected');
@@ -81,22 +62,9 @@ export default function PublicProfilePage() {
     activity: 0,
   });
 
-  // Content state
-  const [nfts, setNfts] = useState<NFTItem[]>([]);
-  const [createdNfts, setCreatedNfts] = useState<NFTItem[]>([]);
-  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [collections, setCollections] = useState<Collection[]>([]);
-
   // Filter state
   const [filters, setFilters] = useState<ProfileFilters>(defaultFilters);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-
-  // Loading states
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [isLoadingNfts, setIsLoadingNfts] = useState(false);
-  const [isLoadingActivity, setIsLoadingActivity] = useState(false);
-  const [isLoadingFavorites, setIsLoadingFavorites] = useState(false);
 
   // Check if viewing own profile - redirect to /profile
   const isOwnProfile = currentUser?.walletAddress?.toLowerCase() === address?.toLowerCase();
@@ -107,59 +75,125 @@ export default function PublicProfilePage() {
     }
   }, [isOwnProfile, authLoading, router]);
 
-  // Fetch profile data
-  const fetchProfile = useCallback(async () => {
-    if (!address) return;
+  // Map status filter
+  const getStatusFilter = () => {
+    if (filters.status === 'all') return undefined;
+    return filters.status as 'listed' | 'unlisted' | 'auction' | 'on_auction' | 'has_offers' | 'hasOffers' | 'new';
+  };
 
-    try {
-      const response = await fetch(`/api/user/${address}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setProfile({
-          id: data.user.id,
-          walletAddress: address,
-          username: data.user.username,
-          bio: data.user.bio,
-          profilePicture: data.user.profilePicture,
-          bannerImage: data.user.bannerImage,
-          isCreator: data.user.isCreator,
-          creatorApprovedAt: data.user.creatorApprovedAt,
-          socials: data.user.socials || [],
-        });
-
-        setStats({
-          nftsOwned: data.user.stats?.nftsOwned || 0,
-          collectionsOwned: data.user.stats?.collectionsOwned || 0,
-          followers: data.user.stats?.followers || 0,
-          following: data.user.stats?.following || 0,
-          volumeTraded: data.user.stats?.volumeTraded,
-        });
-      } else {
-        setProfile(null);
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      setProfile(null);
-    } finally {
-      setIsLoadingProfile(false);
+  // tRPC query for profile
+  const profileQuery = trpc.user.profile.byAddress.useQuery(
+    { address: address || '' },
+    {
+      enabled: !!address && !isOwnProfile,
     }
-  }, [address]);
+  );
 
-  // Check follow status
-  const checkFollowStatus = useCallback(async () => {
-    if (!currentUser?.walletAddress || !address) return;
-
-    try {
-      const response = await fetch(
-        `/api/user/${address}/follow?follower=${currentUser.walletAddress}`
-      );
-      const data = await response.json();
-      setIsFollowing(data.data?.isFollowing || false);
-    } catch (error) {
-      console.error('Error checking follow status:', error);
+  // tRPC query for follow status
+  const followStatusQuery = trpc.user.followers.status.useQuery(
+    {
+      address: address || '',
+      checkerAddress: currentUser?.walletAddress,
+    },
+    {
+      enabled: !!address && !!currentUser?.walletAddress && !isOwnProfile,
     }
-  }, [currentUser, address]);
+  );
+
+  // tRPC mutations for follow/unfollow
+  const followMutation = trpc.user.followers.follow.useMutation();
+  const unfollowMutation = trpc.user.followers.unfollow.useMutation();
+
+  // tRPC queries for NFTs
+  const collectedQuery = trpc.user.nfts.list.useQuery(
+    {
+      address: address || '',
+      filter: 'owned',
+      status: getStatusFilter(),
+      sortBy: sortByMap[filters.sortBy] || 'recent',
+      search: filters.searchQuery || undefined,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
+      collections: filters.collections.length > 0 ? filters.collections : undefined,
+    },
+    {
+      enabled: !!address && !isOwnProfile && activeTab === 'collected' && !!profileQuery.data,
+    }
+  );
+
+  const createdQuery = trpc.user.nfts.list.useQuery(
+    {
+      address: address || '',
+      filter: 'created',
+      status: getStatusFilter(),
+      sortBy: sortByMap[filters.sortBy] || 'recent',
+      search: filters.searchQuery || undefined,
+      minPrice: filters.minPrice,
+      maxPrice: filters.maxPrice,
+      collections: filters.collections.length > 0 ? filters.collections : undefined,
+    },
+    {
+      enabled: !!address && !isOwnProfile && activeTab === 'created' && !!profileQuery.data,
+    }
+  );
+
+  // tRPC query for favorites
+  const favoritesQuery = trpc.user.favorites.list.useQuery(
+    {
+      userId: profileQuery.data?.id || '',
+      isPublic: true,
+    },
+    {
+      enabled: !!profileQuery.data?.id && !isOwnProfile && activeTab === 'favorited',
+    }
+  );
+
+  // tRPC query for activity
+  const activityQuery = trpc.user.activity.list.useQuery(
+    {
+      address: address || '',
+    },
+    {
+      enabled: !!address && !isOwnProfile && activeTab === 'activity',
+    }
+  );
+
+  // Update tab counts when data changes
+  useEffect(() => {
+    if (collectedQuery.data?.filters) {
+      setTabCounts((prev) => ({
+        ...prev,
+        collected: collectedQuery.data.filters.totalOwned,
+      }));
+    }
+  }, [collectedQuery.data]);
+
+  useEffect(() => {
+    if (createdQuery.data?.filters) {
+      setTabCounts((prev) => ({
+        ...prev,
+        created: createdQuery.data.filters.totalCreated,
+      }));
+    }
+  }, [createdQuery.data]);
+
+  useEffect(() => {
+    if (favoritesQuery.data?.watchlist) {
+      setTabCounts((prev) => ({
+        ...prev,
+        favorited: favoritesQuery.data.watchlist?.items?.length || 0,
+      }));
+    }
+  }, [favoritesQuery.data]);
+
+  useEffect(() => {
+    if (activityQuery.data?.activities) {
+      setTabCounts((prev) => ({
+        ...prev,
+        activity: activityQuery.data.activities.length,
+      }));
+    }
+  }, [activityQuery.data]);
 
   // Handle follow/unfollow
   const handleFollowToggle = async () => {
@@ -172,33 +206,30 @@ export default function PublicProfilePage() {
       return;
     }
 
-    setIsFollowLoading(true);
+    const isFollowing = followStatusQuery.data?.isFollowing || false;
+
     try {
-      const response = await fetch(`/api/user/${address}/follow`, {
-        method: isFollowing ? 'DELETE' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      if (isFollowing) {
+        await unfollowMutation.mutateAsync({
+          targetAddress: address,
           followerAddress: currentUser.walletAddress,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setIsFollowing(!isFollowing);
-        setStats((prev) => ({
-          ...prev,
-          followers: data.data?.followersCount ?? (isFollowing ? prev.followers - 1 : prev.followers + 1),
-        }));
+        });
         toast({
-          title: isFollowing ? 'Unfollowed' : 'Following',
-          description: isFollowing
-            ? `You unfollowed ${profile?.username || 'this user'}`
-            : `You are now following ${profile?.username || 'this user'}`,
+          title: 'Unfollowed',
+          description: `You unfollowed ${profileQuery.data?.username || 'this user'}`,
         });
       } else {
-        throw new Error(data.error || 'Failed to update follow status');
+        await followMutation.mutateAsync({
+          targetAddress: address,
+          followerAddress: currentUser.walletAddress,
+        });
+        toast({
+          title: 'Following',
+          description: `You are now following ${profileQuery.data?.username || 'this user'}`,
+        });
       }
+      // Refetch follow status
+      followStatusQuery.refetch();
     } catch (error) {
       console.error('Error toggling follow:', error);
       toast({
@@ -206,202 +237,94 @@ export default function PublicProfilePage() {
         description: 'Failed to update follow status',
         variant: 'destructive',
       });
-    } finally {
-      setIsFollowLoading(false);
     }
   };
 
-  // Fetch user's NFTs
-  const fetchNfts = useCallback(
-    async (filter: 'owned' | 'created' = 'owned') => {
-      if (!address) return;
+  // Transform NFT data for the grid
+  const transformNfts = useCallback((nfts: any[]): NFTItem[] => {
+    return nfts.map((nft) => ({
+      id: nft.id,
+      tokenId: nft.tokenId,
+      name: nft.name,
+      image: nft.image,
+      description: nft.description,
+      collection: {
+        id: nft.collectionId || nft.collection?.id,
+        name: nft.collectionName || nft.collection?.name,
+        address: nft.contractAddress || nft.collection?.address,
+        image: nft.collection?.image,
+      },
+      ownerAddress: nft.ownerAddress,
+      isListed: nft.isListed || nft.listed || false,
+      listingPrice: nft.listingPrice || nft.price,
+      listingType: nft.listingType,
+      listingId: nft.listingDetails?.listingId,
+      listingExpiry: nft.listingDetails?.endTimestamp,
+      rarityRank: nft.rarityRank || nft.rank,
+      rarityTier: nft.rarityTier || nft.rarity,
+    }));
+  }, []);
 
-      setIsLoadingNfts(true);
-      try {
-        const params = new URLSearchParams({
-          filter,
-          status: filters.status !== 'all' ? filters.status : '',
-          sortBy: filters.sortBy,
-          search: filters.searchQuery,
-        });
-
-        if (filters.minPrice) params.set('minPrice', filters.minPrice.toString());
-        if (filters.maxPrice) params.set('maxPrice', filters.maxPrice.toString());
-        if (filters.collections.length > 0) {
-          params.set('collections', filters.collections.join(','));
-        }
-
-        const response = await fetch(`/api/user/${address}/nfts?${params}`);
-        const data = await response.json();
-
-        // API returns data.data.nfts structure
-        const nftsData = data.data?.nfts || data.nfts || [];
-        const totalCount = data.data?.pagination?.total || data.total || nftsData.length;
-
-        if (data.success && nftsData.length > 0) {
-          const transformedNfts: NFTItem[] = nftsData.map((nft: any) => ({
-            id: nft.id,
-            tokenId: nft.tokenId,
-            name: nft.name,
-            image: nft.image,
-            description: nft.description,
-            collection: {
-              id: nft.collectionId || nft.collection?.id,
-              name: nft.collectionName || nft.collection?.name,
-              address: nft.contractAddress || nft.collection?.address,
-              image: nft.collection?.image,
-            },
-            ownerAddress: nft.ownerAddress,
-            isListed: nft.isListed || nft.listed || false,
-            listingPrice: nft.listingPrice || nft.price,
-            listingType: nft.listingType,
-            listingId: nft.listingId,
-            listingExpiry: nft.listingExpiry,
-            rarityRank: nft.rarityRank || nft.rank,
-            rarityTier: nft.rarityTier || nft.rarity,
-          }));
-
-          if (filter === 'owned') {
-            setNfts(transformedNfts);
-            setTabCounts((prev) => ({
-              ...prev,
-              collected: totalCount,
-            }));
-          } else {
-            setCreatedNfts(transformedNfts);
-            setTabCounts((prev) => ({
-              ...prev,
-              created: totalCount,
-            }));
-          }
-
-          // Extract unique collections for filter
-          const uniqueCollections = Array.from(
-            new Map(
-              transformedNfts.map((nft) => [
-                nft.collection.id,
-                {
-                  id: nft.collection.id,
-                  name: nft.collection.name,
-                  image: nft.collection.image,
-                },
-              ])
-            ).values()
-          );
-          setCollections(uniqueCollections);
-        } else if (data.success) {
-          // Empty result
-          if (filter === 'owned') {
-            setNfts([]);
-            setTabCounts((prev) => ({ ...prev, collected: 0 }));
-          } else {
-            setCreatedNfts([]);
-            setTabCounts((prev) => ({ ...prev, created: 0 }));
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching NFTs:', error);
-      } finally {
-        setIsLoadingNfts(false);
-      }
-    },
-    [address, filters]
-  );
-
-  // Fetch favorites (public favorites if available)
-  const fetchFavorites = useCallback(async () => {
-    if (!profile?.id) return;
-
-    setIsLoadingFavorites(true);
-    try {
-      const response = await fetch(
-        `/api/lists/watchlist?userId=${profile.id}&type=favorites&public=true`
-      );
-      const data = await response.json();
-
-      if (data.success && data.watchlist) {
-        setFavorites(data.watchlist.items || []);
-        setTabCounts((prev) => ({
-          ...prev,
-          favorited: data.watchlist.items?.length || 0,
-        }));
-      }
-    } catch (error) {
-      console.error('Error fetching favorites:', error);
-    } finally {
-      setIsLoadingFavorites(false);
+  // Get current NFTs based on active tab
+  const currentNfts = useMemo(() => {
+    if (activeTab === 'collected') {
+      return transformNfts(collectedQuery.data?.nfts || []);
+    } else if (activeTab === 'created') {
+      return transformNfts(createdQuery.data?.nfts || []);
     }
-  }, [profile]);
+    return [];
+  }, [activeTab, collectedQuery.data, createdQuery.data, transformNfts]);
 
-  // Fetch activity
-  const fetchActivity = useCallback(async () => {
-    if (!address) return;
+  // Get favorites data - transform to match FavoriteItem interface
+  const favorites: FavoriteItem[] = useMemo(() => {
+    const items = favoritesQuery.data?.watchlist?.items || [];
+    return items.map((item) => ({
+      id: item.id,
+      itemType: item.itemType as 'nft' | 'collection' | 'user',
+      itemId: item.itemId,
+      metadata: (item.metadata && typeof item.metadata === 'object' && !Array.isArray(item.metadata))
+        ? item.metadata as { name: string; image?: string; symbol?: string; description?: string }
+        : { name: 'Unknown' },
+      addedAt: item.addedAt.toISOString(),
+    }));
+  }, [favoritesQuery.data]);
 
-    setIsLoadingActivity(true);
-    try {
-      // Fetch public activity for this user
-      const response = await fetch(`/api/user/${address}/activity`);
-      const data = await response.json();
+  // Get activities data - transform to match Activity interface
+  const activities: Activity[] = useMemo(() => {
+    const rawActivities = activityQuery.data?.activities || [];
+    return rawActivities.map((activity) => ({
+      id: activity.id,
+      type: activity.type as Activity['type'],
+      nft: activity.nft ? {
+        id: activity.nft.id,
+        name: activity.nft.name,
+        image: activity.nft.image,
+        collection: activity.nft.collectionName || 'Unknown Collection',
+      } : undefined,
+      price: activity.price ?? undefined,
+      from: activity.relatedAddress ?? undefined,
+      timestamp: activity.timestamp,
+      transactionHash: activity.txHash ?? undefined,
+    }));
+  }, [activityQuery.data]);
 
-      if (data.success) {
-        setActivities(data.activities || []);
-        setTabCounts((prev) => ({
-          ...prev,
-          activity: data.activities?.length || 0,
-        }));
-      } else {
-        // Fallback to empty
-        setActivities([]);
-        setTabCounts((prev) => ({ ...prev, activity: 0 }));
-      }
-    } catch (error) {
-      console.error('Error fetching activity:', error);
-      setActivities([]);
-    } finally {
-      setIsLoadingActivity(false);
-    }
-  }, [address]);
-
-  // Load profile on mount
-  useEffect(() => {
-    if (address && !isOwnProfile) {
-      fetchProfile();
-    }
-  }, [address, isOwnProfile, fetchProfile]);
-
-  // Check follow status when profile loads
-  useEffect(() => {
-    if (profile && currentUser) {
-      checkFollowStatus();
-    }
-  }, [profile, currentUser, checkFollowStatus]);
-
-  // Load tab content when tab changes
-  useEffect(() => {
-    if (!profile) return;
-
-    switch (activeTab) {
-      case 'collected':
-        fetchNfts('owned');
-        break;
-      case 'created':
-        fetchNfts('created');
-        break;
-      case 'favorited':
-        fetchFavorites();
-        break;
-      case 'activity':
-        fetchActivity();
-        break;
-    }
-  }, [activeTab, profile, fetchNfts, fetchFavorites, fetchActivity]);
-
-  // Refresh NFTs when filters change
-  useEffect(() => {
-    if (activeTab === 'collected' || activeTab === 'created') {
-      fetchNfts(activeTab === 'collected' ? 'owned' : 'created');
-    }
-  }, [filters, activeTab, fetchNfts]);
+  // Extract collections for filter
+  const collections = useMemo(() => {
+    const nfts = currentNfts;
+    const uniqueCollections = Array.from(
+      new Map(
+        nfts.map((nft) => [
+          nft.collection.id,
+          {
+            id: nft.collection.id,
+            name: nft.collection.name,
+            image: nft.collection.image,
+          },
+        ])
+      ).values()
+    );
+    return uniqueCollections;
+  }, [currentNfts]);
 
   const handleViewNFT = (nft: NFTItem) => {
     router.push(`/collection/${nft.collection.address}/${nft.tokenId}`);
@@ -420,7 +343,7 @@ export default function PublicProfilePage() {
     return null;
   }
 
-  if (isLoadingProfile) {
+  if (profileQuery.isLoading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-white/20 border-t-[rgb(163,255,18)] rounded-full animate-spin" />
@@ -428,7 +351,7 @@ export default function PublicProfilePage() {
     );
   }
 
-  if (!profile) {
+  if (profileQuery.error || !profileQuery.data) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4">
         <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
@@ -448,8 +371,21 @@ export default function PublicProfilePage() {
     );
   }
 
+  const profile = profileQuery.data;
+  const stats = {
+    nftsOwned: profile.stats?.nftsOwned || 0,
+    collectionsOwned: profile.stats?.collectionsOwned || 0,
+    followers: profile.stats?.followers || 0,
+    following: profile.stats?.following || 0,
+    volumeTraded: profile.stats?.volumeTraded,
+  };
+
   const showCreatedTab = profile.isCreator && !!profile.creatorApprovedAt;
-  const currentNfts = activeTab === 'collected' ? nfts : createdNfts;
+  const isLoadingNfts =
+    (activeTab === 'collected' && collectedQuery.isLoading) ||
+    (activeTab === 'created' && createdQuery.isLoading);
+  const isLoadingFavorites = activeTab === 'favorited' && favoritesQuery.isLoading;
+  const isLoadingActivity = activeTab === 'activity' && activityQuery.isLoading;
 
   return (
     <motion.div
@@ -459,11 +395,21 @@ export default function PublicProfilePage() {
     >
       {/* Profile Header */}
       <ProfileHeader
-        user={profile}
+        user={{
+          id: profile.id,
+          walletAddress: profile.walletAddress,
+          username: profile.username,
+          bio: profile.bio,
+          profilePicture: profile.profilePicture,
+          bannerImage: profile.bannerImage,
+          isCreator: profile.isCreator,
+          creatorApprovedAt: profile.creatorApprovedAt,
+          socials: profile.socials || [],
+        }}
         stats={stats}
         isOwnProfile={false}
-        isFollowing={isFollowing}
-        isFollowLoading={isFollowLoading}
+        isFollowing={followStatusQuery.data?.isFollowing || false}
+        isFollowLoading={followMutation.isPending || unfollowMutation.isPending}
         onFollowToggle={handleFollowToggle}
       />
 

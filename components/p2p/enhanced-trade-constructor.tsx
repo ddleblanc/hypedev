@@ -23,8 +23,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useP2PTrading } from "@/contexts/p2p-trading-context";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { MediaRenderer } from "@/components/media-renderer";
+import { trpc } from "@/lib/trpc/client";
 
 interface EnhancedTradeConstructorProps {
   onTradeCreated?: (tradeId: string) => void;
@@ -35,7 +36,7 @@ export function EnhancedTradeConstructor({
   onTradeCreated,
   onTradeUpdated
 }: EnhancedTradeConstructorProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const address = user?.walletAddress;
   const {
     userBoardNFTs,
@@ -47,11 +48,40 @@ export function EnhancedTradeConstructor({
     isViewingHistory
   } = useP2PTrading();
 
-  const [isCreating, setIsCreating] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // tRPC mutations
+  const createTradeMutation = trpc.p2p.trades.create.useMutation({
+    onSuccess: (data) => {
+      if (data.trade) {
+        onTradeCreated?.(data.trade.id);
+      }
+    },
+    onError: (err) => {
+      setError(err.message || 'Failed to create trade');
+    },
+  });
+
+  const updateTradeMutation = trpc.p2p.trades.update.useMutation({
+    onSuccess: (data) => {
+      if (data.trade) {
+        setSuccess('Counter-offer sent successfully!');
+        clearAllSelections();
+        setMessage("");
+        clearActiveTradeId();
+        onTradeUpdated?.(data.trade.id);
+        setTimeout(() => setSuccess(null), 5000);
+      }
+    },
+    onError: (err) => {
+      setError(err.message || 'Failed to update trade');
+    },
+  });
+
+  const isCreating = createTradeMutation.isPending || updateTradeMutation.isPending;
+  const isSaving = createTradeMutation.isPending;
 
   // Calculate fairness score
   const calculateFairnessScore = () => {
@@ -110,19 +140,86 @@ export function EnhancedTradeConstructor({
                             traderBoardNFTs.some(nft => nft.id.startsWith('user-') || nft.id.startsWith('trader-'));
     if (hasSyntheticIds) return;
 
-    setIsSaving(true);
     try {
-      const response = await fetch('/api/p2p/trades', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      await createTradeMutation.mutateAsync({
+        initiatorAddress: address,
+        counterpartyAddress: selectedTrader.walletAddress,
+        initiatorItems: userBoardNFTs.map(nft => ({
+          nftId: extractRealNFTId(nft.id),
+          tokenAmount: nft.value,
+          metadata: {
+            name: nft.name,
+            image: nft.image,
+            rarity: nft.rarity
+          }
+        })),
+        counterpartyItems: traderBoardNFTs.map(nft => ({
+          nftId: extractRealNFTId(nft.id),
+          tokenAmount: nft.value,
+          metadata: {
+            name: nft.name,
+            image: nft.image,
+            rarity: nft.rarity
+          }
+        })),
+        metadata: {
+          message,
+          fairnessScore,
+          createdAt: new Date().toISOString()
+        }
+      });
+      setSuccess('Draft saved successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Error saving draft:', err);
+    }
+  };
+
+  const sendOffer = async () => {
+    if (!address || !selectedTrader) return;
+
+    setError(null);
+    setSuccess(null);
+
+    try {
+      // If we have an activeTradeId, this is a counter-offer - update the existing trade
+      if (activeTradeId) {
+        await updateTradeMutation.mutateAsync({
+          id: activeTradeId,
+          action: 'counteroffer',
+          userAddress: address,
+          items: [
+            ...userBoardNFTs.map(nft => ({
+              nftId: extractRealNFTId(nft.id),
+              side: 'INITIATOR' as const,
+              tokenAmount: nft.value,
+              metadata: {
+                name: nft.name,
+                image: nft.image,
+                rarity: nft.rarity
+              }
+            })),
+            ...traderBoardNFTs.map(nft => ({
+              nftId: extractRealNFTId(nft.id),
+              side: 'COUNTERPARTY' as const,
+              tokenAmount: nft.value,
+              metadata: {
+                name: nft.name,
+                image: nft.image,
+                rarity: nft.rarity
+              }
+            }))
+          ],
+          message: message || undefined,
+        });
+        // Success handling is in the mutation's onSuccess
+      } else {
+        // Create a new trade offer
+        const result = await createTradeMutation.mutateAsync({
           initiatorAddress: address,
           counterpartyAddress: selectedTrader.walletAddress,
           initiatorItems: userBoardNFTs.map(nft => ({
             nftId: extractRealNFTId(nft.id),
-            side: 'INITIATOR',
             tokenAmount: nft.value,
             metadata: {
               name: nft.name,
@@ -132,7 +229,6 @@ export function EnhancedTradeConstructor({
           })),
           counterpartyItems: traderBoardNFTs.map(nft => ({
             nftId: extractRealNFTId(nft.id),
-            side: 'COUNTERPARTY',
             tokenAmount: nft.value,
             metadata: {
               name: nft.name,
@@ -145,139 +241,18 @@ export function EnhancedTradeConstructor({
             fairnessScore,
             createdAt: new Date().toISOString()
           }
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setSuccess('Draft saved successfully');
-        setTimeout(() => setSuccess(null), 3000);
-        onTradeCreated?.(data.data.id);
-      } else {
-        setError(data.error || 'Failed to save draft');
-      }
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      setError('Failed to save draft');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const sendOffer = async () => {
-    if (!address || !selectedTrader) return;
-
-    setIsCreating(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      // If we have an activeTradeId, this is a counter-offer - update the existing trade
-      if (activeTradeId) {
-        const response = await fetch(`/api/p2p/trades/${activeTradeId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'counteroffer',
-            userAddress: address,
-            items: [
-              ...userBoardNFTs.map(nft => ({
-                nftId: extractRealNFTId(nft.id),
-                side: 'INITIATOR',
-                tokenAmount: nft.value,
-                tokenAddress: null,
-                metadata: {
-                  name: nft.name,
-                  image: nft.image,
-                  rarity: nft.rarity
-                }
-              })),
-              ...traderBoardNFTs.map(nft => ({
-                nftId: extractRealNFTId(nft.id),
-                side: 'COUNTERPARTY',
-                tokenAmount: nft.value,
-                tokenAddress: null,
-                metadata: {
-                  name: nft.name,
-                  image: nft.image,
-                  rarity: nft.rarity
-                }
-              }))
-            ],
-            message
-          }),
         });
 
-        const data = await response.json();
-
-        if (data.success) {
-          setSuccess('Counter-offer sent successfully!');
-          clearAllSelections();
-          setMessage("");
-          clearActiveTradeId();
-          onTradeUpdated?.(data.data.id);
-          setTimeout(() => setSuccess(null), 5000);
-        } else {
-          setError(data.error || 'Failed to send counter-offer');
-        }
-      } else {
-        // Create a new trade offer
-        const response = await fetch('/api/p2p/trades', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            initiatorAddress: address,
-            counterpartyAddress: selectedTrader.walletAddress,
-            initiatorItems: userBoardNFTs.map(nft => ({
-              nftId: extractRealNFTId(nft.id),
-              side: 'INITIATOR',
-              tokenAmount: nft.value,
-              metadata: {
-                name: nft.name,
-                image: nft.image,
-                rarity: nft.rarity
-              }
-            })),
-            counterpartyItems: traderBoardNFTs.map(nft => ({
-              nftId: extractRealNFTId(nft.id),
-              side: 'COUNTERPARTY',
-              tokenAmount: nft.value,
-              metadata: {
-                name: nft.name,
-                image: nft.image,
-                rarity: nft.rarity
-              }
-            })),
-            metadata: {
-              message,
-              fairnessScore,
-              createdAt: new Date().toISOString()
-            }
-          }),
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
+        if (result.trade) {
           setSuccess('Trade offer sent successfully!');
           clearAllSelections();
           setMessage("");
-          onTradeCreated?.(data.data.id);
+          onTradeCreated?.(result.trade.id);
           setTimeout(() => setSuccess(null), 5000);
-        } else {
-          setError(data.error || 'Failed to send trade offer');
         }
       }
-    } catch (error) {
-      console.error('Error sending offer:', error);
-      setError('Failed to send trade offer');
-    } finally {
-      setIsCreating(false);
+    } catch (err) {
+      console.error('Error sending offer:', err);
     }
   };
 

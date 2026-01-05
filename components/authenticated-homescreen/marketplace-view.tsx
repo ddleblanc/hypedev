@@ -15,20 +15,19 @@ import {
   Volume2,
   VolumeX,
   ArrowUpRight,
-  Menu,
-  X,
   Home,
   ShoppingCart,
   Rocket,
   Coins,
   Users,
   Filter,
-  Sparkles
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { MediaRenderer } from "@/components/MediaRenderer";
+import { trpc } from "@/lib/trpc/client";
 
 interface MarketplaceViewProps {
   setViewMode?: (mode: string) => void;
@@ -55,12 +54,16 @@ interface HeroCollection extends BaseCollection {
 }
 
 interface FeaturedCollection extends BaseCollection {
+  slug?: string | null;
+  address?: string;
   trending: string;
   creator: string;
 }
 
 interface TrendingCollection {
   id: string;
+  slug?: string | null;
+  address?: string;
   title: string;
   image: string;
   floor: string;
@@ -181,11 +184,67 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
   const [isMuted, setIsMuted] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
-  const [trendingCollections, setTrendingCollections] = useState<TrendingCollection[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
+  const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Only use target-based scroll tracking after mount to avoid hydration errors
+  const { scrollYProgress } = useScroll(isMounted ? { target: heroRef } : undefined);
+
+  // Fetch trending collections via tRPC
+  const { data: trendingData, isLoading: trendingLoading } = trpc.marketplace.collections.trending.useQuery(
+    { limit: 6 },
+    { placeholderData: (prev) => prev }
+  );
+
+  // Fetch featured collections via tRPC
+  const { data: featuredData, isLoading: featuredLoading } = trpc.marketplace.collections.featured.useQuery(
+    { limit: 6 },
+    { placeholderData: (prev) => prev }
+  );
+
+  // Use real data with fallback to mock data
+  const trendingCollections: TrendingCollection[] = trendingData?.collections?.length
+    ? trendingData.collections.map((c) => ({
+        id: c.id,
+        slug: c.slug,
+        address: c.address,
+        title: c.title,
+        image: c.image || '/api/placeholder/300/450',
+        floor: c.floor,
+        change: c.change,
+        mintedSupply: c.mintedSupply,
+        maxSupply: c.maxSupply ?? undefined,
+        description: c.description ?? undefined,
+        creatorAddress: c.creatorAddress,
+        creatorName: c.creatorName ?? undefined,
+        isVerified: c.isVerified,
+        isFeatured: c.isFeatured,
+      }))
+    : mockCollections.trending;
+
+  const featuredCollections: FeaturedCollection[] = featuredData?.collections?.length
+    ? featuredData.collections.map((c) => ({
+        id: c.id,
+        slug: c.slug,
+        address: c.address,
+        title: c.title,
+        subtitle: c.subtitle,
+        image: c.image || mockCollections.featured[0].image,
+        items: c.items,
+        floor: c.floor,
+        volume: c.volume,
+        isNew: c.isNew,
+        trending: c.trending,
+        creator: c.creator,
+      }))
+    : mockCollections.featured;
+
+  const isLoading = trendingLoading || featuredLoading;
 
   // Helper function to format floor price with max 8 decimals
   const formatFloorPrice = (floor: string) => {
@@ -209,40 +268,14 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
-  // Fetch trending collections from API
-  useEffect(() => {
-    const fetchTrendingCollections = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch('/api/marketplace/trending');
-        const data = await response.json();
-
-        if (data.success && data.collections.length > 0) {
-          setTrendingCollections(data.collections);
-        } else {
-          // Fallback to mock data if no collections found
-          setTrendingCollections(mockCollections.trending);
-        }
-      } catch (error) {
-        console.error('Error fetching trending collections:', error);
-        // Fallback to mock data on error
-        setTrendingCollections(mockCollections.trending);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchTrendingCollections();
-  }, []);
-
   // Combine hero with featured for mobile carousel
   const mobileHeroItems = [
     { ...mockCollections.hero, trending: null },
-    ...mockCollections.featured
+    ...featuredCollections
   ];
 
-  const handleCollectionClick = (collectionId: string) => {
-    router.push(`/collection/${collectionId}`);
+  const handleCollectionClick = (collection: { id: string; slug?: string | null; address?: string }) => {
+    router.push(`/collection/${collection.slug || collection.address || collection.id}`);
   };
 
   const scrollCarousel = (direction: 'left' | 'right', containerId: string) => {
@@ -267,7 +300,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full overflow-hidden bg-black"
+      className="w-full overflow-hidden"
     >
       {/* Mobile Layout - Cinematic */}
       <div className="md:hidden relative">
@@ -400,10 +433,10 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 </div>
 
                 {/* CTA Button */}
-                <Button 
+                <Button
                   size="lg"
                   className="w-full bg-white text-black hover:bg-white/90 font-bold"
-                  onClick={() => handleCollectionClick(mobileHeroItems[currentHeroIndex].id)}
+                  onClick={() => handleCollectionClick(mobileHeroItems[currentHeroIndex])}
                 >
                   <Play className="w-5 h-5 mr-2" fill="currentColor" />
                   Explore Collection
@@ -453,7 +486,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
         </div>
 
         {/* Scrollable Content Below Hero */}
-        <div className="bg-black pb-20">
+        <div className="pb-20">
           
           {/* Categories - Horizontal Scroll */}
           <section className="py-8">
@@ -506,7 +539,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 trendingCollections.slice(0, 4).map((collection, index) => (
                   <motion.div
                     key={collection.id}
-                    onClick={() => handleCollectionClick(collection.id)}
+                    onClick={() => handleCollectionClick(collection)}
                     className="flex-shrink-0 w-40"
                   >
                     <div className="relative h-48 rounded-xl overflow-hidden mb-2">
@@ -541,10 +574,10 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
           <section className="py-8">
             <h3 className="text-2xl font-bold text-white mb-4 px-6">New Drops</h3>
             <div className="flex gap-3 overflow-x-auto scrollbar-hide px-6">
-              {mockCollections.featured.filter(c => c.isNew).map((collection) => (
+              {featuredCollections.filter(c => c.isNew).map((collection) => (
                 <motion.div
                   key={collection.id}
-                  onClick={() => handleCollectionClick(collection.id)}
+                  onClick={() => handleCollectionClick(collection)}
                   className="flex-shrink-0 w-40"
                 >
                   <div className="relative h-48 rounded-xl overflow-hidden mb-2">
@@ -594,11 +627,11 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
             </button>
 
             <button
-              onClick={() => router.push('/launchpad')}
+              onClick={() => router.push('/drops')}
               className="flex flex-col items-center py-3 text-white/60 hover:text-[rgb(163,255,18)] active:text-[rgb(163,255,18)] transition-colors"
             >
               <Rocket className="w-5 h-5 mb-1" />
-              <span className="text-[10px] font-medium">LAUNCH</span>
+              <span className="text-[10px] font-medium">DROPS</span>
             </button>
 
             <button
@@ -732,9 +765,9 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                 transition={{ delay: 1, duration: 0.8 }}
                 className="flex flex-wrap items-center gap-2 md:gap-4"
               >
-                <Button 
+                <Button
                   className="bg-white text-black hover:bg-white/90 font-bold px-4 md:px-8 py-2 md:py-3 rounded-lg flex items-center gap-2 text-sm md:text-base"
-                  onClick={() => handleCollectionClick(mockCollections.hero.id)}
+                  onClick={() => handleCollectionClick(mockCollections.hero)}
                 >
                   <Play className="h-4 w-4 md:h-5 md:w-5" fill="currentColor" />
                   <span className="hidden sm:inline">Explore Collection</span>
@@ -786,7 +819,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.8 }}
-          className="px-4 md:px-8 py-4 md:py-6 bg-black"
+          className="px-4 md:px-8 py-4 md:py-6 bg-gradient-to-b from-black to-transparent"
         >
           <div className="flex items-center justify-between mb-3 md:mb-4">
             <h2 className="text-xl md:text-2xl font-bold text-white">Browse by Category</h2>
@@ -860,14 +893,14 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
             id="featured-carousel"
             className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3"
           >
-            {mockCollections.featured.map((collection, index) => (
+            {featuredCollections.map((collection, index) => (
               <motion.div
                 key={collection.id}
                 initial={{ opacity: 0, x: 50 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 * index, duration: 0.6 }}
                 className="group cursor-pointer"
-                onClick={() => handleCollectionClick(collection.id)}
+                onClick={() => handleCollectionClick(collection)}
               >
                 <div className="relative overflow-hidden rounded-lg aspect-square mb-1.5">
                   <video
@@ -901,7 +934,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.8 }}
-          className="px-4 md:px-8 py-4 md:py-6 bg-gradient-to-b from-black/50 to-black"
+          className="px-4 md:px-8 py-4 md:py-6"
         >
           <div className="flex items-center justify-between mb-3 md:mb-4">
             <div className="flex items-center gap-2">
@@ -930,7 +963,7 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ delay: 0.1 * index, duration: 0.5 }}
                   className="group cursor-pointer"
-                  onClick={() => handleCollectionClick(collection.id)}
+                  onClick={() => handleCollectionClick(collection)}
                 >
                   <div className="relative overflow-hidden rounded-lg aspect-square mb-1.5">
                     {collection.image && collection.image !== '/api/placeholder/300/450' ? (
@@ -989,14 +1022,14 @@ export function MarketplaceView({ onCollectionClick }: MarketplaceViewProps) {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
-            {[...mockCollections.featured, ...mockCollections.trending.slice(0, 2)].map((collection, index) => (
+            {[...featuredCollections, ...trendingCollections.slice(0, 2)].map((collection, index) => (
               <motion.div
                 key={`${collection.id}-grid`}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.05 * index, duration: 0.6 }}
                 className="group cursor-pointer"
-                onClick={() => handleCollectionClick(collection.id)}
+                onClick={() => handleCollectionClick(collection)}
               >
                 <div className="relative overflow-hidden rounded-lg aspect-square mb-1.5">
                   {'image' in collection && collection.image.endsWith('.webm') ? (

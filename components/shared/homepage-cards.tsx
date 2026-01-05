@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import type {
   CollectionCardData,
   NFTSaleData,
-  LaunchpadProjectData,
+  DropData,
   LootboxData
 } from "@/types/homepage";
 
@@ -214,15 +214,15 @@ export function NFTSaleCard({ sale, className }: NFTSaleCardProps) {
 }
 
 // ============================================
-// LAUNCHPAD PROJECT CARD
+// DROP PROJECT CARD
 // ============================================
-interface LaunchpadCardProps {
-  project: LaunchpadProjectData;
+interface DropCardProps {
+  project: DropData;
   variant?: 'default' | 'featured';
   className?: string;
 }
 
-export function LaunchpadCard({ project, variant = 'default', className }: LaunchpadCardProps) {
+export function DropCard({ project, variant = 'default', className }: DropCardProps) {
   const { value: priceValue, currency: priceCurrency } = formatPrice(
     project.mintPrice,
     project.mintPriceCurrency
@@ -239,7 +239,7 @@ export function LaunchpadCard({ project, variant = 'default', className }: Launc
   };
 
   return (
-    <Link href={`/launchpad/${project.slug}`}>
+    <Link href={`/drops/${project.slug}`}>
       <motion.div
         whileHover={{ y: -4 }}
         className={cn(

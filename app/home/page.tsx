@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { HomeView } from "@/components/authenticated-homescreen/home-view";
 import { PortalSwitchButton } from "@/components/homepage/portal-switch-button";
+import { ProtectedRoute } from "@/components/auth/protected-route";
 
 export default function HomePage() {
   const router = useRouter();
@@ -22,13 +23,15 @@ export default function HomePage() {
   };
 
   return (
-    <div className="relative min-h-screen">
-      <HomeView setViewMode={handleNavigate} />
-      <PortalSwitchButton
-        currentMode="hud"
-        onModeChange={handleModeChange}
-        isTransitioning={false}
-      />
-    </div>
+    <ProtectedRoute>
+      <div className="relative min-h-screen">
+        <HomeView setViewMode={handleNavigate} />
+        <PortalSwitchButton
+          currentMode="hud"
+          onModeChange={handleModeChange}
+          isTransitioning={false}
+        />
+      </div>
+    </ProtectedRoute>
   );
 }

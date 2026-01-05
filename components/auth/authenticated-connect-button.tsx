@@ -2,13 +2,18 @@
 
 import { ConnectButton } from "thirdweb/react";
 import { client } from "@/lib/thirdweb";
+import { sepolia, ethereum } from "thirdweb/chains";
 import type { ComponentProps } from "react";
+import { AUTH_LOGIN_EVENT } from "@/contexts/auth-context";
 
 type ConnectButtonProps = ComponentProps<typeof ConnectButton>;
 
 interface AuthenticatedConnectButtonProps extends Omit<ConnectButtonProps, "client" | "auth"> {
   className?: string;
 }
+
+// Supported chains for the app
+const supportedChains = [sepolia, ethereum];
 
 /**
  * ConnectButton with SIWE authentication
@@ -24,6 +29,8 @@ export function AuthenticatedConnectButton({
       <ConnectButton
         client={client}
         theme={theme}
+        chain={sepolia}
+        chains={supportedChains}
         {...props}
         auth={{
           // Get login payload from our server
@@ -31,9 +38,10 @@ export function AuthenticatedConnectButton({
             const res = await fetch(`/api/auth/login?address=${address}`);
             const data = await res.json();
             if (!data.success) {
-              throw new Error(data.error || "Failed to get login payload");
+              throw new Error(data.error?.message || "Failed to get login payload");
             }
-            return data.payload;
+            // Response format: { success: true, data: { payload: {...} } }
+            return data.data.payload;
           },
 
           // Send signed payload to server for verification
@@ -45,16 +53,40 @@ export function AuthenticatedConnectButton({
             });
             const data = await res.json();
             if (!data.success) {
-              throw new Error(data.error || "Failed to login");
+              throw new Error(data.error?.message || "Failed to login");
             }
-            // The server sets an httpOnly cookie, so we're done
+            // Notify auth context with user data for immediate update
+            window.dispatchEvent(new CustomEvent(AUTH_LOGIN_EVENT, {
+              detail: { user: data.data.user }
+            }));
           },
 
-          // Check if user is logged in
-          isLoggedIn: async () => {
-            const res = await fetch("/api/auth/verify");
-            const data = await res.json();
-            return data.success && data.loggedIn;
+          // Check if user is logged in (must verify JWT matches connected wallet)
+          isLoggedIn: async (address) => {
+            try {
+              // Include address as query param for mismatch detection
+              const res = await fetch(`/api/auth/verify?address=${address}`);
+              const data = await res.json();
+
+              // Check if JWT is valid
+              if (!data.success || !data.data?.loggedIn) {
+                return false;
+              }
+
+              // CRITICAL: Verify JWT belongs to THIS wallet
+              const jwtAddress = data.data.user?.walletAddress?.toLowerCase();
+              const connectedAddress = address.toLowerCase();
+
+              if (jwtAddress !== connectedAddress) {
+                // JWT exists but for different wallet - clear it
+                await fetch("/api/auth/logout", { method: "POST" });
+                return false;
+              }
+
+              return true;
+            } catch {
+              return false;
+            }
           },
 
           // Logout

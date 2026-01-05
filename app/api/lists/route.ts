@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { rateLimit } from '@/lib/rate-limit';
+import { sanitizeText } from '@/lib/sanitize';
 
 const createListSchema = z.object({
   userId: z.string(),
@@ -17,6 +19,9 @@ const getListsSchema = z.object({
 
 // GET - Fetch user's lists
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get('userId');
@@ -63,9 +68,19 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a new list
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'apiWrite');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const body = await request.json();
     const validatedData = createListSchema.parse(body);
+
+    // Sanitize user-provided text fields to prevent XSS
+    const sanitizedData = {
+      ...validatedData,
+      name: sanitizeText(validatedData.name),
+      description: validatedData.description ? sanitizeText(validatedData.description) : undefined,
+    };
 
     // Check if watchlist already exists for this user
     if (validatedData.type === 'watchlist') {
@@ -85,7 +100,7 @@ export async function POST(request: NextRequest) {
     }
 
     const list = await prisma.userList.create({
-      data: validatedData,
+      data: sanitizedData,
       include: {
         items: true,
         _count: {
@@ -117,6 +132,9 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Delete a list
 export async function DELETE(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'apiWrite');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const listId = searchParams.get('listId');

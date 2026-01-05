@@ -1,0 +1,37 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/snapshots",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/search-index",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/approve-commissions",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/update-challenges",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/hype-network/campaigns",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/hype-network/streaks",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/hype-network/leaderboards",
+      "schedule": "5 0 * * *"
+    },
+    {
+      "path": "/api/cron/hype-network/payouts",
+      "schedule": "0 */4 * * *"
+    }
+  ]
+}

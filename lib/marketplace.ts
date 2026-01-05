@@ -1,4 +1,4 @@
-import { getContract, sendTransaction, waitForReceipt, readContract } from "thirdweb";
+import { getContract, sendTransaction, waitForReceipt, readContract, prepareContractCall } from "thirdweb";
 import {
   createListing,
   cancelListing,
@@ -28,7 +28,10 @@ import {
   getAllValidOffers,
   totalOffers,
 } from "thirdweb/extensions/marketplace";
-import { isApprovedForAll, setApprovalForAll, ownerOf } from "thirdweb/extensions/erc721";
+import { isApprovedForAll, setApprovalForAll, ownerOf, transferFrom } from "thirdweb/extensions/erc721";
+import { balanceOf as erc20BalanceOf, allowance as erc20Allowance, approve as erc20Approve } from "thirdweb/extensions/erc20";
+import { toWei } from "thirdweb/utils";
+import { getWalletBalance } from "thirdweb/wallets";
 import { client } from "./thirdweb";
 import { defineChain } from "thirdweb/chains";
 import type { Account } from "thirdweb/wallets";
@@ -37,8 +40,11 @@ import type { Account } from "thirdweb/wallets";
 export const MARKETPLACE_ADDRESS = process.env.MARKETPLACE_CONTRACT_ADDRESS_SEPOLIA || "0xB30af61443eeD475e07226169aFC0753eeE8BBc0";
 export const MARKETPLACE_CHAIN_ID = 11155111; // Sepolia
 
-// Native token address (ETH)
+// Native token address (ETH) - used for direct listings and auctions
 export const NATIVE_TOKEN = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+
+// WETH address on Sepolia - required for offers (Marketplace can't escrow native ETH for offers)
+export const WETH_ADDRESS_SEPOLIA = "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9";
 
 // Listing types
 export type ListingType = "direct" | "auction";
@@ -1156,7 +1162,122 @@ export interface MakeOfferParams {
 }
 
 /**
+ * Get the WETH contract instance
+ */
+export function getWethContract() {
+  return getContract({
+    client,
+    chain: defineChain(MARKETPLACE_CHAIN_ID),
+    address: WETH_ADDRESS_SEPOLIA,
+  });
+}
+
+/**
+ * Check user's WETH balance
+ */
+export async function getWethBalance(userAddress: string): Promise<bigint> {
+  const weth = getWethContract();
+  return await erc20BalanceOf({
+    contract: weth,
+    address: userAddress,
+  });
+}
+
+/**
+ * Check if marketplace is approved to spend user's WETH
+ */
+export async function checkWethAllowance(userAddress: string): Promise<bigint> {
+  const weth = getWethContract();
+  return await erc20Allowance({
+    contract: weth,
+    owner: userAddress,
+    spender: MARKETPLACE_ADDRESS,
+  });
+}
+
+/**
+ * Get user's native ETH balance
+ */
+export async function getNativeBalance(userAddress: string): Promise<bigint> {
+  const balance = await getWalletBalance({
+    client,
+    chain: defineChain(MARKETPLACE_CHAIN_ID),
+    address: userAddress,
+  });
+  return balance.value;
+}
+
+/**
+ * Wrap ETH to WETH
+ * Uses prepareContractCall with value since WETH.deposit() is a payable function
+ */
+export async function wrapEthToWeth(
+  amount: bigint,
+  account: Account
+): Promise<{ transactionHash: string }> {
+  const weth = getWethContract();
+
+  console.log("Wrapping ETH to WETH...");
+  console.log("Amount to wrap (wei):", amount.toString());
+
+  // WETH deposit() is a payable function with no parameters
+  // We send ETH value with the transaction, not as a parameter
+  const transaction = prepareContractCall({
+    contract: weth,
+    method: "function deposit() payable",
+    params: [],
+    value: amount, // ETH to send
+  });
+
+  const result = await sendTransaction({
+    transaction,
+    account,
+  });
+
+  // Wait for confirmation
+  await waitForReceipt({
+    client,
+    chain: defineChain(MARKETPLACE_CHAIN_ID),
+    transactionHash: result.transactionHash,
+  });
+
+  console.log("ETH wrapped successfully:", result.transactionHash);
+  return { transactionHash: result.transactionHash };
+}
+
+/**
+ * Approve marketplace to spend WETH
+ */
+export async function approveWethForMarketplace(
+  amount: bigint,
+  account: Account
+): Promise<{ transactionHash: string }> {
+  const weth = getWethContract();
+
+  const transaction = erc20Approve({
+    contract: weth,
+    spender: MARKETPLACE_ADDRESS,
+    amountWei: amount,
+  });
+
+  const result = await sendTransaction({
+    transaction,
+    account,
+  });
+
+  // Wait for confirmation
+  await waitForReceipt({
+    client,
+    chain: defineChain(MARKETPLACE_CHAIN_ID),
+    transactionHash: result.transactionHash,
+  });
+
+  return { transactionHash: result.transactionHash };
+}
+
+/**
  * Make an offer on any NFT (listed or not)
+ * Automatically wraps ETH to WETH if needed for a seamless experience.
  */
 export async function createNftOffer(
   params: MakeOfferParams,
@@ -1165,24 +1286,74 @@ export async function createNftOffer(
   try {
     const marketplace = getMarketplaceContract();
 
+    console.log("=== CREATE OFFER DEBUG ===");
+    console.log("Asset contract:", params.assetContractAddress);
+    console.log("Token ID:", params.tokenId);
+    console.log("Offer amount (ETH/WETH):", params.offerAmount);
+    console.log("Expiration:", params.expirationTime);
+    console.log("Offeror:", account.address);
+
+    // Convert offer amount to wei
+    const offerAmountWei = toWei(params.offerAmount);
+
+    // Check user's WETH balance
+    const wethBalance = await getWethBalance(account.address);
+    console.log("User WETH balance:", wethBalance.toString());
+    console.log("Required amount (wei):", offerAmountWei.toString());
+
+    // If not enough WETH, check if we can auto-wrap ETH
+    if (wethBalance < offerAmountWei) {
+      const wethNeeded = offerAmountWei - wethBalance;
+      console.log("WETH needed:", wethNeeded.toString());
+
+      // Check native ETH balance
+      const ethBalance = await getNativeBalance(account.address);
+      console.log("User ETH balance:", ethBalance.toString());
+
+      // Need some buffer for gas (0.01 ETH)
+      const gasBuffer = toWei("0.01");
+      const totalEthNeeded = wethNeeded + gasBuffer;
+
+      if (ethBalance < totalEthNeeded) {
+        const totalNeeded = Number(offerAmountWei) / 1e18;
+        const totalHave = (Number(wethBalance) + Number(ethBalance)) / 1e18;
+        throw new Error(
+          `Insufficient balance. You need ${totalNeeded.toFixed(4)} ETH total for this offer, ` +
+          `but you only have ${totalHave.toFixed(4)} ETH (including WETH). ` +
+          `Please add more funds to your wallet.`
+        );
+      }
+
+      // Auto-wrap the needed amount of ETH to WETH
+      console.log("Auto-wrapping ETH to WETH...");
+      await wrapEthToWeth(wethNeeded, account);
+      console.log("ETH wrapped to WETH successfully");
+    }
+
+    // Check and approve WETH spending if needed
+    const currentAllowance = await checkWethAllowance(account.address);
+    console.log("Current WETH allowance:", currentAllowance.toString());
+
+    if (currentAllowance < offerAmountWei) {
+      console.log("Approving WETH for marketplace...");
+      // Approve a large amount to avoid repeated approvals
+      const approvalAmount = offerAmountWei * BigInt(10); // Approve 10x the offer amount
+      await approveWethForMarketplace(approvalAmount, account);
+      console.log("WETH approved for marketplace");
+    }
+
     // Get current offer count to estimate new offer ID
     const currentTotal = await totalOffers({ contract: marketplace });
     const estimatedOfferId = currentTotal.toString();
 
-    console.log("=== CREATE OFFER DEBUG ===");
-    console.log("Asset contract:", params.assetContractAddress);
-    console.log("Token ID:", params.tokenId);
-    console.log("Offer amount (ETH):", params.offerAmount);
-    console.log("Expiration:", params.expirationTime);
-    console.log("Offeror:", account.address);
-
     const tokenIdBigInt = parseTokenId(params.tokenId);
 
+    // Make offer using WETH (not native ETH)
     const transaction = makeOffer({
       contract: marketplace,
       assetContractAddress: params.assetContractAddress,
       tokenId: tokenIdBigInt,
-      currencyContractAddress: NATIVE_TOKEN,
+      currencyContractAddress: WETH_ADDRESS_SEPOLIA, // Use WETH, not native token
       totalOffer: params.offerAmount,
       offerExpiresAt: params.expirationTime,
       quantity: BigInt(params.quantity || 1),
@@ -1232,7 +1403,10 @@ export async function createNftOffer(
 
     const errorMessage = error.message || "";
     if (errorMessage.includes("insufficient funds")) {
-      throw new Error("Insufficient funds to make offer");
+      throw new Error("Insufficient ETH for gas fees");
+    }
+    if (errorMessage.includes("Insufficient WETH")) {
+      throw error; // Re-throw our custom WETH error
     }
 
     throw error;
@@ -1434,6 +1608,316 @@ export async function getUserSentOffers(userAddress: string) {
 }
 
 // ============================================================================
+// COLLECTION OFFER FUNCTIONS
+// ============================================================================
+
+/**
+ * MAX_UINT256 is used as tokenId for collection offers
+ * This indicates the offer is valid for ANY token in the collection
+ */
+export const MAX_UINT256 = BigInt("115792089237316195423570985008687907853269984665640564039457584007913129639935");
+
+export interface CollectionOfferParams {
+  assetContractAddress: string;
+  offerAmount: string;      // Price per NFT in ETH
+  expirationTime: Date;
+  quantity: number;         // How many NFTs to buy at this price
+}
+
+/**
+ * Create a collection-wide offer valid for any NFT in the collection.
+ * Uses tokenId = MAX_UINT256 to indicate "any token"
+ */
+export async function createCollectionOffer(
+  params: CollectionOfferParams,
+  account: Account
+): Promise<{ transactionHash: string; offerId: string }> {
+  try {
+    const marketplace = getMarketplaceContract();
+
+    // Get current offer count to estimate new offer ID
+    const currentTotal = await totalOffers({ contract: marketplace });
+    const estimatedOfferId = currentTotal.toString();
+
+    console.log("=== CREATE COLLECTION OFFER DEBUG ===");
+    console.log("Asset contract:", params.assetContractAddress);
+    console.log("Offer amount (ETH):", params.offerAmount);
+    console.log("Quantity:", params.quantity);
+    console.log("Expiration:", params.expirationTime);
+    console.log("Offeror:", account.address);
+    console.log("Using MAX_UINT256 for collection offer");
+
+    const transaction = makeOffer({
+      contract: marketplace,
+      assetContractAddress: params.assetContractAddress,
+      tokenId: MAX_UINT256,
+      currencyContractAddress: NATIVE_TOKEN,
+      totalOffer: params.offerAmount,
+      offerExpiresAt: params.expirationTime,
+      quantity: BigInt(params.quantity),
+    });
+
+    const result = await sendTransaction({
+      transaction,
+      account,
+    });
+
+    console.log("Collection offer transaction submitted:", result.transactionHash);
+
+    // Wait for confirmation
+    const receipt = await waitForReceipt({
+      client,
+      chain: defineChain(MARKETPLACE_CHAIN_ID),
+      transactionHash: result.transactionHash,
+    });
+
+    // Extract offer ID from events
+    let offerId = estimatedOfferId;
+    if (receipt.logs && receipt.logs.length > 0) {
+      for (const log of receipt.logs) {
+        if (log.topics && log.topics.length > 1 && log.topics[1]) {
+          try {
+            const decodedId = BigInt(log.topics[1] as string).toString();
+            if (decodedId) {
+              offerId = decodedId;
+              break;
+            }
+          } catch {
+            // Continue trying other logs
+          }
+        }
+      }
+    }
+
+    console.log("Collection offer created with ID:", offerId);
+    console.log("=====================================");
+
+    return {
+      transactionHash: result.transactionHash,
+      offerId,
+    };
+  } catch (error: any) {
+    console.error("Error creating collection offer:", error);
+
+    const errorMessage = error.message || "";
+    if (errorMessage.includes("insufficient funds")) {
+      throw new Error("Insufficient funds to make collection offer");
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Accept a collection offer with a specific NFT.
+ * The NFT owner provides their tokenId to fulfill the collection offer.
+ */
+export async function acceptCollectionOffer(
+  offerId: string,
+  tokenId: string,
+  account: Account
+): Promise<{ transactionHash: string }> {
+  try {
+    const marketplace = getMarketplaceContract();
+
+    console.log("=== ACCEPT COLLECTION OFFER DEBUG ===");
+    console.log("Offer ID:", offerId);
+    console.log("Token ID being used:", tokenId);
+    console.log("Acceptor (NFT owner):", account.address);
+
+    // Verify offer exists and is a collection offer
+    const offer = await getOffer({
+      contract: marketplace,
+      offerId: BigInt(offerId),
+    });
+
+    if (!offer) {
+      throw new Error(`Offer ${offerId} not found`);
+    }
+
+    // Verify this is a collection offer (tokenId = MAX_UINT256)
+    if (offer.tokenId !== MAX_UINT256) {
+      throw new Error("This is not a collection offer. Use acceptNftOffer instead.");
+    }
+
+    console.log("Offer details:", {
+      offeror: offer.offerorAddress,
+      assetContract: offer.assetContractAddress,
+      totalPrice: offer.totalPrice.toString(),
+      isCollectionOffer: offer.tokenId === MAX_UINT256,
+    });
+
+    // Verify the user owns the NFT they're trying to sell
+    const tokenIdBigInt = parseTokenId(tokenId);
+    const nftContract = getNFTContract(offer.assetContractAddress);
+
+    const actualOwner = await ownerOf({
+      contract: nftContract,
+      tokenId: tokenIdBigInt,
+    });
+
+    if (actualOwner.toLowerCase() !== account.address.toLowerCase()) {
+      throw new Error(
+        `You don't own this NFT. Token ${tokenId} is owned by ${actualOwner}.`
+      );
+    }
+
+    // Check marketplace approval
+    const isApproved = await isApprovedForAll({
+      contract: nftContract,
+      owner: account.address,
+      operator: MARKETPLACE_ADDRESS,
+    });
+
+    if (!isApproved) {
+      throw new Error(
+        `Marketplace is not approved to transfer NFTs from ${offer.assetContractAddress}. ` +
+        `Please approve the collection first.`
+      );
+    }
+
+    // Accept the offer - Thirdweb handles the tokenId mapping
+    const transaction = acceptOffer({
+      contract: marketplace,
+      offerId: BigInt(offerId),
+    });
+
+    const result = await sendTransaction({
+      transaction,
+      account,
+    });
+
+    console.log("Accept collection offer transaction submitted:", result.transactionHash);
+
+    await waitForReceipt({
+      client,
+      chain: defineChain(MARKETPLACE_CHAIN_ID),
+      transactionHash: result.transactionHash,
+    });
+
+    console.log("Collection offer accepted successfully");
+    console.log("=====================================");
+
+    return { transactionHash: result.transactionHash };
+  } catch (error: any) {
+    console.error("Error accepting collection offer:", error);
+
+    const errorMessage = error.message || "";
+    if (errorMessage.includes("not owner")) {
+      throw new Error("Only the NFT owner can accept this offer");
+    }
+    if (errorMessage.includes("offer expired")) {
+      throw new Error("This offer has expired");
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Get all collection offers for a specific collection
+ */
+export async function getCollectionOffers(assetContractAddress: string) {
+  try {
+    const marketplace = getMarketplaceContract();
+
+    const allOffers = await getAllValidOffers({ contract: marketplace });
+
+    // Filter for this collection's collection offers (tokenId = MAX_UINT256)
+    const collectionOffers = allOffers.filter(
+      (offer) =>
+        offer.assetContractAddress.toLowerCase() === assetContractAddress.toLowerCase() &&
+        offer.tokenId === MAX_UINT256
+    );
+
+    console.log(`Found ${collectionOffers.length} collection offers for ${assetContractAddress}`);
+
+    return collectionOffers;
+  } catch (error) {
+    console.error("Error getting collection offers:", error);
+    return [];
+  }
+}
+
+/**
+ * Get the best (highest) collection offer for a collection
+ */
+export async function getBestCollectionOffer(assetContractAddress: string) {
+  try {
+    const offers = await getCollectionOffers(assetContractAddress);
+
+    if (offers.length === 0) return null;
+
+    // Sort by total price descending and return the best
+    const sortedOffers = offers.sort((a, b) => {
+      const priceA = Number(a.totalPrice);
+      const priceB = Number(b.totalPrice);
+      return priceB - priceA;
+    });
+
+    return sortedOffers[0];
+  } catch (error) {
+    console.error("Error getting best collection offer:", error);
+    return null;
+  }
+}
+
+/**
+ * Check if a specific NFT can be used to accept a collection offer
+ */
+export async function canAcceptCollectionOffer(
+  offerId: string,
+  tokenId: string,
+  ownerAddress: string
+): Promise<{ canAccept: boolean; reason?: string }> {
+  try {
+    const marketplace = getMarketplaceContract();
+
+    const offer = await getOffer({
+      contract: marketplace,
+      offerId: BigInt(offerId),
+    });
+
+    if (!offer) {
+      return { canAccept: false, reason: "Offer not found" };
+    }
+
+    if (offer.tokenId !== MAX_UINT256) {
+      return { canAccept: false, reason: "Not a collection offer" };
+    }
+
+    // Verify ownership
+    const tokenIdBigInt = parseTokenId(tokenId);
+    const nftContract = getNFTContract(offer.assetContractAddress);
+
+    const actualOwner = await ownerOf({
+      contract: nftContract,
+      tokenId: tokenIdBigInt,
+    });
+
+    if (actualOwner.toLowerCase() !== ownerAddress.toLowerCase()) {
+      return { canAccept: false, reason: "You don't own this NFT" };
+    }
+
+    // Check approval
+    const approved = await isApprovedForAll({
+      contract: nftContract,
+      owner: ownerAddress,
+      operator: MARKETPLACE_ADDRESS,
+    });
+
+    if (!approved) {
+      return { canAccept: false, reason: "Marketplace not approved" };
+    }
+
+    return { canAccept: true };
+  } catch (error) {
+    console.error("Error checking collection offer eligibility:", error);
+    return { canAccept: false, reason: "Failed to verify eligibility" };
+  }
+}
+
+// ============================================================================
 // SWEEP FLOOR FUNCTION
 // ============================================================================
 
@@ -1533,4 +2017,142 @@ export async function sweepFloor(
     console.error("Error sweeping floor:", error);
     throw error;
   }
+}
+
+// ============================================================================
+// NFT TRANSFER FUNCTIONS
+// ============================================================================
+
+export interface TransferNFTParams {
+  assetContractAddress: string;
+  tokenId: string;
+  toAddress: string;
+}
+
+/**
+ * Transfer an NFT to another address
+ * Uses ERC721 transferFrom
+ */
+export async function transferNFT(
+  params: TransferNFTParams,
+  account: Account
+): Promise<{ transactionHash: string }> {
+  try {
+    const nftContract = getNFTContract(params.assetContractAddress);
+    const tokenIdBigInt = parseTokenId(params.tokenId);
+
+    console.log("=== TRANSFER NFT DEBUG ===");
+    console.log("Asset contract:", params.assetContractAddress);
+    console.log("Token ID:", tokenIdBigInt.toString());
+    console.log("From:", account.address);
+    console.log("To:", params.toAddress);
+
+    // Verify ownership
+    const actualOwner = await ownerOf({
+      contract: nftContract,
+      tokenId: tokenIdBigInt,
+    });
+
+    if (actualOwner.toLowerCase() !== account.address.toLowerCase()) {
+      throw new Error(
+        `You don't own this NFT. Token ${tokenIdBigInt.toString()} is owned by ${actualOwner}.`
+      );
+    }
+
+    // Execute transfer
+    const transaction = transferFrom({
+      contract: nftContract,
+      from: account.address,
+      to: params.toAddress,
+      tokenId: tokenIdBigInt,
+    });
+
+    const result = await sendTransaction({
+      transaction,
+      account,
+    });
+
+    console.log("Transfer transaction submitted:", result.transactionHash);
+
+    // Wait for confirmation
+    await waitForReceipt({
+      client,
+      chain: defineChain(MARKETPLACE_CHAIN_ID),
+      transactionHash: result.transactionHash,
+    });
+
+    console.log("NFT transferred successfully");
+    console.log("==========================");
+
+    return { transactionHash: result.transactionHash };
+  } catch (error: any) {
+    console.error("Error transferring NFT:", error);
+
+    const errorMessage = error.message || "";
+    if (errorMessage.includes("not owner") || errorMessage.includes("caller is not token owner")) {
+      throw new Error("You don't own this NFT");
+    }
+    if (errorMessage.includes("invalid address")) {
+      throw new Error("Invalid recipient address");
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Batch transfer multiple NFTs to the same recipient
+ * Executes transfers sequentially (each requires separate transaction)
+ */
+export async function batchTransferNFTs(
+  nfts: { assetContractAddress: string; tokenId: string }[],
+  toAddress: string,
+  account: Account
+): Promise<{
+  results: { tokenId: string; success: boolean; transactionHash?: string; error?: string }[];
+  successCount: number;
+  failCount: number;
+}> {
+  console.log("=== BATCH TRANSFER DEBUG ===");
+  console.log("NFTs to transfer:", nfts.length);
+  console.log("Recipient:", toAddress);
+
+  const results: { tokenId: string; success: boolean; transactionHash?: string; error?: string }[] = [];
+
+  for (const nft of nfts) {
+    try {
+      const result = await transferNFT(
+        {
+          assetContractAddress: nft.assetContractAddress,
+          tokenId: nft.tokenId,
+          toAddress,
+        },
+        account
+      );
+
+      results.push({
+        tokenId: nft.tokenId,
+        success: true,
+        transactionHash: result.transactionHash,
+      });
+
+      console.log(`Transferred token ${nft.tokenId}`);
+    } catch (error: any) {
+      results.push({
+        tokenId: nft.tokenId,
+        success: false,
+        error: error.message || "Transfer failed",
+      });
+
+      console.error(`Failed to transfer token ${nft.tokenId}:`, error.message);
+    }
+  }
+
+  const successCount = results.filter(r => r.success).length;
+  const failCount = results.filter(r => !r.success).length;
+
+  console.log(`Batch transfer complete: ${successCount}/${nfts.length} successful`);
+  console.log("============================");
+
+  return { results, successCount, failCount };
 }

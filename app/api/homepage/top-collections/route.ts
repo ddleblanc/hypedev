@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { TopCollectionRow } from '@/types/homepage';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Simple in-memory cache with timeframe support
 const collectionsCache: Map<string, { data: TopCollectionRow[]; timestamp: number }> = new Map();
@@ -30,6 +31,9 @@ function calculatePercentChange(current: number, previous: number): string {
 }
 
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     // Get timeframe from query params
     const { searchParams } = new URL(request.url);
@@ -54,6 +58,7 @@ export async function GET(request: NextRequest) {
       where: { isDeployed: true },
       select: {
         id: true,
+        slug: true,
         name: true,
         image: true,
         floorPrice: true,
@@ -138,7 +143,7 @@ export async function GET(request: NextRequest) {
           rank: index + 1,
           id: c.id,
           name: c.name,
-          slug: c.id, // Using id as slug
+          slug: c.slug || c.id, // Use slug if available, fallback to id for legacy collections
           image: c.image || '',
           floorPrice: formatPrice(c.floorPrice),
           floorPriceCurrency: 'ETH',

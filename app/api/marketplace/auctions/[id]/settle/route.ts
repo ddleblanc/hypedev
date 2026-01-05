@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { logAuctionWon } from '@/lib/activity';
 import { fetchWinningBid } from '@/lib/marketplace';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 // Schema for settling an auction
 const settleAuctionSchema = z.object({
@@ -19,6 +20,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit blockchain operations
+  const rateLimit = await rateLimitCheck(request, "blockchain");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const { id: auctionId } = await params;
     const body = await request.json();
@@ -125,7 +130,7 @@ export async function POST(
       // Don't fail the request if activity logging fails
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: 'Auction settled successfully',
       auction: result.auction,
@@ -138,21 +143,24 @@ export async function POST(
         address: auction.sellerAddress,
       },
     });
+    return rateLimit.applyHeaders(response);
   } catch (error) {
     console.error('Error settling auction:', error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
+      return rateLimit.applyHeaders(response);
     }
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: `Failed to settle auction: ${errorMessage}` },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }
 
@@ -164,6 +172,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit API reads
+  const rateLimit = await rateLimitCheck(request, "api");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const { id: auctionId } = await params;
 
@@ -190,7 +202,7 @@ export async function GET(
     const hasWinner = auction.highestBid && auction.highestBidder;
     const canSettle = hasEnded && hasWinner && auction.status === 'ACTIVE';
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       auction: {
         id: auctionId,
@@ -210,11 +222,13 @@ export async function GET(
         },
       },
     });
+    return rateLimit.applyHeaders(response);
   } catch (error) {
     console.error('Error getting auction settlement status:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: 'Failed to get auction status' },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }

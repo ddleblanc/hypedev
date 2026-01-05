@@ -66,11 +66,10 @@ function CreateContent() {
 
   const router = useRouter();
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
-  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
@@ -78,6 +77,12 @@ function CreateContent() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Only use target-based scroll tracking after mount to avoid hydration errors
+  const scrollOptions = isMounted && !isMobile ? { target: heroRef } : undefined;
+  const { scrollYProgress } = useScroll(scrollOptions);
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   const chains = [
     { id: "11155111", name: "Sepolia Testnet", icon: "⚡" },

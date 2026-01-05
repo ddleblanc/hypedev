@@ -8,7 +8,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { MediaRenderer } from "@/components/MediaRenderer";
 
 interface UserList {
@@ -25,7 +25,7 @@ interface AddToListModalProps {
   onClose: () => void;
   item: {
     id: string;
-    type: 'collection' | 'nft' | 'launchpad' | 'user' | 'game';
+    type: 'collection' | 'nft' | 'drop' | 'user' | 'game';
     name: string;
     image?: string;
     description?: string;
@@ -36,7 +36,7 @@ interface AddToListModalProps {
 }
 
 export function AddToListModal({ isOpen, onClose, item, onSuccess }: AddToListModalProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const [lists, setLists] = useState<UserList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);

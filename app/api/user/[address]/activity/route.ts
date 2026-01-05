@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { ActivityType } from '@/lib/activity';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ address: string }> }
 ) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   const params = await context.params;
   try {
     const { address } = params;
@@ -93,49 +97,48 @@ export async function GET(
       prisma.activity.count({ where }),
     ]);
 
-    // Get activity stats grouped by type
-    const statsRaw = await prisma.activity.groupBy({
-      by: ['type'],
-      where: { userId: user.id },
-      _count: true,
-    });
+    // Batch all aggregation queries with Promise.all to avoid sequential roundtrips
+    const [statsRaw, volumeStats, uniqueCollections, lastActivity, availableTypes] = await Promise.all([
+      // Get activity stats grouped by type
+      prisma.activity.groupBy({
+        by: ['type'],
+        where: { userId: user.id },
+        _count: true,
+      }),
+      // Calculate volume stats for sale activities
+      prisma.activity.aggregate({
+        where: {
+          userId: user.id,
+          type: { in: ['listing_sold', 'purchase'] },
+        },
+        _sum: { amount: true },
+        _avg: { amount: true },
+        _count: true,
+      }),
+      // Get unique collections count
+      prisma.activity.groupBy({
+        by: ['collectionId'],
+        where: {
+          userId: user.id,
+          collectionId: { not: null },
+        },
+      }),
+      // Get last activity timestamp
+      prisma.activity.findFirst({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        select: { createdAt: true },
+      }),
+      // Get available activity types for this user
+      prisma.activity.groupBy({
+        by: ['type'],
+        where: { userId: user.id },
+      }),
+    ]);
 
     const stats = Object.fromEntries(
       statsRaw.map((s) => [s.type, s._count])
     ) as Record<ActivityType, number>;
-
-    // Calculate volume stats for sale activities
-    const volumeStats = await prisma.activity.aggregate({
-      where: {
-        userId: user.id,
-        type: { in: ['listing_sold', 'purchase'] },
-      },
-      _sum: { amount: true },
-      _avg: { amount: true },
-      _count: true,
-    });
-
-    // Get unique collections count
-    const uniqueCollections = await prisma.activity.groupBy({
-      by: ['collectionId'],
-      where: {
-        userId: user.id,
-        collectionId: { not: null },
-      },
-    });
-
-    // Get last activity timestamp
-    const lastActivity = await prisma.activity.findFirst({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true },
-    });
-
-    // Get available activity types for this user
-    const availableTypes = await prisma.activity.groupBy({
-      by: ['type'],
-      where: { userId: user.id },
-    });
 
     // Transform activities to match expected format
     const transformedActivities = activities.map((activity) => ({

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useTransaction } from '@/contexts/transaction-context';
 import { cn } from '@/lib/utils';
+import { cleanupStuckModals } from '@/lib/modal-cleanup';
 
 export function FloatingTransactionPill() {
   const { state, minimizeTransaction, expandTransaction, resetTransaction } = useTransaction();
@@ -384,11 +385,15 @@ export function FloatingTransactionPill() {
                         </div>
                       </div>
                       
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="w-full bg-white/10 border-white/20 text-white hover:bg-white/20"
-                        onClick={resetTransaction}
+                        onClick={() => {
+                          // Clean up any stuck modal states before resetting
+                          cleanupStuckModals();
+                          resetTransaction();
+                        }}
                       >
                         Try Again
                       </Button>

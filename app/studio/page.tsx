@@ -7,12 +7,11 @@ import { StudioDashboard } from "@/components/studio/views";
 import { StudioMainContent } from "@/components/studio/studio-main-content";
 import { useStudioData } from "@/hooks/use-studio-data";
 import {
-  Plus, ArrowLeft, Sparkles, Layers, DollarSign,
+  Plus, Sparkles, Layers, DollarSign,
   Package, BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 
 function DashboardContent() {
   const { projects, collections, nfts, isLoading, error, refreshData } = useStudioData();
@@ -21,9 +20,7 @@ function DashboardContent() {
 
   const router = useRouter();
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
-  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const [isHeroRefAttached, setIsHeroRefAttached] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -33,6 +30,19 @@ function DashboardContent() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Callback ref to track when the hero element is attached to the DOM
+  const heroRefCallback = (node: HTMLDivElement | null) => {
+    heroRef.current = node;
+    setIsHeroRefAttached(!!node);
+  };
+
+  // Only use target-based scroll tracking after the ref is actually attached
+  const { scrollYProgress } = useScroll(
+    isHeroRefAttached ? { target: heroRef } : undefined
+  );
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   const totalCollections = collections.length;
   const totalNFTs = nfts.length;
@@ -205,7 +215,7 @@ function DashboardContent() {
         <div className="relative">
           {/* Desktop Hero */}
           <motion.div
-            ref={heroRef}
+            ref={heroRefCallback}
             className="relative h-[40vh] overflow-hidden"
             style={{ scale: heroScale }}
           >

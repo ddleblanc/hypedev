@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ArrowLeft } from "lucide-react";
-import { useWalletAuth } from "@/hooks/use-wallet-auth";
+import { useAuth } from "@/contexts/auth-context";
 import { GameCommandCenter, type GameOption } from "@/components/ui/game-command-center";
 
 const playOptions: GameOption[] = [
@@ -45,7 +45,7 @@ type PlayViewProps = {
 };
 
 export function PlayView({ setViewMode }: PlayViewProps) {
-  const { user } = useWalletAuth();
+  const { user } = useAuth();
 
   const handleOptionClick = (option: GameOption) => {
     // Navigate to nested play routes

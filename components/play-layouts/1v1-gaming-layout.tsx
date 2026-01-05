@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import React, { useState, useRef, useEffect } from "react";
+import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
 import { useRightSidebarStore } from "@/hooks/use-right-sidebar-store";
-import { 
+import {
   Play,
   Info,
   Plus,
@@ -23,12 +23,36 @@ import {
   Gem,
   Compass,
   Map,
-  Zap
+  Zap,
+  Loader2,
+  Swords,
+  Trophy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { MatchFinder } from "@/components/gaming/match-finder";
+import { Leaderboard } from "@/components/gaming/leaderboard";
+import { useActiveAccount } from "thirdweb/react";
+import { trpc } from "@/lib/trpc/client";
+
+interface Game {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  image: string;
+  category: string;
+}
+
+interface Match {
+  id: string;
+  status: string;
+  player1: { id: string; displayName: string; avatarUrl?: string };
+  player2?: { id: string; displayName: string; avatarUrl?: string };
+  game: Game;
+}
 
 const mock1v1Worlds = {
   hero: {
@@ -157,14 +181,42 @@ const events = [
 ];
 
 export function OneVsOneGamingLayout() {
+  const account = useActiveAccount();
   const [searchQuery, setSearchQuery] = useState("");
   const [isMuted, setIsMuted] = useState(true);
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  const [showMatchFinder, setShowMatchFinder] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
+  const [isMounted, setIsMounted] = useState(false);
   const { openRightSidebar } = useRightSidebarStore();
-  
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Only use target-based scroll tracking after mount to avoid hydration errors
+  const { scrollYProgress } = useScroll(isMounted ? { target: heroRef } : undefined);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+
+  // Fetch 1v1 games via tRPC
+  const gamesQuery = trpc.gaming.games.list.useQuery({ category: "1v1" });
+  const games = gamesQuery.data?.games || [];
+  const isLoading = gamesQuery.isLoading;
+
+  // Set selected game when games are loaded
+  useEffect(() => {
+    if (games.length > 0 && !selectedGame) {
+      setSelectedGame(games[0] as any);
+    }
+  }, [games, selectedGame]);
+
+  // Fetch recent matches for current user via tRPC
+  const statsQuery = trpc.gaming.stats.byUser.useQuery(
+    { walletAddress: account?.address || "" },
+    { enabled: !!account?.address }
+  );
+  const recentMatches = (statsQuery.data as any)?.recentMatches || [];
 
   const scrollCarousel = (direction: 'left' | 'right', containerId: string) => {
     const container = document.getElementById(containerId);
@@ -175,7 +227,13 @@ export function OneVsOneGamingLayout() {
   };
 
   const handleStartDueling = () => {
+    setShowMatchFinder(true);
     openRightSidebar();
+  };
+
+  const handleMatchFound = (match: Match) => {
+    console.log("Match found:", match);
+    // Navigate to match or show match UI
   };
 
   return (
@@ -185,7 +243,7 @@ export function OneVsOneGamingLayout() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full overflow-hidden bg-black"
+        className="w-full overflow-hidden"
       >
       <div className="relative">
         {/* Hero Banner - 1v1 themed */}
@@ -360,7 +418,7 @@ export function OneVsOneGamingLayout() {
               <ArrowUpRight className="h-4 w-4" />
             </Button>
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
             {mock1v1Worlds.categories.map((category, index) => (
               <motion.div
@@ -373,8 +431,8 @@ export function OneVsOneGamingLayout() {
               >
                 <div className="relative overflow-hidden rounded-xl">
                   <div className="aspect-[3/4] bg-gradient-to-br from-cyan-800 to-blue-900">
-                    <img 
-                      src={category.image} 
+                    <img
+                      src={category.image}
                       alt={category.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -390,10 +448,167 @@ export function OneVsOneGamingLayout() {
           </div>
         </motion.section>
 
-     
+        {/* Match Finder Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.8 }}
+          className="px-4 md:px-8 py-8 md:py-16 bg-zinc-900/50"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Swords className="h-8 w-8 text-cyan-400" />
+              Find a Match
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Game Selection */}
+            <div>
+              <h3 className="text-lg font-medium text-white mb-4">Select Game</h3>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+                </div>
+              ) : games.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {games.slice(0, 4).map((game) => (
+                    <motion.div
+                      key={game.id}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setSelectedGame(game as any)}
+                      className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
+                        selectedGame?.id === game.id
+                          ? "border-cyan-400 bg-cyan-400/10"
+                          : "border-white/10 bg-zinc-800/50 hover:border-white/30"
+                      }`}
+                    >
+                      <div className="aspect-video bg-zinc-700 rounded-lg mb-3 overflow-hidden">
+                        {game.image && (
+                          <img
+                            src={game.image}
+                            alt={game.name}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <h4 className="text-white font-medium">{game.name}</h4>
+                      <p className="text-sm text-white/60">{game.description || "1v1 PvP"}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-zinc-800/30 rounded-xl">
+                  <Swords className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                  <p className="text-white/60">No games available</p>
+                </div>
+              )}
+            </div>
+
+            {/* Match Finder */}
+            <div>
+              <AnimatePresence mode="wait">
+                {selectedGame ? (
+                  <MatchFinder
+                    key={selectedGame.id}
+                    game={selectedGame}
+                    onMatchFound={handleMatchFound}
+                    className="h-full"
+                  />
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="h-full flex items-center justify-center bg-zinc-800/30 rounded-xl p-6"
+                  >
+                    <div className="text-center">
+                      <Swords className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                      <p className="text-white/60">Select a game to start matchmaking</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* Recent Matches Section */}
+        {recentMatches.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4, duration: 0.8 }}
+            className="px-4 md:px-8 py-8 md:py-16 bg-black"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                <Trophy className="h-8 w-8 text-cyan-400" />
+                Recent Matches
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recentMatches.slice(0, 6).map((match: any, index: number) => (
+                <motion.div
+                  key={match.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index }}
+                  className="bg-zinc-800/50 rounded-xl p-4 border border-white/10"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm text-white/60">{match.game?.name}</span>
+                    <Badge
+                      variant={match.status === "COMPLETED" ? "default" : "secondary"}
+                    >
+                      {match.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-center">
+                      <p className="text-white font-medium">{match.player1.displayName}</p>
+                    </div>
+                    <span className="text-white/40 text-xl font-bold">VS</span>
+                    <div className="text-center">
+                      <p className="text-white font-medium">
+                        {match.player2?.displayName || "TBD"}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* 1v1 Leaderboard */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.8 }}
+          className="px-4 md:px-8 py-8 md:py-16 bg-zinc-900/50"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Trophy className="h-8 w-8 text-cyan-400" />
+              1v1 Rankings
+            </h2>
+          </div>
+
+          <div className="bg-zinc-900/50 rounded-xl border border-white/10">
+            <Leaderboard
+              limit={10}
+              showEarnings={true}
+              currentUserId={account?.address}
+              className="p-4"
+            />
+          </div>
+        </motion.section>
+
       </div>
     </motion.div>
-    
 
     </>
   );

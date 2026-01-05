@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useRef, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useBackgroundCarousel } from "@/contexts/background-carousel-context";
+import { useChat } from "@/contexts/chat-context";
 import { MediaRenderer } from "@/components/media-renderer";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -24,7 +25,8 @@ export function useBackgroundAnimation() {
 
 export function PersistentBackground({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { currentBackground, overlayBackground } = useBackgroundCarousel();
+  const { currentBackground, overlayBackground, isLoadingPreference } = useBackgroundCarousel();
+  const { isMobileOverlayOpen } = useChat();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [previousPath, setPreviousPath] = useState<string | null>(null);
   const [navigationDirection, setNavigationDirection] = useState<'forward' | 'backward' | null>(null);
@@ -32,6 +34,7 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
   // Convert pathname to route type
   const getCurrentRoute = () => {
     if (pathname === '/') return 'home';
+    if (pathname === '/lootboxes/reveal') return 'lootboxes-reveal'; // Reveal page has its own background handling
     if (pathname === '/lootboxes' || pathname.startsWith('/lootboxes/')) return 'lootboxes';
 
     // P2P route detection
@@ -71,16 +74,18 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
       trade: 1,
       play: 1,
       lootboxes: 1,
+      'lootboxes-reveal': 2,
       p2p: 2,
       'p2p-collections': 3,
       'p2p-collection-browse': 4,
       'p2p-conversation': 4,
       marketplace: 2,
       casual: 2,
-      launchpad: 2,
+      drops: 2,
       museum: 2,
       studio: 2,
       lists: 2,
+      'control-center': 2,
     };
     
     if (previousPath && previousPath !== pathname) {
@@ -117,62 +122,123 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
     }
   }, [currentBackground, isVideoBackground, currentRoute]);
 
-  // Calculate zoom and blur based on current route
+  // Calculate zoom, blur, brightness, and saturation based on current route
+  // Using CSS filters instead of black overlays maintains visual connection while reducing distraction
+  // NOTE: blur must be in the inline filter string (not Tailwind class) because CSS filter property can only be set once
   const getBackgroundStyles = () => {
     let scale = 'scale-100';
-    let blur = 'blur-none';
+    let blur = 0; // in pixels
+    let brightness = 1;
+    let saturation = 1;
 
+    // Brightness/saturation guide:
+    // - 1.0 = full brightness/color (home)
+    // - 0.5-0.7 = slightly dimmed (shallow pages)
+    // - Deep pages: fully desaturated (0) and very dark (0.15-0.25)
+    // Blur guide: 0=none, 4=sm, 8=md, 12=lg, 24=xl
     switch(currentRoute) {
+      case 'home':
+        scale = 'scale-100';
+        blur = 0;
+        brightness = 1;
+        saturation = 1;
+        break;
       case 'trade':
       case 'play':
       case 'profile':
         scale = 'scale-110';
-        blur = 'blur-sm';
+        blur = 4;
+        brightness = 0.5;
+        saturation = 0.4;
         break;
       case 'lootboxes':
         scale = 'scale-110';
-        blur = 'blur-sm';
+        blur = 12;
+        brightness = 0.2;
+        saturation = 0;
+        break;
+      case 'lootboxes-reveal':
+        scale = 'scale-125';
+        blur = 8;
+        brightness = 0.25;
+        saturation = 0;
         break;
       case 'p2p':
         scale = 'scale-150';
-        blur = 'blur-lg';
+        blur = 12;
+        brightness = 0.25;
+        saturation = 0;
         break;
       case 'p2p-collections':
-        scale = 'scale-150'; // Keep same zoom as p2p hub
-        blur = 'blur-xl'; // Deeper blur for collections list
+        scale = 'scale-150';
+        blur = 24;
+        brightness = 0.2;
+        saturation = 0;
         break;
       case 'p2p-collection-browse':
-        scale = 'scale-150'; // Keep same base zoom
-        blur = 'blur-xl'; // Keep same blur (overlay will be on top)
+        scale = 'scale-150';
+        blur = 24;
+        brightness = 0.15;
+        saturation = 0;
         break;
       case 'p2p-conversation':
         scale = 'scale-150';
-        blur = 'blur-lg';
+        blur = 12;
+        brightness = 0.15;
+        saturation = 0;
         break;
       case 'lists':
         scale = 'scale-125';
-        blur = 'blur-md';
+        blur = 12;
+        brightness = 0.2;
+        saturation = 0;
         break;
       case 'marketplace':
       case 'casual':
-      case 'launchpad':
+      case 'drops':
       case 'studio':
+      case 'control-center':
         scale = 'scale-125';
-        blur = 'blur-md';
+        blur = 12;
+        brightness = 0.2;
+        saturation = 0;
         break;
       case 'museum':
         scale = 'scale-95';
-        blur = 'blur-xl';
+        blur = 24;
+        brightness = 0.15;
+        saturation = 0;
+        break;
+      case 'studio-new':
+        scale = 'scale-95';
+        blur = 24;
+        brightness = 0.15;
+        saturation = 0;
         break;
       default:
         scale = 'scale-100';
-        blur = 'blur-none';
+        blur = 0;
+        brightness = 1;
+        saturation = 1;
     }
 
-    return { scale, blur };
+    // Override when mobile chat overlay is open
+    if (isMobileOverlayOpen) {
+      scale = 'scale-110';
+      blur = 16;
+      brightness = 0.4;
+      saturation = 0.3;
+    }
+
+    return { scale, blur, brightness, saturation };
   };
 
-  const { scale, blur } = getBackgroundStyles();
+  const { scale, blur, brightness, saturation } = getBackgroundStyles();
+
+  // Build the combined filter string
+  const filterString = blur > 0
+    ? `blur(${blur}px) brightness(${brightness}) saturate(${saturation})`
+    : `brightness(${brightness}) saturate(${saturation})`;
 
   return (
     <BackgroundContext.Provider value={{ 
@@ -180,15 +246,20 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
       setIsNavigatingForward: () => {},
       previousPath: previousPath 
     }}>
-      {/* Fixed background layer */}
-      <div className="fixed inset-0 z-0">
-        {/* Persistent background with animations */}
-        <div className="absolute inset-0 animate-[fadeIn_0.5s_ease-out]">
+      {/* Fixed background layer - bg-neutral-950 as fallback during loading */}
+      <div className="fixed inset-0 z-0 bg-neutral-950">
+        {/* Persistent background with animations - fade in after preference loads */}
+        {/* Using CSS filters (brightness/saturate) instead of black overlays to maintain visual depth */}
+        <div className={`absolute inset-0 transition-opacity duration-500 ${isLoadingPreference ? 'opacity-0' : 'opacity-100'}`}>
           {isVideoBackground ? (
             <video
               ref={videoRef}
               src={currentBackground}
-              className={`w-full h-full object-cover transition-all duration-500 ${scale} ${blur}`}
+              className={`w-full h-full object-cover transition-all duration-500 ${scale}`}
+              style={{
+                filter: filterString,
+                transition: 'filter 500ms ease-out, transform 500ms ease-out'
+              }}
               autoPlay
               muted
               loop
@@ -197,61 +268,32 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
               preload="metadata"
               onError={() => {
                 console.warn('Video failed to load:', currentBackground);
-                // Fallback could be implemented here if needed
               }}
             />
           ) : (
             <MediaRenderer
               src={currentBackground}
               alt="Background"
-              className={`w-full h-full object-cover transition-all duration-500 ${scale} ${blur}`}
+              className={`w-full h-full object-cover transition-all duration-500 ${scale}`}
+              style={{
+                filter: filterString,
+                transition: 'filter 500ms ease-out, transform 500ms ease-out'
+              }}
             />
           )}
-          <div className={`absolute inset-0 transition-all duration-500 ${
-            currentRoute === 'p2p' ? 'bg-black/40' :
-            currentRoute === 'p2p-collections' ? 'bg-black/60' :
-            currentRoute === 'p2p-collection-browse' ? 'bg-black/60' :
-            currentRoute === 'p2p-conversation' ? 'bg-black/80' :
-            currentRoute === 'museum' ? 'bg-black/85' :
-            currentRoute === 'marketplace' ||
-            currentRoute === 'casual' || currentRoute === 'launchpad' ||
-            currentRoute === 'studio' || currentRoute === 'lists'
-              ? 'bg-black/70' : 'bg-black/40'
+          {/* Subtle vignette gradient for depth - not a flat overlay */}
+          <div className={`absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/30 transition-opacity duration-500 ${
+            currentRoute === 'home' ? 'opacity-0' : 'opacity-100'
           }`} />
-          {/* Special fade-to-black overlay for marketplace and casual views */}
-          <div className={`absolute inset-0 bg-black transition-all duration-1000 ${
-            currentRoute === 'p2p' ? 'opacity-0' :
-            currentRoute === 'p2p-collections' ? 'opacity-40' :
-            currentRoute === 'p2p-collection-browse' ? 'opacity-50' :
-            currentRoute === 'p2p-conversation' ? 'opacity-70' :
-            currentRoute === 'marketplace' || currentRoute === 'casual' ||
-            currentRoute === 'launchpad' ||
-            currentRoute === 'studio' || currentRoute === 'lists'
-              ? 'opacity-60'
-              : 'opacity-0'
-          }`} />
-          <div className={`absolute inset-0 bg-gradient-to-br from-transparent via-black/20 to-black/60 transition-all duration-500 ${
-            currentRoute === 'trade' ? 'opacity-80' :
-            currentRoute === 'play' ? 'opacity-80' :
-            currentRoute === 'p2p' ? 'opacity-80' :
-            currentRoute === 'p2p-collections' ? 'opacity-90' :
-            currentRoute === 'p2p-collection-browse' ? 'opacity-85' :
-            currentRoute === 'p2p-conversation' ? 'opacity-95' :
-            currentRoute === 'marketplace' ? 'opacity-90' :
-            currentRoute === 'casual' ? 'opacity-90' :
-            currentRoute === 'launchpad' ? 'opacity-90' :
-            currentRoute === 'studio' ? 'opacity-90' :
-            currentRoute === 'lists' ? 'opacity-90' : 'opacity-100'
+          {/* Bottom fade for content readability */}
+          <div className={`absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent transition-opacity duration-500 ${
+            currentRoute === 'home' ? 'opacity-0' : 'opacity-60'
           }`} />
         </div>
       </div>
-      
-      {/* Lootbox Black Overlay - sits above the regular background */}
-      {currentRoute === 'lootboxes' && (
-        <div className="fixed inset-0 z-5 bg-black transition-all duration-1000" />
-      )}
 
       {/* Collection Banner Overlay - sits above the regular background */}
+      {/* Uses same brightness/saturation approach for consistency */}
       <AnimatePresence>
         {overlayBackground && currentRoute === 'p2p-collection-browse' && (
           <motion.div
@@ -262,17 +304,21 @@ export function PersistentBackground({ children }: { children: React.ReactNode }
             transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] as [number, number, number, number] }}
             className="fixed inset-0 z-5 overflow-hidden"
           >
-            <div className="absolute inset-0 blur-sm">
+            <div
+              className="absolute inset-0"
+              style={{
+                filter: filterString,
+                transition: 'filter 500ms ease-out'
+              }}
+            >
               <MediaRenderer
                 src={overlayBackground}
                 alt="Collection Banner"
                 className="w-full h-full object-cover scale-110"
               />
             </div>
-            {/* Match the darkness of base background */}
-            <div className="absolute inset-0 bg-black/60" />
-            <div className="absolute inset-0 bg-black opacity-50" />
-            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-black/20 to-black/60 opacity-85" />
+            {/* Subtle vignette for depth */}
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/30" />
           </motion.div>
         )}
       </AnimatePresence>

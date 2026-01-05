@@ -30,7 +30,14 @@ export function StudioCollectionDetail({ collection, onClose }: { collection: Co
   const [searchQuery, setSearchQuery] = useState('');
   const heroRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Only use target-based scroll tracking after mount to avoid hydration errors
+  const { scrollYProgress } = useScroll(isMounted ? { target: heroRef } : undefined);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.03]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 

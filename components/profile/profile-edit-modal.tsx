@@ -24,6 +24,7 @@ import {
 import { MediaRenderer } from '@/components/media-renderer';
 import { uploadImageToThirdweb } from '@/lib/thirdweb';
 import { useToast } from '@/hooks/use-toast';
+import { trpc } from '@/lib/trpc/client';
 import {
   Camera,
   Loader2,
@@ -111,6 +112,11 @@ export function ProfileEditModal({
     },
   });
 
+  const checkUsernameQuery = trpc.user.profile.checkUsername.useQuery(
+    { username: form.watch('username') || '', excludeUserId: user.id },
+    { enabled: false } // Manual control
+  );
+
   const checkUsername = useCallback(async (username: string) => {
     if (username.length < 3 || username === user.username) {
       setUsernameAvailable(null);
@@ -119,19 +125,16 @@ export function ProfileEditModal({
 
     setIsCheckingUsername(true);
     try {
-      const response = await fetch('/api/user/check-username', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, currentUserId: user.id }),
-      });
-      const data = await response.json();
-      setUsernameAvailable(data.available);
+      const result = await checkUsernameQuery.refetch();
+      if (result.data) {
+        setUsernameAvailable(result.data.available);
+      }
     } catch (error) {
       console.error('Error checking username:', error);
     } finally {
       setIsCheckingUsername(false);
     }
-  }, [user.username, user.id]);
+  }, [user.username, checkUsernameQuery]);
 
   const handleProfileImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

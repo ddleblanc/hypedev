@@ -110,7 +110,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
     const getIcon = (optionId: string) => {
       switch(optionId) {
         case 'marketplace': return ShoppingCart;
-        case 'launchpad': return Rocket;
+        case 'drops': return Rocket;
         case 'lootboxes': return Gift;
         case 'p2p': return Users;
         case 'casual': return Coffee;
@@ -137,7 +137,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
               // Cut corner positions for top row - BOTTOM corners cut
               const clipPath = index === 0
                 ? 'polygon(0 0, 100% 0, 100% calc(100% - 30px), calc(100% - 30px) 100%, 0 100%)'  // Bottom right cut (Marketplace)
-                : 'polygon(0 0, 100% 0, 100% 100%, 30px 100%, 0 calc(100% - 30px))';              // Bottom left cut (Launchpad)
+                : 'polygon(0 0, 100% 0, 100% 100%, 30px 100%, 0 calc(100% - 30px))';              // Bottom left cut (Drops)
 
               return (
                 <button
@@ -160,7 +160,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
                     <img
                       src={
                         option.id === 'marketplace' ? '/assets/img/marketplace1.png' :
-                        option.id === 'launchpad' ? '/assets/img/launchpad1.png' :
+                        option.id === 'drops' ? '/assets/img/launchpad1.png' :
                         option.id === 'lootboxes' ? '/assets/img/lootboxes1.png' :
                         option.id === 'p2p' ? '/assets/img/p2p1.png' :
                         '/assets/img/banner.webp'
@@ -180,7 +180,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
                       </h2>
                       <p className="text-[rgb(163,255,18)] text-[11px] font-bold uppercase tracking-wide">
                         {option.id === 'marketplace' && 'BUY · SELL · TRADE'}
-                        {option.id === 'launchpad' && 'EARLY · INVEST'}
+                        {option.id === 'drops' && 'EARLY · INVEST'}
                         {option.id === 'lootboxes' && 'OPEN · WIN'}
                         {option.id === 'p2p' && 'DIRECT · SWAP'}
                       </p>
@@ -221,7 +221,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
                     <img
                       src={
                         option.id === 'marketplace' ? '/assets/img/marketplace1.png' :
-                        option.id === 'launchpad' ? '/assets/img/launchpad1.png' :
+                        option.id === 'drops' ? '/assets/img/launchpad1.png' :
                         option.id === 'lootboxes' ? '/assets/img/lootboxes1.png' :
                         option.id === 'p2p' ? '/assets/img/p2p1.png' :
                         '/assets/img/banner.webp'
@@ -241,7 +241,7 @@ export function GameCommandCenter({ options, onOptionClick, centerLabel = "SELEC
                       </h2>
                       <p className="text-[rgb(163,255,18)] text-[11px] font-bold uppercase tracking-wide">
                         {option.id === 'marketplace' && 'BUY · SELL · TRADE'}
-                        {option.id === 'launchpad' && 'EARLY · INVEST'}
+                        {option.id === 'drops' && 'EARLY · INVEST'}
                         {option.id === 'lootboxes' && 'OPEN · WIN'}
                         {option.id === 'p2p' && 'DIRECT · SWAP'}
                       </p>

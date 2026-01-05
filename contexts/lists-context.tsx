@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 
 interface ListItem {
   id: string;
@@ -43,7 +43,7 @@ interface ListsContextType {
 const ListsContext = createContext<ListsContextType | undefined>(undefined);
 
 export function ListsProvider({ children }: { children: ReactNode }) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const [lists, setLists] = useState<UserList[]>([]);
   const [selectedList, setSelectedList] = useState<UserList | null>(null);
   const [isLoading, setIsLoading] = useState(true);

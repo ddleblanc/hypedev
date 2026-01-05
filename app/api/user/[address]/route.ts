@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { requireAuthMatch, AuthError } from '@/lib/thirdweb-auth'
+import { rateLimit } from '@/lib/rate-limit'
 
 // Helper function to format ETH values for display
 function formatEthValue(value: number): string | undefined {
@@ -151,6 +152,9 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ address: string }> }
 ) {
+  const rateLimitResult = await rateLimit(request, 'api')
+  if (rateLimitResult) return rateLimitResult
+
   const params = await context.params;
   try {
     const { address } = params
@@ -203,6 +207,9 @@ export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ address: string }> }
 ) {
+  const rateLimitResult = await rateLimit(request, 'apiWrite')
+  if (rateLimitResult) return rateLimitResult
+
   const params = await context.params;
   try {
     const { address } = params

@@ -29,6 +29,7 @@ import { getContract } from "thirdweb";
 import { client } from "@/lib/thirdweb";
 import { defineChain } from "thirdweb/chains";
 import { MARKETPLACE_ADDRESS, MARKETPLACE_CHAIN_ID } from "@/lib/marketplace";
+import { trpc } from "@/lib/trpc/client";
 
 export interface NFTBuyDialogProps {
   open: boolean;
@@ -58,6 +59,9 @@ export function NFTBuyDialog({ open, onOpenChange, nft, onPurchaseComplete }: NF
 
   const account = useActiveAccount();
   const { mutateAsync: sendTx, isPending } = useSendTransaction();
+
+  // tRPC mutation for recording purchases
+  const recordPurchaseMutation = trpc.marketplace.purchase.record.useMutation();
 
   if (!nft) return null;
 
@@ -125,26 +129,15 @@ export function NFTBuyDialog({ open, onOpenChange, nft, onPurchaseComplete }: NF
 
       console.log("Transaction submitted:", result.transactionHash);
 
-      // Record the purchase in our database
+      // Record the purchase in our database via tRPC
       try {
-        const response = await fetch('/api/marketplace/purchase', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            listingId: nft.listingId,
-            buyerAddress: account.address,
-            transactionHash: result.transactionHash,
-            quantity: 1,
-          }),
+        await recordPurchaseMutation.mutateAsync({
+          listingId: nft.listingId!,
+          buyerAddress: account.address,
+          transactionHash: result.transactionHash,
+          quantity: 1,
         });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('Failed to record purchase:', errorData);
-          // Don't fail the UI - the blockchain tx succeeded
-        } else {
-          console.log('Purchase recorded in database');
-        }
+        console.log('Purchase recorded in database');
       } catch (dbError) {
         console.error('Error recording purchase:', dbError);
         // Don't fail the UI - the blockchain tx succeeded

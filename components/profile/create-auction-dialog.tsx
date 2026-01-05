@@ -22,6 +22,7 @@ import {
   calculateSellerProceeds,
   MARKETPLACE_CHAIN_ID,
 } from '@/lib/marketplace';
+import { trpc } from '@/lib/trpc/client';
 import {
   Gavel,
   Loader2,
@@ -85,6 +86,9 @@ export function CreateAuctionDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
+
+  // tRPC mutation
+  const createAuctionMutation = trpc.marketplace.auctions.create.useMutation();
 
   const royaltyPercentage = nft?.collection.royaltyPercentage || 0;
   const bidNum = parseFloat(startingBid) || 0;
@@ -195,39 +199,25 @@ export function CreateAuctionDialog({
 
       setTransactionHash(result.transactionHash);
 
-      // Save to database - handle errors gracefully since on-chain tx succeeded
+      // Save to database via tRPC - handle errors gracefully since on-chain tx succeeded
       try {
-        const dbResponse = await fetch('/api/marketplace/auctions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nftId: nft.id,
-            auctionId: result.auctionId,
-            sellerAddress: account.address,
-            assetContractAddress: nft.collection.address,
-            tokenId: nft.tokenId,
-            minimumBidAmount: parseFloat(startingBid),
-            buyoutBidAmount: buyoutPrice ? parseFloat(buyoutPrice) : undefined,
-            startTimestamp: new Date().toISOString(),
-            endTimestamp: endDate.toISOString(),
-            transactionHash: result.transactionHash,
-          }),
+        await createAuctionMutation.mutateAsync({
+          nftId: nft.id,
+          auctionId: result.auctionId,
+          sellerAddress: account.address,
+          assetContractAddress: nft.collection.address,
+          tokenId: nft.tokenId,
+          minimumBidAmount: parseFloat(startingBid),
+          buyoutBidAmount: buyoutPrice ? parseFloat(buyoutPrice) : undefined,
+          startTimestamp: new Date().toISOString(),
+          endTimestamp: endDate.toISOString(),
+          transactionHash: result.transactionHash,
         });
-
-        if (!dbResponse.ok) {
-          const errorData = await dbResponse.json().catch(() => ({}));
-          console.error('Database save failed, but on-chain auction succeeded. Error:', errorData);
-          toast({
-            title: 'Auction created on-chain',
-            description: errorData.error || 'Your auction is live, but there was an issue syncing. It may take a moment to appear.',
-            variant: 'default',
-          });
-        }
-      } catch (dbError) {
-        console.error('Database error:', dbError);
+      } catch (dbError: any) {
+        console.error('Database save failed, but on-chain auction succeeded. Error:', dbError);
         toast({
           title: 'Auction created on-chain',
-          description: 'Your auction is live. Database sync may be delayed.',
+          description: dbError.message || 'Your auction is live, but there was an issue syncing. It may take a moment to appear.',
           variant: 'default',
         });
       }

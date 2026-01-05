@@ -8,7 +8,7 @@ import { PlayView } from "@/components/authenticated-homescreen/play-view";
 import { P2PView } from "@/components/authenticated-homescreen/p2p-view";
 import { MarketplaceView } from "@/components/authenticated-homescreen/marketplace-view";
 import { CasualGamesView } from "@/components/authenticated-homescreen/casual-games-view";
-import { LaunchpadView } from "@/components/authenticated-homescreen/launchpad-view";
+import { DropsView } from "@/components/authenticated-homescreen/drops-view";
 import { MuseumView } from "@/components/authenticated-homescreen/museum-view";
 import { useRouter } from "next/navigation";
 import { AuthenticatedLayout } from "@/components/layouts/authenticated-layout";
@@ -100,8 +100,8 @@ export function SinglePageApp() {
         return <MarketplaceView setViewMode={handleNavigate} />;
       case 'casual':
         return <CasualGamesView onBack={() => handleBack('play')} />;
-      case 'launchpad':
-        return <LaunchpadView setViewMode={handleNavigate} />;
+      case 'drops':
+        return <DropsView setViewMode={handleNavigate} />;
       case 'museum':
         return <MuseumView setViewMode={handleNavigate} />;
       case 'studio':

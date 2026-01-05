@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextResponse, NextRequest } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { rateLimit } from '@/lib/rate-limit';
+import { batchFetchUsersByAddress } from '@/lib/db-utils';
 
-const prisma = new PrismaClient();
-
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
   try {
     // Fetch collections with most minted NFTs as a proxy for trending
     // You can modify this logic based on your trending criteria
@@ -35,27 +37,9 @@ export async function GET() {
       },
     });
 
-    // Fetch creator names for all collections
+    // Batch fetch creator names for all collections (avoids N+1 queries)
     const creatorAddresses = [...new Set(trendingCollections.map(c => c.creatorAddress))];
-    const creators = await prisma.user.findMany({
-      where: {
-        walletAddress: {
-          in: creatorAddresses
-        }
-      },
-      select: {
-        walletAddress: true,
-        username: true,
-      }
-    });
-
-    // Create a map of creator addresses to usernames
-    const creatorMap = new Map(
-      creators.map(creator => [
-        creator.walletAddress.toLowerCase(),
-        creator.username || null
-      ])
-    );
+    const creatorsMap = await batchFetchUsersByAddress(creatorAddresses);
 
     // Transform data to match the expected format
     const formattedCollections = trendingCollections.map((collection, index) => {
@@ -89,8 +73,9 @@ export async function GET() {
         }
       }
 
-      // Get creator name from the map
-      const creatorName = creatorMap.get(collection.creatorAddress.toLowerCase());
+      // Get creator name from the batch-fetched map
+      const creator = creatorsMap.get(collection.creatorAddress.toLowerCase());
+      const creatorName = creator?.username || null;
 
       return {
         id: collection.id,
@@ -122,7 +107,5 @@ export async function GET() {
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

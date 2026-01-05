@@ -24,8 +24,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { MediaRenderer } from "@/components/media-renderer";
+import { trpc } from "@/lib/trpc/client";
 
 interface TradeDetail {
   id: string;
@@ -102,16 +103,12 @@ export function TradeDetailModal({
   onTradeUpdate,
   onCounterOffer
 }: TradeDetailModalProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const address = user?.walletAddress;
-  const [trade, setTrade] = useState<TradeDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [isUpdatingTrade, setIsUpdatingTrade] = useState(false);
   const [isCounterMode, setIsCounterMode] = useState(false);
   const [historyIndex, setHistoryIndex] = useState(-1); // -1 means showing current state
+  const [error, setError] = useState<string | null>(null);
 
   const statusConfig = {
     DRAFT: { label: "Draft", color: "bg-gray-500/20 text-gray-400", icon: Clock },
@@ -125,100 +122,139 @@ export function TradeDetailModal({
     REJECTED: { label: "Rejected", color: "bg-red-500/20 text-red-400", icon: XCircle },
   };
 
-  const fetchTrade = async () => {
-    if (!tradeId) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/p2p/trades/${tradeId}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setTrade(data.data);
-      } else {
-        setError(data.error || 'Failed to fetch trade details');
-      }
-    } catch (error) {
-      console.error('Error fetching trade:', error);
-      setError('Failed to fetch trade details');
-    } finally {
-      setIsLoading(false);
+  // tRPC query for fetching trade details
+  const tradeQuery = trpc.p2p.trades.byId.useQuery(
+    { id: tradeId! },
+    {
+      enabled: isOpen && !!tradeId,
     }
-  };
+  );
 
+  const isLoading = tradeQuery.isLoading;
+
+  // tRPC mutation for updating trade
+  const updateTradeMutation = trpc.p2p.trades.update.useMutation({
+    onSuccess: () => {
+      tradeQuery.refetch().then(() => {
+        // Notify parent with updated trade data after refetch
+        if (tradeQuery.data) {
+          onTradeUpdate?.(transformTrade(tradeQuery.data));
+        }
+      });
+    },
+    onError: (err) => {
+      setError(err.message || 'Failed to update trade');
+    },
+  });
+
+  // Transform tRPC response to match TradeDetail interface (Date -> string)
+  const transformTrade = (data: NonNullable<typeof tradeQuery.data>): TradeDetail => ({
+    id: data.id,
+    status: data.status,
+    fairnessScore: data.fairnessScore ?? 0,
+    escrowAddress: data.escrowAddress ?? undefined,
+    createdAt: data.createdAt instanceof Date ? data.createdAt.toISOString() : String(data.createdAt),
+    updatedAt: data.updatedAt instanceof Date ? data.updatedAt.toISOString() : String(data.updatedAt),
+    agreedAt: data.agreedAt ? (data.agreedAt instanceof Date ? data.agreedAt.toISOString() : String(data.agreedAt)) : undefined,
+    finalizedAt: data.finalizedAt ? (data.finalizedAt instanceof Date ? data.finalizedAt.toISOString() : String(data.finalizedAt)) : undefined,
+    canceledAt: data.canceledAt ? (data.canceledAt instanceof Date ? data.canceledAt.toISOString() : String(data.canceledAt)) : undefined,
+    items: data.items.filter((item) => item.nft !== null).map((item) => ({
+      id: item.id,
+      side: item.side,
+      tokenAmount: item.tokenAmount ?? 0,
+      nft: {
+        id: item.nft!.id,
+        name: item.nft!.name,
+        image: item.nft!.image ?? '',
+        collection: {
+          name: item.nft!.collection.name,
+          symbol: item.nft!.collection.symbol,
+          image: item.nft!.collection.image ?? '',
+        },
+      },
+    })),
+    messages: data.messages.map((msg) => ({
+      id: msg.id,
+      message: msg.message,
+      messageType: msg.messageType,
+      createdAt: msg.createdAt instanceof Date ? msg.createdAt.toISOString() : String(msg.createdAt),
+      user: {
+        username: msg.user.username ?? 'Unknown',
+        profilePicture: msg.user.profilePicture ?? '',
+      },
+    })),
+    history: data.history.map((h) => ({
+      id: h.id,
+      action: h.action,
+      oldStatus: h.oldStatus ?? '',
+      newStatus: h.newStatus ?? '',
+      createdAt: h.createdAt instanceof Date ? h.createdAt.toISOString() : String(h.createdAt),
+      user: {
+        username: h.user.username ?? 'Unknown',
+      },
+      metadata: h.metadata,
+    })),
+    initiator: {
+      id: data.initiator.id,
+      walletAddress: data.initiator.walletAddress,
+      username: data.initiator.username ?? 'Unknown',
+      profilePicture: data.initiator.profilePicture ?? '',
+    },
+    counterparty: {
+      id: data.counterparty.id,
+      walletAddress: data.counterparty.walletAddress,
+      username: data.counterparty.username ?? 'Unknown',
+      profilePicture: data.counterparty.profilePicture ?? '',
+    },
+  });
+
+  const trade = tradeQuery.data ? transformTrade(tradeQuery.data) : undefined;
+
+  const isUpdatingTrade = updateTradeMutation.isPending;
+  const isSendingMessage = updateTradeMutation.isPending;
+
+  // Handle query error
   useEffect(() => {
-    if (isOpen && tradeId) {
-      fetchTrade();
+    if (tradeQuery.error) {
+      setError(tradeQuery.error.message || 'Failed to fetch trade details');
+    } else {
+      setError(null);
     }
-  }, [isOpen, tradeId]);
+  }, [tradeQuery.error]);
 
   const sendMessage = async () => {
-    if (!tradeId || !message.trim()) return;
+    if (!tradeId || !message.trim() || !address) return;
 
-    setIsSendingMessage(true);
     try {
-      const response = await fetch(`/api/p2p/trades/${tradeId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'message',
-          userAddress: address,
-          message: message.trim()
-        }),
+      await updateTradeMutation.mutateAsync({
+        id: tradeId,
+        action: 'message',
+        userAddress: address,
+        message: message.trim(),
       });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setMessage("");
-        fetchTrade(); // Refresh trade data
-      } else {
-        setError(data.error || 'Failed to send message');
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      setError('Failed to send message');
-    } finally {
-      setIsSendingMessage(false);
+      setMessage("");
+    } catch (err) {
+      console.error('Error sending message:', err);
     }
   };
 
   const updateTradeStatus = async (action: string) => {
-    if (!tradeId) return;
+    if (!tradeId || !address) return;
 
-    setIsUpdatingTrade(true);
     setError(null);
     try {
-      const response = await fetch(`/api/p2p/trades/${tradeId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action,
-          userAddress: address
-        }),
+      await updateTradeMutation.mutateAsync({
+        id: tradeId,
+        action: action as 'message' | 'counteroffer' | 'accept' | 'reject' | 'cancel',
+        userAddress: address,
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Update the trade state directly with the returned data
-        setTrade(data.data);
-        onTradeUpdate?.(data.data);
-      } else {
-        setError(data.error || `Failed to ${action} trade`);
-      }
-    } catch (error) {
-      console.error(`Error ${action} trade:`, error);
-      setError(`Failed to ${action} trade`);
-    } finally {
-      setIsUpdatingTrade(false);
+    } catch (err) {
+      console.error(`Error ${action} trade:`, err);
     }
+  };
+
+  const fetchTrade = () => {
+    tradeQuery.refetch();
   };
 
   const copyToClipboard = (text: string) => {

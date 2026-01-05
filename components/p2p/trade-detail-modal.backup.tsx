@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { MediaRenderer } from "@/components/media-renderer";
 
 interface TradeDetail {
@@ -102,7 +102,7 @@ export function TradeDetailModal({
   onTradeUpdate,
   onCounterOffer
 }: TradeDetailModalProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const address = user?.walletAddress;
   const [trade, setTrade] = useState<TradeDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);

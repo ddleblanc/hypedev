@@ -121,7 +121,7 @@ export function OverviewTab({ collection }: OverviewTabProps) {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {collection.traits.map((trait, index) => (
+              {(collection.traits || []).map((trait, index) => (
                 <motion.div
                   key={trait.name}
                   initial={{ opacity: 0, x: -20 }}

@@ -33,7 +33,6 @@ import {
   Home
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
 import { useAuth } from "@/contexts/auth-context";
 import { useBackgroundCarousel } from "@/contexts/background-carousel-context";
 
@@ -120,7 +119,7 @@ type HomeViewProps = {
 
 export function HomeView({ setViewMode }: HomeViewProps) {
   const router = useRouter();
-  const { user: walletUser } = useWalletAuthOptimized();
+  const { user: walletUser } = useAuth();
   const { user } = useAuth();
   const { showCarousel, isCarouselVisible, hideCarousel, setCurrentBackground, currentBackground } = useBackgroundCarousel();
   const [currentCollectionIndex, setCurrentCollectionIndex] = useState(0);
@@ -184,7 +183,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
     { label: "PORTFOLIO", icon: Briefcase, href: "/portfolio", external: true },
     // Conditional creator/studio link
     user && (user.creatorAppliedAt || user.isCreator) 
-      ? { label: "NFT STUDIO", icon: Crown, href: "/studio", external: false }
+      ? { label: "NFT STUDIO", icon: Crown, href: "/studio-new", external: false }
       : { label: "BECOME A CREATOR", icon: Crown, href: "/creator-onboarding", external: true }
   ].filter(Boolean), [user]); // Remove any falsy values
 
@@ -439,7 +438,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    if (item.href === "/studio") {
+                    if (item.href === "/studio-new") {
                       setViewMode('studio');
                     }
                   }}
@@ -638,7 +637,7 @@ export function HomeView({ setViewMode }: HomeViewProps) {
           >
             {secondaryNavigation.map((item) => {
               const handleClick = () => {
-                if (!item.external && item.href === "/studio") {
+                if (!item.external && item.href === "/studio-new") {
                   setViewMode('studio');
                 } else if (!item.external && item.label === 'COLLECTION') {
                   const addr = walletUser?.walletAddress;

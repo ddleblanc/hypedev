@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/lib/auth';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 const prisma = new PrismaClient();
 
@@ -9,6 +10,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit blockchain operations
+  const rateLimit = await rateLimitCheck(request, "blockchain");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const { id } = await params;
     const body = await request.json();
@@ -139,16 +144,18 @@ export async function POST(
       }
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: updatedTrade
     });
+    return rateLimit.applyHeaders(response);
   } catch (error) {
     console.error('Error deploying escrow:', error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: 'Failed to deploy escrow' },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }
 

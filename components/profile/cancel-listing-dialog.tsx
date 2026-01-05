@@ -14,6 +14,7 @@ import { MediaRenderer } from '@/components/media-renderer';
 import { useToast } from '@/hooks/use-toast';
 import { useActiveAccount } from 'thirdweb/react';
 import { cancelDirectListing, cancelEnglishAuction } from '@/lib/marketplace';
+import { trpc } from '@/lib/trpc/client';
 import {
   AlertTriangle,
   Loader2,
@@ -58,6 +59,10 @@ export function CancelListingDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // tRPC mutations
+  const cancelListingMutation = trpc.marketplace.listings.cancel.useMutation();
+  const cancelAuctionMutation = trpc.marketplace.auctions.cancel.useMutation();
+
   const handleCancel = async () => {
     if (!account || !nft || !nft.listingId) return;
 
@@ -70,16 +75,16 @@ export function CancelListingDialog({
       if (nft.listingType === 'auction') {
         await cancelEnglishAuction(nft.listingId, account);
 
-        // Update database
-        await fetch(`/api/marketplace/auctions?auctionId=${nft.listingId}&seller=${account.address}`, {
-          method: 'DELETE',
+        // Update database via tRPC
+        await cancelAuctionMutation.mutateAsync({
+          auctionId: nft.listingId,
         });
       } else {
         await cancelDirectListing(nft.listingId, account);
 
-        // Update database
-        await fetch(`/api/marketplace/listings?listingId=${nft.listingId}&seller=${account.address}`, {
-          method: 'DELETE',
+        // Update database via tRPC
+        await cancelListingMutation.mutateAsync({
+          listingId: nft.listingId,
         });
       }
 

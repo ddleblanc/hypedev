@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
-
-const prisma = new PrismaClient();
+import { rateLimit } from '@/lib/rate-limit';
+import { sanitizeText } from '@/lib/sanitize';
 
 // GET /api/p2p/messages - Get messages between two users or for a specific trade
 export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const { searchParams } = new URL(request.url);
     const userAddress = searchParams.get('userAddress');
@@ -143,6 +146,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/p2p/messages - Send a message
 export async function POST(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'apiWrite');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     const body = await request.json();
     const { userAddress, tradeId, message, messageType = 'TEXT', metadata } = body;
@@ -195,12 +201,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Sanitize the message content to prevent XSS
+    const sanitizedMessage = sanitizeText(message);
+
     // Create the message
     const newMessage = await prisma.tradeMessage.create({
       data: {
         tradeId: trade.id,
         userId: user.id,
-        message,
+        message: sanitizedMessage,
         messageType,
         metadata
       },

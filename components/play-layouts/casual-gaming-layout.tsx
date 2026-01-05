@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { 
+import {
   Play,
   Info,
   Plus,
@@ -17,11 +17,24 @@ import {
   ArrowUpRight,
   Coffee,
   Heart,
-  Users
+  Users,
+  Loader2,
+  Gamepad2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { trpc } from "@/lib/trpc/client";
+
+interface Game {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  image: string;
+  category: string;
+  subcategory?: string;
+}
 
 const mockCasualGames = {
   hero: {
@@ -90,10 +103,21 @@ export function CasualGamingLayout() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isMuted, setIsMuted] = useState(true);
   const heroRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: heroRef });
-  
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Only use target-based scroll tracking after mount to avoid hydration errors
+  const { scrollYProgress } = useScroll(isMounted ? { target: heroRef } : undefined);
   const heroScale = useTransform(scrollYProgress, [0, 1], [1, 1.1]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+
+  // Fetch casual games via tRPC
+  const gamesQuery = trpc.gaming.games.list.useQuery({ category: "casual" });
+  const games = gamesQuery.data?.games || [];
+  const isLoading = gamesQuery.isLoading;
 
   const scrollCarousel = (direction: 'left' | 'right', containerId: string) => {
     const container = document.getElementById(containerId);
@@ -109,7 +133,7 @@ export function CasualGamingLayout() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
-      className="w-full overflow-hidden bg-black"
+      className="w-full overflow-hidden"
     >
       <div className="relative">
         {/* Hero Banner - Same structure as marketplace */}
@@ -284,7 +308,7 @@ export function CasualGamingLayout() {
               <ArrowUpRight className="h-4 w-4" />
             </Button>
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-6">
             {mockCasualGames.categories.map((category, index) => (
               <motion.div
@@ -297,8 +321,8 @@ export function CasualGamingLayout() {
               >
                 <div className="relative overflow-hidden rounded-xl">
                   <div className="aspect-[3/4] bg-gradient-to-br from-green-800 to-green-900">
-                    <img 
-                      src={category.image} 
+                    <img
+                      src={category.image}
                       alt={category.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -314,7 +338,77 @@ export function CasualGamingLayout() {
           </div>
         </motion.section>
 
-       
+        {/* Featured Casual Games from API */}
+        <motion.section
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.8 }}
+          className="px-4 md:px-8 py-8 md:py-16 bg-zinc-900/50"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Gamepad2 className="h-8 w-8 text-green-400" />
+              Featured Games
+            </h2>
+          </div>
+
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-green-400 animate-spin" />
+            </div>
+          ) : games.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {games.slice(0, 6).map((game, index) => (
+                <motion.div
+                  key={game.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index, duration: 0.5 }}
+                  whileHover={{ scale: 1.02 }}
+                  className="group cursor-pointer bg-zinc-800/50 rounded-xl overflow-hidden border border-white/10 hover:border-green-400/50 transition-all"
+                >
+                  <div className="aspect-video bg-zinc-700 relative overflow-hidden">
+                    {game.image ? (
+                      <img
+                        src={game.image}
+                        alt={game.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Gamepad2 className="w-12 h-12 text-white/20" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                    <Badge className="absolute top-3 right-3 bg-green-400 text-black">
+                      {game.subcategory || "Casual"}
+                    </Badge>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-lg font-bold text-white mb-1">{game.name}</h3>
+                    <p className="text-sm text-white/60 line-clamp-2">
+                      {game.description || "Relax and enjoy this casual gaming experience"}
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-4 w-full bg-green-500 text-black hover:bg-green-600"
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Play Now
+                    </Button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Coffee className="w-12 h-12 text-white/20 mx-auto mb-4" />
+              <p className="text-white/60">No casual games available yet</p>
+              <p className="text-sm text-white/40">Check back soon for relaxing games</p>
+            </div>
+          )}
+        </motion.section>
+
       </div>
     </motion.div>
   );

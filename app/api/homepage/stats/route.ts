@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import type { PlatformStats } from '@/types/homepage';
+import { rateLimit } from '@/lib/rate-limit';
 
 // Simple in-memory cache
 let statsCache: { data: PlatformStats; timestamp: number } | null = null;
@@ -23,7 +24,10 @@ function calculatePercentChange(current: number, previous: number): string {
   return `${sign}${change.toFixed(1)}%`;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const rateLimitResult = await rateLimit(request, 'api');
+  if (rateLimitResult) return rateLimitResult;
+
   try {
     // Check cache
     if (statsCache && Date.now() - statsCache.timestamp < CACHE_TTL) {

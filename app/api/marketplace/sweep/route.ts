@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { getAllListings, weiToEth, ethToWei } from '@/lib/marketplace';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 // Schema for sweep floor preview request
 const sweepPreviewSchema = z.object({
@@ -26,6 +27,10 @@ const sweepExecuteSchema = z.object({
  * Preview sweep floor - get available floor listings for a collection
  */
 export async function GET(request: NextRequest) {
+  // Rate limit API reads
+  const rateLimit = await rateLimitCheck(request, "api");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const collectionAddress = searchParams.get('collection');
@@ -127,7 +132,7 @@ export async function GET(request: NextRequest) {
         ? weiToEth(collectionListings[0].pricePerToken)
         : null;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       listings: enrichedListings,
       summary: {
@@ -138,13 +143,15 @@ export async function GET(request: NextRequest) {
         totalPriceWei: totalPriceWei.toString(),
       },
     });
+    return rateLimit.applyHeaders(response);
   } catch (error) {
     console.error('Error previewing sweep floor:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: `Failed to preview sweep: ${errorMessage}` },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }
 
@@ -153,6 +160,10 @@ export async function GET(request: NextRequest) {
  * Record successful sweep floor purchases after on-chain transactions
  */
 export async function POST(request: NextRequest) {
+  // Rate limit blockchain operations
+  const rateLimit = await rateLimitCheck(request, "blockchain");
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const body = await request.json();
     const validatedData = sweepExecuteSchema.parse(body);
@@ -166,19 +177,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Batch fetch all listings upfront to avoid N+1 queries
+    const listingIds = validatedData.transactions.map((tx) => tx.listingId);
+    const listings = await prisma.marketplaceListing.findMany({
+      where: { listingId: { in: listingIds } },
+      include: { nft: true },
+    });
+    const listingsMap = new Map(listings.map((l) => [l.listingId, l]));
+
     // Process each transaction
     const results = [];
     const errors = [];
 
     for (const tx of validatedData.transactions) {
       try {
-        // Find the listing in our database
-        const listing = await prisma.marketplaceListing.findUnique({
-          where: { listingId: tx.listingId },
-          include: {
-            nft: true,
-          },
-        });
+        // Get listing from pre-fetched map
+        const listing = listingsMap.get(tx.listingId);
 
         if (!listing) {
           errors.push({ listingId: tx.listingId, error: 'Listing not found' });
@@ -233,7 +247,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: `Sweep recorded: ${results.length} successful, ${errors.length} failed`,
       results,
@@ -243,20 +257,23 @@ export async function POST(request: NextRequest) {
         id: buyer.id,
       },
     });
+    return rateLimit.applyHeaders(response);
   } catch (error) {
     console.error('Error recording sweep purchases:', error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { success: false, error: 'Invalid request data', details: error.errors },
         { status: 400 }
       );
+      return rateLimit.applyHeaders(response);
     }
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: false, error: `Failed to record sweep: ${errorMessage}` },
       { status: 500 }
     );
+    return rateLimit.applyHeaders(response);
   }
 }

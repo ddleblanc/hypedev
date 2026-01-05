@@ -21,8 +21,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { MediaRenderer } from "@/components/media-renderer";
+import { trpc } from "@/lib/trpc/client";
 
 interface Trade {
   id: string;
@@ -72,12 +73,9 @@ interface TradeHistoryProps {
 }
 
 export function TradeHistory({ onTradeSelect }: TradeHistoryProps) {
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
   const address = user?.walletAddress;
-  const [trades, setTrades] = useState<Trade[]>([]);
   const [filteredTrades, setFilteredTrades] = useState<Trade[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedTab, setSelectedTab] = useState("all");
@@ -94,33 +92,63 @@ export function TradeHistory({ onTradeSelect }: TradeHistoryProps) {
     REJECTED: { label: "Rejected", color: "bg-red-500/20 text-red-400", icon: XCircle },
   };
 
-  const fetchTrades = async () => {
-    if (!address) return;
+  // tRPC query for fetching trades
+  const tradesQuery = trpc.p2p.trades.list.useQuery(
+    { address: address ?? '' },
+    { enabled: !!address }
+  );
 
-    setIsLoading(true);
-    setError(null);
+  // Transform tRPC response to match Trade interface (Date -> string)
+  const trades: Trade[] = (tradesQuery.data?.trades ?? []).map((trade) => ({
+    id: trade.id,
+    status: trade.status,
+    fairnessScore: trade.fairnessScore ?? 0,
+    _count: trade._count,
+    createdAt: trade.createdAt instanceof Date ? trade.createdAt.toISOString() : String(trade.createdAt),
+    updatedAt: trade.updatedAt instanceof Date ? trade.updatedAt.toISOString() : String(trade.updatedAt),
+    agreedAt: trade.agreedAt ? (trade.agreedAt instanceof Date ? trade.agreedAt.toISOString() : String(trade.agreedAt)) : undefined,
+    escrowAddress: trade.escrowAddress ?? undefined,
+    finalizedAt: trade.finalizedAt ? (trade.finalizedAt instanceof Date ? trade.finalizedAt.toISOString() : String(trade.finalizedAt)) : undefined,
+    canceledAt: trade.canceledAt ? (trade.canceledAt instanceof Date ? trade.canceledAt.toISOString() : String(trade.canceledAt)) : undefined,
+    items: trade.items.filter((item) => item.nft !== null).map((item) => ({
+      id: item.id,
+      side: item.side,
+      tokenAmount: item.tokenAmount ?? 0,
+      nft: {
+        id: item.nft!.id,
+        name: item.nft!.name,
+        image: item.nft!.image ?? '',
+        collection: {
+          name: item.nft!.collection.name,
+          symbol: item.nft!.collection.symbol,
+          image: item.nft!.collection.image ?? '',
+        },
+      },
+    })),
+    initiator: {
+      id: trade.initiator.id,
+      walletAddress: trade.initiator.walletAddress,
+      username: trade.initiator.username ?? 'Unknown',
+      profilePicture: trade.initiator.profilePicture ?? '',
+    },
+    counterparty: {
+      id: trade.counterparty.id,
+      walletAddress: trade.counterparty.walletAddress,
+      username: trade.counterparty.username ?? 'Unknown',
+      profilePicture: trade.counterparty.profilePicture ?? '',
+    },
+  }));
+  const isLoading = tradesQuery.isLoading;
+  const error = tradesQuery.error?.message ?? null;
 
-    try {
-      const response = await fetch(`/api/p2p/trades?address=${address}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setTrades(data.data.trades);
-        setFilteredTrades(data.data.trades);
-      } else {
-        setError(data.error || 'Failed to fetch trades');
-      }
-    } catch (error) {
-      console.error('Error fetching trades:', error);
-      setError('Failed to fetch trades');
-    } finally {
-      setIsLoading(false);
-    }
+  const fetchTrades = () => {
+    tradesQuery.refetch();
   };
 
+  // Initialize filtered trades when trades change
   useEffect(() => {
-    fetchTrades();
-  }, [address]);
+    setFilteredTrades(trades);
+  }, [trades]);
 
   useEffect(() => {
     let filtered = trades;

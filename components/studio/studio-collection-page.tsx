@@ -16,11 +16,11 @@ import {
   AboutTab,
   ItemsTab,
   OffersTab,
-  HoldersTab,
   TraitsTab,
   ActivityTab
 } from "./tab-contents";
 import { SettingsTab } from "./settings-tab";
+import { AirdropTab, MetadataSettingsTab, HoldersTab } from "./collection";
 import { UploadBottomBar } from "./upload-bottom-bar";
 import { MintNFTsModal } from "./mint-nfts-modal";
 
@@ -192,7 +192,7 @@ export function StudioCollectionPage({ collection }: { collection: any }) {
   };
 
   // Studio management actions
-  const handleEdit = () => alert('Open collection editor (studio)');
+  const handleEdit = () => setActiveTab('settings');
   const handleMint = () => {
     if (isOpenEditionContract()) {
       alert('OpenEdition contracts use shared metadata. Individual NFT minting is not supported.\n\nUsers can claim copies of the NFT using the claim flow.');
@@ -200,8 +200,8 @@ export function StudioCollectionPage({ collection }: { collection: any }) {
     }
     setShowMintModal(true);
   };
-  const handleSettings = () => alert('Open collection settings');
-  const handleAirdrop = () => alert('Trigger airdrop tool');
+  const handleSettings = () => setActiveTab('settings');
+  const handleAirdrop = () => setActiveTab('airdrop');
 
   return (
     <motion.div
@@ -323,7 +323,11 @@ export function StudioCollectionPage({ collection }: { collection: any }) {
 
             {activeTab === 'activity' && <ActivityTab />}
 
-            {activeTab === 'settings' && <SettingsTab collection={collection} />}
+            {activeTab === 'airdrop' && <AirdropTab collection={collection} />}
+
+            {activeTab === 'claim' && <SettingsTab collection={collection} />}
+
+            {activeTab === 'settings' && <MetadataSettingsTab collection={collection} />}
           </div>
         </div>
 

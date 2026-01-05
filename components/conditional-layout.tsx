@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect, createContext, useContext, useCallback, useMemo } from "react";
 import { NFTMarketplaceSidebar } from "@/components/nft-marketplace-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
 import { PersistentBackground } from "@/components/persistent-background";
 import { SinglePageApp } from "@/components/single-page-app";
 import { AppNavigationProvider, useAppNavigation } from "@/contexts/app-navigation-context";
@@ -95,7 +95,7 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
       if (pathname.startsWith('/play')) return 'play';
       if (pathname.startsWith('/trade')) return 'trade';
       if (pathname === '/') return 'home';
-      if (pathname.startsWith('/launchpad')) return 'launchpad';
+      if (pathname.startsWith('/drops')) return 'drops';
       if (pathname.startsWith('/museum')) return 'museum';
       if (pathname.startsWith('/casual')) return 'casual';
       return navigationState.currentRoute || 'home';
@@ -172,7 +172,7 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
         navigationDepth: 2,
         previousRoute: prev.previousRoute || 'play'
       }));
-    } else if (['play', 'launchpad', 'museum'].includes(inferredRoute)) {
+    } else if (['play', 'drops', 'museum'].includes(inferredRoute)) {
       // Other views: Show header and footer, but no sidebar
       setUiState(prev => ({
         showHeader: true,
@@ -303,7 +303,7 @@ function ProgressiveUIWrapper({ children }: { children: React.ReactNode }) {
 
 export function ConditionalLayout({ children }: ConditionalLayoutProps) {
   const pathname = usePathname();
-  const { user, isConnected } = useWalletAuthOptimized();
+  const { user, isConnected } = useAuth();
   
   const isStudioRoute = pathname?.startsWith('/studio');
   const isCollectionRoute = pathname?.startsWith('/collection');
@@ -316,7 +316,7 @@ export function ConditionalLayout({ children }: ConditionalLayoutProps) {
     pathname === '/p2p' ||
     pathname === '/marketplace' ||
     pathname === '/casual' ||
-    pathname === '/launchpad' ||
+    pathname === '/drops' ||
     pathname === '/museum' ||
     pathname === '/studio' ||
     pathname === '/lootboxes' ||

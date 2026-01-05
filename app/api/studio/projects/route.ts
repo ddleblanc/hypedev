@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { rateLimitCheck } from '@/lib/rate-limit';
 
 export async function GET(request: NextRequest) {
   try {
@@ -79,10 +80,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: write operations (30 req/min)
+  const rateCheck = await rateLimitCheck(request, "apiWrite");
+  if (rateCheck.blocked) return rateCheck.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const address = searchParams.get('address');
-    
+
     if (!address) {
       return NextResponse.json(
         { success: false, error: 'Wallet address is required' },

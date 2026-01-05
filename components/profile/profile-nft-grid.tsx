@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { MediaRenderer } from '@/components/media-renderer';
 import {
   LayoutGrid,
@@ -13,6 +14,10 @@ import {
   MoreHorizontal,
   ExternalLink,
   FileX,
+  CheckSquare,
+  Check,
+  X,
+  Send,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -21,6 +26,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { BulkListingDialog } from '@/components/profile/bulk-listing-dialog';
+import { BulkCancelDialog } from '@/components/profile/bulk-cancel-dialog';
+import { BulkTransferDialog } from '@/components/profile/bulk-transfer-dialog';
 
 export interface NFTItem {
   id: string;
@@ -66,9 +74,61 @@ interface ProfileNFTGridProps {
   onCancelListing?: (nft: NFTItem) => void;
   onViewNFT?: (nft: NFTItem) => void;
   emptyMessage?: string;
+  onRefresh?: () => void;
 }
 
 type ViewMode = 'grid' | 'list';
+
+// Helper to transform NFT for bulk listing dialog
+function nftForBulkListing(nft: NFTItem) {
+  return {
+    id: nft.id,
+    tokenId: nft.tokenId,
+    name: nft.name,
+    image: nft.image,
+    collection: {
+      id: nft.collection.id,
+      name: nft.collection.name,
+      address: nft.collection.address,
+    },
+    isOnChain: nft.isOnChain,
+    onChainTokenId: nft.onChainTokenId,
+  };
+}
+
+// Helper to transform NFT for bulk cancel dialog
+function nftForBulkCancel(nft: NFTItem) {
+  return {
+    id: nft.id,
+    tokenId: nft.tokenId,
+    name: nft.name,
+    image: nft.image,
+    listingId: nft.listingId || '',
+    listingPrice: nft.listingPrice || 0,
+    collection: {
+      id: nft.collection.id,
+      name: nft.collection.name,
+      address: nft.collection.address,
+    },
+  };
+}
+
+// Helper to transform NFT for bulk transfer dialog
+function nftForBulkTransfer(nft: NFTItem) {
+  return {
+    id: nft.id,
+    tokenId: nft.tokenId,
+    name: nft.name,
+    image: nft.image,
+    collection: {
+      id: nft.collection.id,
+      name: nft.collection.name,
+      address: nft.collection.address,
+    },
+    isOnChain: nft.isOnChain,
+    onChainTokenId: nft.onChainTokenId,
+  };
+}
 
 const rarityColors: Record<string, string> = {
   Legendary: 'bg-yellow-500/20 border-yellow-500/50 text-yellow-500',
@@ -88,8 +148,56 @@ export function ProfileNFTGrid({
   onCancelListing,
   onViewNFT,
   emptyMessage = 'No items found',
+  onRefresh,
 }: ProfileNFTGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkListDialog, setShowBulkListDialog] = useState(false);
+  const [showBulkCancelDialog, setShowBulkCancelDialog] = useState(false);
+  const [showBulkTransferDialog, setShowBulkTransferDialog] = useState(false);
+
+  // Toggle selection for an NFT
+  const toggleSelection = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Select all NFTs
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(nfts.map((nft) => nft.id)));
+  }, [nfts]);
+
+  // Clear selection
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  // Exit selection mode
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  // Get selected NFTs
+  const selectedNfts = nfts.filter((nft) => selectedIds.has(nft.id));
+  const unlistedSelected = selectedNfts.filter((nft) => !nft.isListed && nft.isOnChain !== false);
+  const listedSelected = selectedNfts.filter((nft) => nft.isListed && nft.listingId);
+  // Transferable: on-chain and NOT currently listed (can't transfer while listed)
+  const transferableSelected = selectedNfts.filter((nft) => nft.isOnChain !== false && !nft.isListed);
+
+  // Handle bulk action success
+  const handleBulkSuccess = useCallback(() => {
+    exitSelectionMode();
+    onRefresh?.();
+  }, [exitSelectionMode, onRefresh]);
 
   if (isLoading) {
     return (
@@ -124,7 +232,106 @@ export function ProfileNFTGrid({
 
   return (
     <div className="space-y-4">
-      <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+      {/* Toolbar with selection mode */}
+      <div className="flex items-center justify-between gap-4">
+        <ViewToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+
+        {isOwnProfile && !isDraftsTab && (
+          <div className="flex items-center gap-2">
+            {selectionMode ? (
+              <>
+                <span className="text-sm text-white/60">
+                  {selectedIds.size} selected
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAll}
+                  className="text-white/60 hover:text-white"
+                >
+                  Select All
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                  className="text-white/60 hover:text-white"
+                >
+                  Clear
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={exitSelectionMode}
+                  className="text-white/60 hover:text-white"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Exit
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectionMode(true)}
+                className="border-white/20 text-white/70 hover:text-white hover:bg-white/10"
+              >
+                <CheckSquare className="w-4 h-4 mr-2" />
+                Select
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Bulk action bar */}
+      <AnimatePresence>
+        {selectionMode && selectedIds.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex items-center gap-3 p-3 bg-white/5 rounded-lg border border-white/10"
+          >
+            <span className="text-sm text-white">
+              {selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selected
+            </span>
+            <div className="flex-1" />
+            {unlistedSelected.length > 0 && (
+              <Button
+                size="sm"
+                onClick={() => setShowBulkListDialog(true)}
+                className="bg-[rgb(163,255,18)] text-black hover:bg-[rgb(163,255,18)]/90"
+              >
+                <Tag className="w-4 h-4 mr-2" />
+                List {unlistedSelected.length}
+              </Button>
+            )}
+            {transferableSelected.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowBulkTransferDialog(true)}
+                className="border-white/30 text-white hover:bg-white/10"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Transfer {transferableSelected.length}
+              </Button>
+            )}
+            {listedSelected.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowBulkCancelDialog(true)}
+                className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Cancel {listedSelected.length}
+              </Button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <motion.div
         layout
@@ -150,6 +357,9 @@ export function ProfileNFTGrid({
                   nft={nft}
                   isOwnProfile={isOwnProfile}
                   isDraftsTab={isDraftsTab}
+                  selectionMode={selectionMode}
+                  isSelected={selectedIds.has(nft.id)}
+                  onToggleSelect={() => toggleSelection(nft.id)}
                   onListForSale={onListForSale}
                   onCreateAuction={onCreateAuction}
                   onCancelListing={onCancelListing}
@@ -160,6 +370,9 @@ export function ProfileNFTGrid({
                   nft={nft}
                   isOwnProfile={isOwnProfile}
                   isDraftsTab={isDraftsTab}
+                  selectionMode={selectionMode}
+                  isSelected={selectedIds.has(nft.id)}
+                  onToggleSelect={() => toggleSelection(nft.id)}
                   onListForSale={onListForSale}
                   onCreateAuction={onCreateAuction}
                   onCancelListing={onCancelListing}
@@ -170,6 +383,30 @@ export function ProfileNFTGrid({
           ))}
         </AnimatePresence>
       </motion.div>
+
+      {/* Bulk Listing Dialog */}
+      <BulkListingDialog
+        open={showBulkListDialog}
+        onOpenChange={setShowBulkListDialog}
+        nfts={unlistedSelected.map(nftForBulkListing)}
+        onSuccess={handleBulkSuccess}
+      />
+
+      {/* Bulk Cancel Dialog */}
+      <BulkCancelDialog
+        open={showBulkCancelDialog}
+        onOpenChange={setShowBulkCancelDialog}
+        listings={listedSelected.map(nftForBulkCancel)}
+        onSuccess={handleBulkSuccess}
+      />
+
+      {/* Bulk Transfer Dialog */}
+      <BulkTransferDialog
+        open={showBulkTransferDialog}
+        onOpenChange={setShowBulkTransferDialog}
+        nfts={transferableSelected.map(nftForBulkTransfer)}
+        onSuccess={handleBulkSuccess}
+      />
     </div>
   );
 }
@@ -213,6 +450,9 @@ function NFTGridCard({
   nft,
   isOwnProfile,
   isDraftsTab = false,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
   onListForSale,
   onCreateAuction,
   onCancelListing,
@@ -221,6 +461,9 @@ function NFTGridCard({
   nft: NFTItem;
   isOwnProfile: boolean;
   isDraftsTab?: boolean;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
   onListForSale?: (nft: NFTItem) => void;
   onCreateAuction?: (nft: NFTItem) => void;
   onCancelListing?: (nft: NFTItem) => void;
@@ -229,11 +472,40 @@ function NFTGridCard({
   // Check if NFT is a draft (not on-chain) - can't be listed
   const isDraft = isDraftsTab || nft.isOnChain === false;
 
+  const handleClick = () => {
+    if (selectionMode) {
+      onToggleSelect?.();
+    } else {
+      onViewNFT?.(nft);
+    }
+  };
+
   return (
     <div
-      className="group relative bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-xl overflow-hidden hover:border-white/20 transition-all cursor-pointer"
-      onClick={() => onViewNFT?.(nft)}
+      className={cn(
+        'group relative bg-gradient-to-br from-white/5 to-white/[0.02] border rounded-xl overflow-hidden transition-all cursor-pointer',
+        selectionMode && isSelected
+          ? 'border-[rgb(163,255,18)] ring-2 ring-[rgb(163,255,18)]/30'
+          : 'border-white/10 hover:border-white/20'
+      )}
+      onClick={handleClick}
     >
+      {/* Selection Checkbox Overlay */}
+      {selectionMode && (
+        <div className="absolute top-2 left-2 z-20">
+          <div
+            className={cn(
+              'w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all',
+              isSelected
+                ? 'bg-[rgb(163,255,18)] border-[rgb(163,255,18)]'
+                : 'bg-black/60 border-white/40 hover:border-white/60'
+            )}
+          >
+            {isSelected && <Check className="w-4 h-4 text-black" />}
+          </div>
+        </div>
+      )}
+
       {/* Image */}
       <div className="relative aspect-square overflow-hidden">
         <MediaRenderer
@@ -242,19 +514,27 @@ function NFTGridCard({
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
 
-        {/* Draft/Not Minted Badge */}
-        {isDraft && (
-          <div className="absolute top-2 left-2">
+        {/* Draft/Not Minted Badge - shifted right when in selection mode */}
+        {isDraft && !selectionMode && (
+          <div className="absolute top-2 left-2 z-10">
             <Badge className="text-xs font-bold bg-orange-500/20 border-orange-500/50 text-orange-500">
               <FileX className="w-3 h-3 mr-1" />
               Not Minted
             </Badge>
           </div>
         )}
+        {isDraft && selectionMode && (
+          <div className="absolute top-2 left-10 z-10">
+            <Badge className="text-xs font-bold bg-orange-500/20 border-orange-500/50 text-orange-500">
+              <FileX className="w-3 h-3 mr-1" />
+              Draft
+            </Badge>
+          </div>
+        )}
 
-        {/* Listing Status Badge - only show if not a draft */}
+        {/* Listing Status Badge - only show if not a draft, shifted when in selection mode */}
         {!isDraft && nft.isListed && (
-          <div className="absolute top-2 left-2">
+          <div className={cn('absolute top-2 z-10', selectionMode ? 'left-10' : 'left-2')}>
             <Badge
               className={cn(
                 'text-xs font-bold',
@@ -287,8 +567,8 @@ function NFTGridCard({
           </div>
         )}
 
-        {/* Quick Actions (Own Profile) - Hidden for drafts */}
-        {isOwnProfile && !isDraft && (
+        {/* Quick Actions (Own Profile) - Hidden for drafts and selection mode */}
+        {isOwnProfile && !isDraft && !selectionMode && (
           <div
             className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => e.stopPropagation()}
@@ -374,6 +654,9 @@ function NFTListCard({
   nft,
   isOwnProfile,
   isDraftsTab = false,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
   onListForSale,
   onCreateAuction,
   onCancelListing,
@@ -382,6 +665,9 @@ function NFTListCard({
   nft: NFTItem;
   isOwnProfile: boolean;
   isDraftsTab?: boolean;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
   onListForSale?: (nft: NFTItem) => void;
   onCreateAuction?: (nft: NFTItem) => void;
   onCancelListing?: (nft: NFTItem) => void;
@@ -390,11 +676,37 @@ function NFTListCard({
   // Check if NFT is a draft (not on-chain) - can't be listed
   const isDraft = isDraftsTab || nft.isOnChain === false;
 
+  const handleClick = () => {
+    if (selectionMode) {
+      onToggleSelect?.();
+    } else {
+      onViewNFT?.(nft);
+    }
+  };
+
   return (
     <div
-      className="flex items-center gap-4 bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 rounded-xl p-4 hover:border-white/20 transition-all cursor-pointer"
-      onClick={() => onViewNFT?.(nft)}
+      className={cn(
+        'flex items-center gap-4 bg-gradient-to-br from-white/5 to-white/[0.02] border rounded-xl p-4 transition-all cursor-pointer',
+        selectionMode && isSelected
+          ? 'border-[rgb(163,255,18)] ring-2 ring-[rgb(163,255,18)]/30'
+          : 'border-white/10 hover:border-white/20'
+      )}
+      onClick={handleClick}
     >
+      {/* Selection Checkbox */}
+      {selectionMode && (
+        <div
+          className={cn(
+            'w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0',
+            isSelected
+              ? 'bg-[rgb(163,255,18)] border-[rgb(163,255,18)]'
+              : 'bg-black/60 border-white/40'
+          )}
+        >
+          {isSelected && <Check className="w-4 h-4 text-black" />}
+        </div>
+      )}
       {/* Image */}
       <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
         <MediaRenderer
@@ -453,8 +765,8 @@ function NFTListCard({
         )}
       </div>
 
-      {/* Actions - Hidden for drafts */}
-      {isOwnProfile && !isDraft && (
+      {/* Actions - Hidden for drafts and when in selection mode */}
+      {isOwnProfile && !isDraft && !selectionMode && (
         <div onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

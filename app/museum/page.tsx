@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { MuseumView } from "@/components/authenticated-homescreen/museum-view";
 import { MuseumProvider } from "@/contexts/museum-context";
+import { TheaterEntry, TheaterExitButton } from "@/components/museum/theater";
 
 export default function MuseumPage() {
   const router = useRouter();
@@ -17,7 +18,10 @@ export default function MuseumPage() {
 
   return (
     <MuseumProvider>
-      <MuseumView setViewMode={handleNavigate} />
+      <TheaterEntry>
+        <TheaterExitButton />
+        <MuseumView setViewMode={handleNavigate} />
+      </TheaterEntry>
     </MuseumProvider>
   );
 }

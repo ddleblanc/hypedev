@@ -30,6 +30,7 @@ import { client } from "@/lib/thirdweb";
 import { defineChain } from "thirdweb/chains";
 import { MediaRenderer } from "@/components/MediaRenderer";
 import { useTransaction } from "@/contexts/transaction-context";
+import { trpc } from "@/lib/trpc/client";
 
 interface MintNFTsModalProps {
   isOpen: boolean;
@@ -170,6 +171,12 @@ const batchTemplates: BatchTemplate[] = [
 export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNFTsModalProps) {
   const account = useActiveAccount();
   const { startTransaction, updateStep, setTxHash, setError: setTransactionError, completeTransaction } = useTransaction();
+
+  // tRPC mutations
+  const updateCollectionMutation = trpc.studio.collections.update.useMutation();
+  const batchCreateNftsMutation = trpc.studio.nfts.batchCreate.useMutation();
+  const saveTraitsMutation = trpc.studio.nfts.saveTraits.useMutation();
+
   const [mintMode, setMintMode] = useState<'single' | 'batch' | 'ai'>('single');
   const [currentStep, setCurrentStep] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -414,23 +421,19 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
           setUploadProgress(80);
           updateStep("pending", 80);
 
-          // Save the shared metadata to our database for reference
+          // Save the shared metadata to our database for reference via tRPC
           // We don't create individual NFT records yet - they're created when users claim
-          const patchResponse = await fetch('/api/studio/collections', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+          try {
+            await updateCollectionMutation.mutateAsync({
               collectionId: collection.id,
               sharedMetadata: sharedMetadata,
               walletAddress: account.address
-            })
-          });
-
-          if (!patchResponse.ok) {
-            const patchData = await patchResponse.json();
-            if (patchData.code === 'CREATOR_NOT_APPROVED') {
+            });
+          } catch (updateError: any) {
+            if (updateError.data?.code === 'FORBIDDEN' || updateError.message?.includes('pending approval')) {
               throw new Error('Your creator application is pending approval. You cannot modify on-chain metadata until approved.');
             }
+            throw updateError;
           }
 
           setUploadProgress(100);
@@ -685,7 +688,7 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
     }
   };
 
-  // Save NFTs to database
+  // Save NFTs to database via tRPC
   const saveNFTsToDatabase = async (nftsData: any[]) => {
     if (!account?.address) {
       console.error('No wallet connected');
@@ -693,49 +696,49 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
     }
 
     try {
-      const response = await fetch('/api/studio/collections/nfts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          collectionId: collection.id,
-          nfts: nftsData,
-          walletAddress: account.address
-        })
+      const result = await batchCreateNftsMutation.mutateAsync({
+        collectionId: collection.id,
+        nfts: nftsData.map((nft) => ({
+          name: nft.name,
+          description: nft.description,
+          image: nft.image,
+          attributes: nft.attributes,
+          tokenId: nft.tokenId,
+          ownerAddress: nft.ownerAddress,
+          metadataUri: nft.metadataUri,
+          isOnChain: nft.isOnChain,
+          onChainTokenId: nft.onChainTokenId,
+        })),
+        walletAddress: account.address
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        // Handle specific error codes
-        if (data.code === 'CREATOR_NOT_APPROVED') {
-          setError('Your creator application is pending approval. You can draft NFTs but cannot mint to blockchain until approved.');
-          return;
-        }
-        throw new Error(data.error || 'Failed to save NFTs to database');
+      console.log('NFTs saved to database:', result);
+      return result.nfts;
+    } catch (error: any) {
+      // Handle specific error codes
+      if (error.data?.code === 'FORBIDDEN' || error.message?.includes('pending approval')) {
+        setError('Your creator application is pending approval. You can draft NFTs but cannot mint to blockchain until approved.');
+        return;
       }
-
-      console.log('NFTs saved to database:', data);
-      return data.nfts;
-    } catch (error) {
       console.error('Failed to save NFTs to database:', error);
       // Don't throw - we still want to complete the minting even if DB save fails
       // The NFTs are on-chain, we can sync them later
     }
   };
 
-  // Save traits to database
+  // Save traits to database via tRPC
   const saveTraitsToDatabase = async () => {
     const traits = nftData.attributes.filter(a => a.trait_type && a.value);
     if (traits.length === 0) return;
 
     try {
-      await fetch('/api/studio/collections/traits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          collectionId: collection.id,
-          traits
-        })
+      await saveTraitsMutation.mutateAsync({
+        collectionId: collection.id,
+        traits: traits.map((t) => ({
+          trait_type: t.trait_type,
+          value: t.value,
+          display_type: t.display_type,
+        }))
       });
     } catch (error) {
       console.error('Failed to save traits:', error);
@@ -832,7 +835,7 @@ export function MintNFTsModal({ isOpen, onClose, collection, onSuccess }: MintNF
                     <p>• Upload NFT metadata without paying gas upfront</p>
                     <p>• Users claim/mint NFTs themselves and pay the gas</p>
                     <p>• Specify how many NFTs should be available for claiming</p>
-                    <p>• Users claim individual NFTs through the launchpad</p>
+                    <p>• Users claim individual NFTs through your drop</p>
                   </div>
                 </div>
               </div>

@@ -213,8 +213,8 @@ export function HeroCarousel({
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentIndex}
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 0 }}
+                animate={{ opacity: 1, y: -80 }}
                 exit={{ opacity: 0, y: -30 }}
                 transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
                 className="max-w-xl md:max-w-2xl"
@@ -339,7 +339,7 @@ export function HeroCarousel({
         <div className="absolute bottom-0 left-0 right-0 z-20">
           {/* Progress bar */}
           {showProgressBar && (
-            <div className="h-0.5 bg-white/10 mx-4 md:mx-8 mb-2">
+            <div className="h-0.5 bg-white/10 mx-4 md:mx-8 mb-4">
               <motion.div
                 className="h-full bg-[rgb(163,255,18)]"
                 style={{ width: `${progress}%` }}

@@ -26,3 +26,64 @@
 .animate-\\[fadeIn_0\\.6s_ease-out_1s_forwards\\] {
   animation: fadeIn 0.6s ease-out 1s forwards;
 }
+
+/* Theater mode animations */
+@keyframes curtain-close {
+  from {
+    transform: translateX(var(--curtain-start));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes curtain-open {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--curtain-end));
+  }
+}
+
+@keyframes title-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+    letter-spacing: 0.5em;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: 0.3em;
+  }
+}
+
+@keyframes spotlight-pulse {
+  0%, 100% {
+    opacity: 0.03;
+  }
+  50% {
+    opacity: 0.05;
+  }
+}
+
+/* GPU acceleration hints */
+.theater-curtain {
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.theater-title {
+  will-change: opacity, transform, letter-spacing;
+}
+
+/* Prevent content flash during transition */
+.theater-entering {
+  visibility: hidden;
+}
+
+.theater-immersive {
+  visibility: visible;
+}

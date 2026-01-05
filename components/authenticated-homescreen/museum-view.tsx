@@ -250,35 +250,7 @@ export function MuseumView({ }: MuseumViewProps) {
 
   return (
     <div className={`fixed inset-0 z-10 overflow-hidden ${selectedItem ? 'bg-black' : ''}`}>
-      {/* Title Animation */}
-      <AnimatePresence>
-        {showTitleAnimation && (
-          <motion.div
-            className="fixed inset-0 z-45 flex flex-col items-center justify-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <motion.h1
-              className="text-6xl md:text-8xl font-bold text-white mb-6 tracking-wider"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.8 }}
-            >
-              LEGENDS HALL
-            </motion.h1>
-            <motion.p
-              className="text-xl md:text-2xl text-white/60 font-light tracking-wide"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.8 }}
-            >
-              A Cinematic Journey
-            </motion.p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Title Animation is now handled by TitleCard component in TheaterEntry */}
 
       {/* Cinematic Full-Screen Carousel */}
       <AnimatePresence mode="wait">

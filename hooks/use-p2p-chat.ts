@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useWalletAuthOptimized } from './use-wallet-auth-optimized';
+import { useAuth } from '@/contexts/auth-context';
 
 interface Message {
   id: string;
@@ -37,7 +37,7 @@ interface UseP2PChatOptions {
 
 export function useP2PChat(options: UseP2PChatOptions = {}) {
   const { traderAddress, tradeId, enablePolling = false, pollingInterval = 5000 } = options;
-  const { user } = useWalletAuthOptimized();
+  const { user } = useAuth();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);

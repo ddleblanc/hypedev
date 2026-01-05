@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { rateLimitCheck } from '@/lib/rate-limit';
+import { escapeLikePattern, sanitizeText } from '@/lib/sanitize';
 
 // Schema for search request
 const searchSchema = z.object({
@@ -30,45 +32,61 @@ interface SearchResult {
  * Global search across collections, NFTs, and users
  */
 export async function GET(request: NextRequest) {
+  // Rate limit search operations
+  const rateLimit = await rateLimitCheck(request, 'search');
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get('q') || searchParams.get('query');
     const typesParam = searchParams.get('types');
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const page = parseInt(searchParams.get('page') || '1', 10);
+    const verifiedOnly = searchParams.get('verified') === 'true';
 
     if (!query || query.trim().length === 0) {
-      return NextResponse.json(
+      return rateLimit.applyHeaders(NextResponse.json(
         { success: false, error: 'Search query is required' },
         { status: 400 }
-      );
+      ));
     }
 
     const types: ('collection' | 'nft' | 'user')[] = typesParam
       ? (typesParam.split(',').filter((t) => ['collection', 'nft', 'user'].includes(t)) as any[])
       : ['collection', 'nft', 'user'];
 
-    const searchTerm = query.trim().toLowerCase();
+    // Sanitize and escape search term to prevent SQL injection via LIKE patterns
+    const rawSearchTerm = sanitizeText(query.trim()).toLowerCase();
+    const searchTerm = escapeLikePattern(rawSearchTerm);
     const skip = (page - 1) * limit;
 
-    // Calculate per-type limits to distribute results evenly
-    const perTypeLimit = Math.ceil(limit / types.length);
+    // For single type search, use standard pagination
+    // For multi-type search, fetch proportionally and combine
+    const isSingleType = types.length === 1;
+
+    // For multi-type: fetch more results per type, then trim at the end
+    // This ensures we always have enough results to fill the limit
+    const perTypeLimit = isSingleType ? limit : Math.ceil(limit / types.length) + 2;
+    const perTypeSkip = isSingleType ? skip : 0;
 
     const results: SearchResult[] = [];
     const counts: Record<string, number> = {};
 
     // Search collections
     if (types.includes('collection')) {
+      const collectionWhere = {
+        OR: [
+          { name: { contains: searchTerm, mode: 'insensitive' as const } },
+          { description: { contains: searchTerm, mode: 'insensitive' as const } },
+          { address: { equals: searchTerm, mode: 'insensitive' as const } },
+        ],
+        isDeployed: true, // Only show deployed collections
+        ...(verifiedOnly && { isVerified: true }),
+      };
+
       const [collections, collectionCount] = await Promise.all([
         prisma.collection.findMany({
-          where: {
-            OR: [
-              { name: { contains: searchTerm, mode: 'insensitive' } },
-              { description: { contains: searchTerm, mode: 'insensitive' } },
-              { address: { equals: searchTerm, mode: 'insensitive' } },
-            ],
-            isDeployed: true, // Only show deployed collections
-          },
+          where: collectionWhere,
           select: {
             id: true,
             name: true,
@@ -82,21 +100,14 @@ export async function GET(request: NextRequest) {
             },
           },
           take: perTypeLimit,
-          skip: types.length === 1 ? skip : 0,
+          skip: perTypeSkip,
           orderBy: [
             { isVerified: 'desc' },
             { floorPrice: 'desc' },
           ],
         }),
         prisma.collection.count({
-          where: {
-            OR: [
-              { name: { contains: searchTerm, mode: 'insensitive' } },
-              { description: { contains: searchTerm, mode: 'insensitive' } },
-              { address: { equals: searchTerm, mode: 'insensitive' } },
-            ],
-            isDeployed: true,
-          },
+          where: collectionWhere,
         }),
       ]);
 
@@ -119,18 +130,21 @@ export async function GET(request: NextRequest) {
 
     // Search NFTs
     if (types.includes('nft')) {
+      const nftWhere = {
+        OR: [
+          { name: { contains: searchTerm, mode: 'insensitive' as const } },
+          { description: { contains: searchTerm, mode: 'insensitive' as const } },
+          { onChainTokenId: { equals: searchTerm } },
+        ],
+        collection: {
+          isDeployed: true,
+          ...(verifiedOnly && { isVerified: true }),
+        },
+      };
+
       const [nfts, nftCount] = await Promise.all([
         prisma.nft.findMany({
-          where: {
-            OR: [
-              { name: { contains: searchTerm, mode: 'insensitive' } },
-              { description: { contains: searchTerm, mode: 'insensitive' } },
-              { onChainTokenId: { equals: searchTerm } },
-            ],
-            collection: {
-              isDeployed: true,
-            },
-          },
+          where: nftWhere,
           select: {
             id: true,
             name: true,
@@ -149,23 +163,14 @@ export async function GET(request: NextRequest) {
             },
           },
           take: perTypeLimit,
-          skip: types.length === 1 ? skip : 0,
+          skip: perTypeSkip,
           orderBy: [
             { isListed: 'desc' },
             { createdAt: 'desc' },
           ],
         }),
         prisma.nft.count({
-          where: {
-            OR: [
-              { name: { contains: searchTerm, mode: 'insensitive' } },
-              { description: { contains: searchTerm, mode: 'insensitive' } },
-              { onChainTokenId: { equals: searchTerm } },
-            ],
-            collection: {
-              isDeployed: true,
-            },
-          },
+          where: nftWhere,
         }),
       ]);
 
@@ -187,15 +192,19 @@ export async function GET(request: NextRequest) {
 
     // Search users
     if (types.includes('user')) {
+      const userWhere = {
+        OR: [
+          { username: { contains: searchTerm, mode: 'insensitive' as const } },
+          { walletAddress: { equals: searchTerm, mode: 'insensitive' as const } },
+          { bio: { contains: searchTerm, mode: 'insensitive' as const } },
+        ],
+        // For users, verified means approved creator
+        ...(verifiedOnly && { creatorApprovedAt: { not: null } }),
+      };
+
       const [users, userCount] = await Promise.all([
         prisma.user.findMany({
-          where: {
-            OR: [
-              { username: { contains: searchTerm, mode: 'insensitive' } },
-              { walletAddress: { equals: searchTerm, mode: 'insensitive' } },
-              { bio: { contains: searchTerm, mode: 'insensitive' } },
-            ],
-          },
+          where: userWhere,
           select: {
             id: true,
             username: true,
@@ -211,20 +220,14 @@ export async function GET(request: NextRequest) {
             },
           },
           take: perTypeLimit,
-          skip: types.length === 1 ? skip : 0,
+          skip: perTypeSkip,
           orderBy: [
             { isCreator: 'desc' },
             { createdAt: 'desc' },
           ],
         }),
         prisma.user.count({
-          where: {
-            OR: [
-              { username: { contains: searchTerm, mode: 'insensitive' } },
-              { walletAddress: { equals: searchTerm, mode: 'insensitive' } },
-              { bio: { contains: searchTerm, mode: 'insensitive' } },
-            ],
-          },
+          where: userWhere,
         }),
       ]);
 
@@ -258,9 +261,9 @@ export async function GET(request: NextRequest) {
 
     const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
 
-    return NextResponse.json({
+    return rateLimit.applyHeaders(NextResponse.json({
       success: true,
-      query: searchTerm,
+      query: rawSearchTerm, // Return sanitized but un-escaped term for display
       results: results.slice(0, limit),
       counts,
       pagination: {
@@ -269,14 +272,14 @@ export async function GET(request: NextRequest) {
         total: totalCount,
         totalPages: Math.ceil(totalCount / limit),
       },
-    });
+    }));
   } catch (error) {
     console.error('Error performing search:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
+    return rateLimit.applyHeaders(NextResponse.json(
       { success: false, error: `Search failed: ${errorMessage}` },
       { status: 500 }
-    );
+    ));
   }
 }
 
@@ -285,6 +288,10 @@ export async function GET(request: NextRequest) {
  * Advanced search with filters (for future use)
  */
 export async function POST(request: NextRequest) {
+  // Rate limit search operations
+  const rateLimit = await rateLimitCheck(request, 'search');
+  if (rateLimit.blocked) return rateLimit.response;
+
   try {
     const body = await request.json();
     const validatedData = searchSchema.parse(body);
@@ -305,16 +312,16 @@ export async function POST(request: NextRequest) {
     console.error('Error performing search:', error);
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
+      return rateLimit.applyHeaders(NextResponse.json(
         { success: false, error: 'Invalid search parameters', details: error.errors },
         { status: 400 }
-      );
+      ));
     }
 
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json(
+    return rateLimit.applyHeaders(NextResponse.json(
       { success: false, error: `Search failed: ${errorMessage}` },
       { status: 500 }
-    );
+    ));
   }
 }

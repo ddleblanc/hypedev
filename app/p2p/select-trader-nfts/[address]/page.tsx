@@ -10,6 +10,7 @@ import { SelectedNFTsBar } from '@/components/p2p/selection-flow/selected-nfts-b
 import { CollectionBrowser } from '@/components/p2p/selection-flow/collection-browser';
 import { NFTSelectionGrid } from '@/components/p2p/selection-flow/nft-selection-grid';
 import { TraderSelectionMenu } from '@/components/p2p/selection-flow/trader-selection-menu';
+import { trpc } from '@/lib/trpc/client';
 
 interface NFT {
   id: string;
@@ -45,8 +46,6 @@ function TraderNFTSelectionPageContent() {
 
   const { proceedToUserSelection, goBackFromTraderSelection } = useP2PSelectionFlowNavigation();
 
-  const [nfts, setNfts] = useState<NFT[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
 
   // Track if initial NFT has been selected to prevent duplicate selection
@@ -68,41 +67,49 @@ function TraderNFTSelectionPageContent() {
     }
   }, [traderAddress, setTraderAddress]);
 
-  // Fetch trader's NFTs
-  useEffect(() => {
-    const fetchNFTs = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/user/${traderAddress}/nfts`);
-        const data = await response.json();
+  // tRPC query for trader's NFTs
+  const nftsQuery = trpc.user.nfts.list.useQuery(
+    {
+      address: traderAddress,
+      filter: 'owned',
+    },
+    {
+      enabled: !!traderAddress,
+    }
+  );
 
-        if (data.success) {
-          const nftList = data.data.nfts || [];
-          setNfts(nftList);
-
-          // Auto-select initial NFT if found (only once)
-          if (initialNftId && !initialNftSelectedRef.current) {
-            const initialNFT = nftList.find((nft: NFT) => nft.id === initialNftId || nft.tokenId === initialNftId);
-            if (initialNFT) {
-              setInitialNFT(initialNFT);
-              // Check if not already selected before toggling
-              if (!isTraderNFTSelected(initialNFT.id)) {
-                toggleTraderNFT(initialNFT);
-              }
-              initialNftSelectedRef.current = true;
-            }
+  const nfts = useMemo(() => {
+    if (!nftsQuery.data?.nfts) return [];
+    return nftsQuery.data.nfts.map((nft) => ({
+      id: nft.id,
+      tokenId: nft.tokenId,
+      name: nft.name,
+      image: nft.image || '',
+      collection: nft.collection
+        ? {
+            name: nft.collection.name,
+            symbol: '',
           }
-        }
-      } catch (error) {
-        console.error('Failed to fetch trader NFTs:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+        : undefined,
+      collectionId: nft.collectionId || undefined,
+      rarityTier: nft.rarityTier || undefined,
+    }));
+  }, [nftsQuery.data]);
 
-    fetchNFTs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [traderAddress, initialNftId]);
+  // Auto-select initial NFT when data loads
+  useEffect(() => {
+    if (initialNftId && nfts.length > 0 && !initialNftSelectedRef.current) {
+      const initialNFT = nfts.find((nft: NFT) => nft.id === initialNftId || nft.tokenId === initialNftId);
+      if (initialNFT) {
+        setInitialNFT(initialNFT);
+        // Check if not already selected before toggling
+        if (!isTraderNFTSelected(initialNFT.id)) {
+          toggleTraderNFT(initialNFT);
+        }
+        initialNftSelectedRef.current = true;
+      }
+    }
+  }, [initialNftId, nfts, setInitialNFT, isTraderNFTSelected, toggleTraderNFT]);
 
   // Group NFTs by collection
   const collections = useMemo(() => {
@@ -198,14 +205,14 @@ function TraderNFTSelectionPageContent() {
       )}
 
       {/* Loading State */}
-      {isLoading && (
+      {nftsQuery.isLoading && (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 text-white animate-spin" />
         </div>
       )}
 
       {/* Empty State */}
-      {!isLoading && filteredNFTs.length === 0 && (
+      {!nftsQuery.isLoading && filteredNFTs.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -219,7 +226,7 @@ function TraderNFTSelectionPageContent() {
       )}
 
       {/* NFT Grid */}
-      {!isLoading && filteredNFTs.length > 0 && (
+      {!nftsQuery.isLoading && filteredNFTs.length > 0 && (
         <div className={`py-6 ${collections.length > 1 ? 'mt-[52px]' : 'mt-0'}`}>
           <NFTSelectionGrid
             nfts={filteredNFTs}

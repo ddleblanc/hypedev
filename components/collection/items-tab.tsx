@@ -12,7 +12,10 @@ import { ItemsFiltersBar } from "./items-filters-bar";
 import { AdvancedFiltersPanel, TraitFilterMode } from "./advanced-filters-panel";
 import { SweepFloorDialog } from "@/components/nft/sweep-floor-dialog";
 import { NFTBuyDialog } from "@/components/nft/buy-dialog";
+import { NFTOfferDialog } from "@/components/nft/offer-dialog";
+import { NFTTakeoverModal } from "@/components/nft/nft-takeover-modal";
 import { Collection, CollectionItem } from "./types";
+import { trpc } from "@/lib/trpc/client";
 
 interface ItemsTabProps {
   collection: Collection;
@@ -28,37 +31,26 @@ export function ItemsTab({ collection }: ItemsTabProps) {
   const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
   const [traitFilterMode, setTraitFilterMode] = useState<TraitFilterMode>('or');
   const [priceRange, setPriceRange] = useState([0, 100]);
-  const [nfts, setNfts] = useState<CollectionItem[]>([]);
-  const [loadingNfts, setLoadingNfts] = useState(false);
   const [showSweepDialog, setShowSweepDialog] = useState(false);
   const [showBuyDialog, setShowBuyDialog] = useState(false);
+  const [showOfferDialog, setShowOfferDialog] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
 
-  // Fetch NFTs when collection changes
-  useEffect(() => {
-    const fetchNfts = async () => {
-      if (!collection.id) return;
+  // Fetch NFTs via tRPC
+  const { data: nftsData, isLoading: loadingNfts, refetch: refetchNfts } = trpc.marketplace.collections.nfts.useQuery(
+    { collectionId: collection.id, page: 1, limit: 100 },
+    { enabled: !!collection.id }
+  );
 
-      try {
-        setLoadingNfts(true);
-        const response = await fetch(`/api/marketplace/collection/${collection.id}/nfts`);
-        const data = await response.json();
-
-        if (data.success && data.nfts) {
-          setNfts(data.nfts);
-        }
-      } catch (err) {
-        console.error('Error fetching NFTs:', err);
-      } finally {
-        setLoadingNfts(false);
-      }
-    };
-
-    fetchNfts();
-  }, [collection.id]);
+  // Transform tRPC data to expected format
+  const nfts = useMemo(() => {
+    if (!nftsData?.nfts) return [];
+    return nftsData.nfts as unknown as CollectionItem[];
+  }, [nftsData]);
 
   // Use fetched NFTs if available, otherwise fall back to collection.items
-  const items = nfts.length > 0 ? nfts : collection.items;
+  const items = nfts.length > 0 ? nfts : (collection.items || []);
 
   // Calculate dynamic price range from items
   const { minPrice, maxPrice } = useMemo(() => {
@@ -81,83 +73,87 @@ export function ItemsTab({ collection }: ItemsTabProps) {
     }
   }, [minPrice, maxPrice, items.length]);
 
-  // Filter items
-  const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRarity = filterRarity === 'all' || item.rarity.toLowerCase() === filterRarity;
-    const matchesPrice = parseFloat(item.price) >= priceRange[0] && parseFloat(item.price) <= priceRange[1];
+  // Filter items (memoized to prevent unnecessary re-renders)
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRarity = filterRarity === 'all' || item.rarity.toLowerCase() === filterRarity;
+      const matchesPrice = parseFloat(item.price) >= priceRange[0] && parseFloat(item.price) <= priceRange[1];
 
-    // Status filter logic
-    let matchesStatus = true;
-    switch (filterStatus) {
-      case 'listed':
-        matchesStatus = item.listed === true;
-        break;
-      case 'not-listed':
-        matchesStatus = item.listed !== true;
-        break;
-      case 'has-offers':
-        matchesStatus = item.hasOffer === true;
-        break;
-      case 'on-auction':
-        matchesStatus = item.onAuction === true;
-        break;
-      case 'all':
-      default:
-        matchesStatus = true;
-    }
-
-    // Trait filter logic with AND/OR support
-    let matchesTraits = true;
-    if (selectedTraits.length > 0 && item.traits) {
-      const itemTraitValues = item.traits.map(t => t.value);
-
-      if (traitFilterMode === 'and') {
-        // AND mode: item must have ALL selected traits
-        matchesTraits = selectedTraits.every(trait => itemTraitValues.includes(trait));
-      } else {
-        // OR mode: item must have ANY of the selected traits
-        matchesTraits = selectedTraits.some(trait => itemTraitValues.includes(trait));
+      // Status filter logic
+      let matchesStatus = true;
+      switch (filterStatus) {
+        case 'listed':
+          matchesStatus = item.listed === true;
+          break;
+        case 'not-listed':
+          matchesStatus = item.listed !== true;
+          break;
+        case 'has-offers':
+          matchesStatus = item.hasOffer === true;
+          break;
+        case 'on-auction':
+          matchesStatus = item.onAuction === true;
+          break;
+        case 'all':
+        default:
+          matchesStatus = true;
       }
-    }
 
-    return matchesSearch && matchesRarity && matchesPrice && matchesStatus && matchesTraits;
-  });
+      // Trait filter logic with AND/OR support
+      let matchesTraits = true;
+      if (selectedTraits.length > 0 && item.traits) {
+        const itemTraitValues = item.traits.map(t => t.value);
+
+        if (traitFilterMode === 'and') {
+          // AND mode: item must have ALL selected traits
+          matchesTraits = selectedTraits.every(trait => itemTraitValues.includes(trait));
+        } else {
+          // OR mode: item must have ANY of the selected traits
+          matchesTraits = selectedTraits.some(trait => itemTraitValues.includes(trait));
+        }
+      }
+
+      return matchesSearch && matchesRarity && matchesPrice && matchesStatus && matchesTraits;
+    });
+  }, [items, searchQuery, filterRarity, filterStatus, priceRange, selectedTraits, traitFilterMode]);
 
   // Check if there are any listed items for sweep functionality
   const hasListings = useMemo(() => {
     return items.some(item => item.listed === true);
   }, [items]);
 
-  // Sort items
-  const sortedItems = [...filteredItems].sort((a, b) => {
+  // Sort items (memoized to prevent unnecessary re-renders)
+  const sortedItems = useMemo(() => {
     const rarityOrder = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
-
-    switch (sortBy) {
-      case 'price-low':
-        return parseFloat(a.price) - parseFloat(b.price);
-      case 'price-high':
-        return parseFloat(b.price) - parseFloat(a.price);
-      case 'rarity':
-        return rarityOrder.indexOf(b.rarity) - rarityOrder.indexOf(a.rarity);
-      case 'rarity-common':
-        return rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity);
-      case 'rank':
-        return a.rank - b.rank; // Lower rank is better
-      case 'rank-worst':
-        return b.rank - a.rank;
-      case 'recent':
-        return b.id - a.id;
-      case 'oldest':
-        return a.id - b.id;
-      case 'name-az':
-        return a.name.localeCompare(b.name);
-      case 'name-za':
-        return b.name.localeCompare(a.name);
-      default:
-        return 0;
-    }
-  });
+    return [...filteredItems].sort((a, b) => {
+      switch (sortBy) {
+        case 'price-low':
+          return parseFloat(a.price) - parseFloat(b.price);
+        case 'price-high':
+          return parseFloat(b.price) - parseFloat(a.price);
+        case 'rarity':
+          return rarityOrder.indexOf(b.rarity) - rarityOrder.indexOf(a.rarity);
+        case 'rarity-common':
+          return rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity);
+        case 'rank':
+          return a.rank - b.rank; // Lower rank is better
+        case 'rank-worst':
+          return b.rank - a.rank;
+        case 'recent':
+          // Handle both string and number ids
+          return String(b.id).localeCompare(String(a.id));
+        case 'oldest':
+          return String(a.id).localeCompare(String(b.id));
+        case 'name-az':
+          return a.name.localeCompare(b.name);
+        case 'name-za':
+          return b.name.localeCompare(a.name);
+        default:
+          return 0;
+      }
+    });
+  }, [filteredItems, sortBy]);
 
   const handleTraitToggle = (trait: string) => {
     if (selectedTraits.includes(trait)) {
@@ -177,20 +173,8 @@ export function ItemsTab({ collection }: ItemsTabProps) {
 
   // Callback for when sweep succeeds - refresh NFT data
   const handleSweepSuccess = () => {
-    // Re-fetch NFTs after successful sweep
-    const fetchNfts = async () => {
-      if (!collection.id) return;
-      try {
-        const response = await fetch(`/api/marketplace/collection/${collection.id}/nfts`);
-        const data = await response.json();
-        if (data.success && data.nfts) {
-          setNfts(data.nfts);
-        }
-      } catch (err) {
-        console.error('Error refreshing NFTs:', err);
-      }
-    };
-    fetchNfts();
+    // Re-fetch NFTs after successful sweep via tRPC
+    refetchNfts();
   };
 
   // Handler for Buy Now button
@@ -199,9 +183,40 @@ export function ItemsTab({ collection }: ItemsTabProps) {
     setShowBuyDialog(true);
   };
 
+  // Handler for Make Offer button
+  const handleMakeOffer = (item: CollectionItem) => {
+    setSelectedItem(item);
+    setShowOfferDialog(true);
+  };
+
   // Callback for when purchase completes - refresh NFT data
   const handlePurchaseComplete = () => {
     handleSweepSuccess(); // Reuse the refresh logic
+  };
+
+  // Callback for when offer completes - refresh NFT data
+  const handleOfferComplete = () => {
+    handleSweepSuccess(); // Reuse the refresh logic
+  };
+
+  // Handler for clicking on an item to open detail modal
+  const handleItemClick = (item: CollectionItem) => {
+    setSelectedItem(item);
+    setShowDetailModal(true);
+  };
+
+  // Handler for Buy Now from detail modal
+  const handleDetailBuyNow = (item: CollectionItem) => {
+    setShowDetailModal(false);
+    setSelectedItem(item);
+    setShowBuyDialog(true);
+  };
+
+  // Handler for Make Offer from detail modal
+  const handleDetailMakeOffer = (item: CollectionItem) => {
+    setShowDetailModal(false);
+    setSelectedItem(item);
+    setShowOfferDialog(true);
   };
 
   return (
@@ -256,13 +271,14 @@ export function ItemsTab({ collection }: ItemsTabProps) {
             <ItemCard
               key={`${item.id}-${index}`}
               item={item}
-              onClick={() => console.log('Open item:', item.id)}
+              onClick={() => handleItemClick(item)}
               collection={{
                 id: collection.id,
                 name: collection.name,
                 contractAddress: collection.contractAddress,
               }}
               onBuyNow={handleBuyNow}
+              onMakeOffer={handleMakeOffer}
             />
           ) : (
             <Card
@@ -310,7 +326,11 @@ export function ItemsTab({ collection }: ItemsTabProps) {
                           Buy Now
                         </Button>
                       ) : (
-                        <Button size="sm" className="bg-blue-600 text-white hover:bg-blue-700">
+                        <Button
+                          size="sm"
+                          className="bg-blue-600 text-white hover:bg-blue-700"
+                          onClick={() => handleMakeOffer(item)}
+                        >
                           Make Offer
                         </Button>
                       )}
@@ -371,9 +391,48 @@ export function ItemsTab({ collection }: ItemsTabProps) {
           collectionName: collection.name,
           contractAddress: collection.contractAddress,
           listingId: selectedItem.listingId || undefined,
-          tokenId: String(selectedItem.id),
+          // Use onChainTokenId if available, otherwise fall back to id
+          tokenId: selectedItem.onChainTokenId || String(selectedItem.id),
         } : null}
         onPurchaseComplete={handlePurchaseComplete}
+      />
+
+      {/* Make Offer Dialog */}
+      <NFTOfferDialog
+        open={showOfferDialog}
+        onOpenChange={setShowOfferDialog}
+        nft={selectedItem ? {
+          id: String(selectedItem.id),
+          dbId: selectedItem.dbId, // Database UUID for proper FK reference
+          name: selectedItem.name,
+          image: selectedItem.image,
+          price: selectedItem.listed ? parseFloat(selectedItem.price) : undefined,
+          rarity: selectedItem.rarity,
+          collection: collection.id,
+          collectionName: collection.name,
+          contractAddress: collection.contractAddress,
+          // Use onChainTokenId if available, otherwise fall back to id
+          tokenId: selectedItem.onChainTokenId || String(selectedItem.id),
+          floorPrice: collection.floorPrice ? parseFloat(String(collection.floorPrice)) : undefined,
+        } : null}
+        onOfferComplete={handleOfferComplete}
+      />
+
+      {/* NFT Detail Takeover Modal */}
+      <NFTTakeoverModal
+        open={showDetailModal}
+        onOpenChange={setShowDetailModal}
+        nft={selectedItem}
+        nftList={sortedItems}
+        collection={{
+          id: collection.id,
+          name: collection.name,
+          contractAddress: collection.contractAddress,
+          floorPrice: collection.floorPrice,
+          verified: collection.creator?.verified,
+        }}
+        onBuyNow={handleDetailBuyNow}
+        onMakeOffer={handleDetailMakeOffer}
       />
     </TabsContent>
   );

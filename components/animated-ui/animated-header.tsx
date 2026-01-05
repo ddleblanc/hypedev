@@ -57,8 +57,10 @@ import {
 } from "lucide-react";
 import { useDisconnect, useActiveWallet } from "thirdweb/react";
 import { client } from "@/lib/thirdweb";
-import { useWalletAuthOptimized } from "@/hooks/use-wallet-auth-optimized";
+import { useAuth } from "@/contexts/auth-context";
+import { useNotifications } from "@/hooks/use-notifications";
 import { AuthenticatedConnectButton } from "@/components/auth/authenticated-connect-button";
+import { cn } from "@/lib/utils";
 import { MediaRenderer } from "@/components/media-renderer";
 import { Compass } from "lucide-react";
 import { CartButton } from "@/components/marketplace/cart-button";
@@ -86,16 +88,28 @@ interface AnimatedHeaderProps {
 export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewChange, currentStudioView, p2pData }: AnimatedHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isConnected, signOut } = useWalletAuthOptimized();
+  const { user, isConnected, signOut } = useAuth();
   const { disconnect } = useDisconnect();
   const wallet = useActiveWallet();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false);
 
-  // Dynamic navigation based on current route context
+  // Notifications state for Control Center
+  const { unreadCount, hasUrgent } = useNotifications({ enabled: isConnected });
+
+  // Dynamic navigation based on current route context and auth status
   const getNavigationItems = () => {
     const currentPath = pathname || '/';
-    
+    const isLoggedIn = isConnected && user;
+
+    // Login page - minimal navigation
+    if (currentPath === '/login' || currentRoute === 'login') {
+      return [
+        { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
+        { id: 'marketplace', label: 'Marketplace', icon: Store, type: 'route' },
+      ];
+    }
+
     // Studio page - special handling for tab navigation (match subpaths too)
     if ((currentPath && currentPath.startsWith('/studio')) || currentRoute === 'studio') {
       return [
@@ -109,88 +123,100 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
         { id: 'settings', label: 'Settings', icon: Settings, type: 'studio-tab' }
       ];
     }
-    
+
     // Trade methods pages (including detail pages)
-    if (['/marketplace', '/launchpad', '/tokens', '/p2p', '/collection'].includes(currentPath) ||
-        currentPath.startsWith('/launchpad/') ||
+    if (['/marketplace', '/drops', '/tokens', '/p2p', '/collection'].includes(currentPath) ||
+        currentPath.startsWith('/drops/') ||
         currentPath.startsWith('/collection/') ||
-        ['marketplace', 'launchpad', 'launchpad-detail', 'tokens', 'p2p', 'collection', 'collection-detail'].includes(currentRoute)) {
+        ['marketplace', 'drops', 'drops-detail', 'tokens', 'p2p', 'collection', 'collection-detail'].includes(currentRoute)) {
       return [
-        { id: 'home', label: 'Home', icon: Home, type: 'route' },
+        // Show Home if logged in, otherwise Discover (but not if already on marketplace which doesn't need either)
+        isLoggedIn
+          ? { id: 'home', label: 'Home', icon: Home, type: 'route' }
+          : { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
         { id: 'marketplace', label: 'Marketplace', icon: Store, type: 'route' },
-        { id: 'launchpad', label: 'Launchpad', icon: Rocket, type: 'route' },
+        { id: 'drops', label: 'Drops', icon: Rocket, type: 'route' },
         { id: 'tokens', label: 'Tokens', icon: Coins, type: 'route' },
         { id: 'p2p', label: 'P2P', icon: Users, type: 'route' }
       ];
     }
-    
+
     // Play sub-route pages (not the main play page)
     if ((currentPath.startsWith('/play/') || currentRoute.startsWith('play-')) && currentPath !== '/play' && currentRoute !== 'play') {
       return [
-        { id: 'home', label: 'Home', icon: Home, type: 'route' },
+        isLoggedIn
+          ? { id: 'home', label: 'Home', icon: Home, type: 'route' }
+          : { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
         { id: 'play/casual', label: 'Casual', icon: Gamepad2, type: 'route' },
         { id: 'play/competitive', label: 'Competitive', icon: Trophy, type: 'route' },
         { id: 'play/casino', label: 'Casino', icon: Zap, type: 'route' },
         { id: 'play/1v1', label: '1v1', icon: Crown, type: 'route' }
       ];
     }
-    
+
     // Main play page - show main navigation
     if (currentPath === '/play' || currentRoute === 'play') {
       return [
-        { id: 'home', label: 'Home', icon: Home, type: 'route' },
-        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
+        isLoggedIn
+          ? { id: 'home', label: 'Home', icon: Home, type: 'route' }
+          : { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
         { id: 'play', label: 'Play', icon: Play, type: 'route' },
+        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
         { id: 'museum', label: 'Museum', icon: Crown, type: 'route' },
-        { id: 'collection', label: 'Collection', icon: Layers, type: 'route' },
-        { id: 'studio', label: 'NFT Studio', icon: Palette, type: 'route' }
+        // Collection and Studio only visible when logged in
+        ...(isLoggedIn ? [
+          { id: 'collection', label: 'Collection', icon: Layers, type: 'route' },
+          { id: 'studio', label: 'NFT Studio', icon: Palette, type: 'route' }
+        ] : [])
       ];
     }
-    
+
     // Trade section page
     if (currentPath === '/trade' || currentRoute === 'trade') {
       return [
-        { id: 'home', label: 'Home', icon: Home, type: 'route' },
-        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
+        isLoggedIn
+          ? { id: 'home', label: 'Home', icon: Home, type: 'route' }
+          : { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
         { id: 'play', label: 'Play', icon: Play, type: 'route' },
+        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
         { id: 'museum', label: 'Museum', icon: Crown, type: 'route' },
-        { id: 'collection', label: 'Collection', icon: Layers, type: 'route' },
-        { id: 'studio', label: 'NFT Studio', icon: Palette, type: 'route' }
+        // Collection and Studio only visible when logged in
+        ...(isLoggedIn ? [
+          { id: 'collection', label: 'Collection', icon: Layers, type: 'route' },
+          { id: 'studio', label: 'NFT Studio', icon: Palette, type: 'route' }
+        ] : [])
       ];
     }
-    
-    // Play section page
-    if (currentPath === '/play' || currentRoute === 'play') {
-      return [
-        { id: 'home', label: 'Home', icon: Home, type: 'route' },
-        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
-        { id: 'play', label: 'Play', icon: Play, type: 'route' },
-        { id: 'museum', label: 'Museum', icon: Crown, type: 'route' },
-        { id: 'collection', label: 'Collection', icon: Layers, type: 'route' },
-        { id: 'studio', label: 'NFT Studio', icon: Palette, type: 'route' }
-      ];
-    }
-    
+
     // Museum page (similar to trade/play sections)
     if (currentPath === '/museum' || currentRoute === 'museum') {
       return [
-        { id: 'home', label: 'Home', icon: Home, type: 'route' },
-        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
+        isLoggedIn
+          ? { id: 'home', label: 'Home', icon: Home, type: 'route' }
+          : { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
         { id: 'play', label: 'Play', icon: Play, type: 'route' },
+        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
         { id: 'museum', label: 'Museum', icon: Crown, type: 'route' },
-        { id: 'collection', label: 'Collection', icon: Layers, type: 'route' },
-        { id: 'studio', label: 'NFT Studio', icon: Palette, type: 'route' }
+        // Collection and Studio only visible when logged in
+        ...(isLoggedIn ? [
+          { id: 'collection', label: 'Collection', icon: Layers, type: 'route' },
+          { id: 'studio', label: 'NFT Studio', icon: Palette, type: 'route' }
+        ] : [])
       ];
     }
-    
-    // Discover page - show Home, Discover, Trade, Play
+
+    // Discover page - show Home/Discover, Play, Trade, Museum
     if (currentPath === '/discover' || currentRoute === 'discover') {
       return [
-        { id: 'home', label: 'Home', icon: Home, type: 'route' },
+        // If logged in show Home, otherwise just show Discover as active (no duplicate)
+        isLoggedIn
+          ? { id: 'home', label: 'Home', icon: Home, type: 'route' }
+          : null,
         { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
+        { id: 'play', label: 'Play', icon: Play, type: 'route' },
         { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
-        { id: 'play', label: 'Play', icon: Play, type: 'route' }
-      ];
+        { id: 'museum', label: 'Museum', icon: Crown, type: 'route' },
+      ].filter(Boolean);
     }
 
     // Home (HUD) page - show Home, Discover, Trade, Play
@@ -198,8 +224,18 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
       return [
         { id: 'home', label: 'Home', icon: Home, type: 'route' },
         { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
+        { id: 'play', label: 'Play', icon: Play, type: 'route' },
         { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
-        { id: 'play', label: 'Play', icon: Play, type: 'route' }
+      ];
+    }
+
+    // Control Center - show Home, Discover, Trade, Play
+    if (currentPath.startsWith('/control-center') || currentRoute === 'control-center') {
+      return [
+        { id: 'home', label: 'Home', icon: Home, type: 'route' },
+        { id: 'discover', label: 'Discover', icon: Compass, type: 'route' },
+        { id: 'play', label: 'Play', icon: Play, type: 'route' },
+        { id: 'trade', label: 'Trade', icon: TrendingUp, type: 'route' },
       ];
     }
 
@@ -207,7 +243,9 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
     return [];
   };
 
-  const navItems = getNavigationItems();
+  // Type assertion to remove null items after filter(Boolean)
+  type NavItem = { id: string; label: string; icon: any; type: string };
+  const navItems = getNavigationItems() as NavItem[];
 
   // Get current section for mobile dropdown
   const getCurrentSection = () => {
@@ -218,11 +256,11 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
       return { label: 'STUDIO', icon: Palette, route: '/studio', color: 'rgb(255,215,0)' };
     }
 
-    // Trade section (marketplace, launchpad, tokens, p2p, collection)
-    if (path.startsWith('/marketplace') || path.startsWith('/launchpad') ||
+    // Trade section (marketplace, drops, tokens, p2p, collection)
+    if (path.startsWith('/marketplace') || path.startsWith('/drops') ||
         path.startsWith('/tokens') || path.startsWith('/p2p') ||
         path.startsWith('/collection') ||
-        ['marketplace', 'launchpad', 'launchpad-detail', 'tokens', 'p2p', 'collection', 'trade'].includes(currentRoute)) {
+        ['marketplace', 'drops', 'drops-detail', 'tokens', 'p2p', 'collection', 'trade'].includes(currentRoute)) {
       return { label: 'TRADE', icon: TrendingUp, route: '/trade', color: 'rgb(163,255,18)' };
     }
 
@@ -247,13 +285,17 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
 
   const currentSection = getCurrentSection();
 
-  // All available sections for dropdown
+  // All available sections for dropdown (auth-aware)
+  const isLoggedIn = isConnected && user;
   const allSections = [
     { label: 'TRADE', icon: TrendingUp, route: '/trade', color: 'rgb(163,255,18)' },
     { label: 'PLAY', icon: Gamepad2, route: '/play', color: 'rgb(163,255,18)' },
     { label: 'MUSEUM', icon: Crown, route: '/museum', color: 'rgb(163,255,18)' },
-    { label: 'LOOTBOXES', icon: Gift, route: '/lootboxes', color: 'rgb(163,255,18)' },
-    { label: 'STUDIO', icon: Palette, route: '/studio', color: 'rgb(255,215,0)' }
+    // Auth-only sections
+    ...(isLoggedIn ? [
+      { label: 'LOOTBOXES', icon: Gift, route: '/lootboxes', color: 'rgb(163,255,18)' },
+      { label: 'STUDIO', icon: Palette, route: '/studio', color: 'rgb(255,215,0)' }
+    ] : [])
   ];
 
   const handleNavItemClick = async (item: any) => {
@@ -277,35 +319,38 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
 
   const handleSignOut = async () => {
     try {
-      // Disconnect wallet first
+      // Clear user session and JWT cookie first
+      await signOut();
+      // Then disconnect wallet
       if (wallet) {
         disconnect(wallet);
       }
-      // Clear user session
-      signOut();
-      // Redirect to home
-      router.push('/');
+      // Redirect to login page
+      router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
-  // Main navigation for mobile menu - matches authenticated homepage
+  // Main navigation for mobile menu (auth-aware)
   const mainMobileNavigation = [
-    { label: "TRADE", href: "/trade", description: "Buy & Sell", route: "trade" },
     { label: "PLAY", href: "/play", description: "Gaming Hub", route: "play" },
+    { label: "TRADE", href: "/trade", description: "Buy & Sell", route: "trade" },
     { label: "MUSEUM", href: "/museum", description: "Art & Culture", route: "museum" },
-    { label: "COLLECTION", href: "/profile", description: "Your Assets", route: "profile" }
+    // Collection only visible when logged in
+    ...(isLoggedIn ? [
+      { label: "COLLECTION", href: "/profile", description: "Your Assets", route: "profile" }
+    ] : [])
   ];
 
-  // Secondary navigation for mobile menu
-  const secondaryMobileNavigation = [
+  // Secondary navigation for mobile menu (auth-only - only shown when logged in)
+  const secondaryMobileNavigation = isLoggedIn ? [
     { label: "PROFILE", href: "/profile", external: true },
     { label: "ACHIEVEMENTS", href: "/achievements", external: true },
     { label: "LOOTBOXES", href: "/lootboxes", external: true },
     { label: "PORTFOLIO", href: "/portfolio", external: true },
     { label: "NFT STUDIO", href: "/studio", external: false }
-  ];
+  ] : [];
 
   return (
     <AnimatePresence>
@@ -322,9 +367,18 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
               duration: 0.4
             }}
             className="fixed top-0 left-0 right-0 z-50 h-16 backdrop-blur-xl border-b border-white/10"
-            style={{ backgroundColor: 'rgb(3, 3, 3)' }}
+            style={{
+              backgroundColor: currentRoute === 'home'
+                ? 'rgba(3, 3, 3, 0.6)'
+                : 'rgb(3, 3, 3)'
+            }}
           >
-            <div className="h-full px-4 md:px-6 flex items-center justify-between">
+            <div className={cn(
+              "h-full flex items-center justify-between",
+              currentRoute === 'home'
+                ? "px-4 md:px-8 xl:px-16"
+                : "px-4 md:px-6"
+            )}>
               {/* Desktop Left - Logo & Back */}
               <div className="flex items-center gap-3">
                 {currentRoute !== 'home' && (
@@ -336,7 +390,8 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                       if (currentRoute.startsWith('play-')) {
                         onNavigate('play');
                       } else if (['trade', 'play', 'museum'].includes(currentRoute)) {
-                        onNavigate('home');
+                        // Navigate to home if logged in, discover if not
+                        onNavigate(isLoggedIn ? 'home' : 'discover');
                       } else {
                         window.history.back();
                       }
@@ -368,8 +423,8 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                         src="/assets/img/logo-text.png"
                         alt="HYPERCHAINX"
                         width={120}
-                        height={40}
-                        className="h-8 w-auto"
+                        height={32}
+                        className="h-6 w-auto object-contain"
                       />
                     </Link>
                   </>
@@ -587,41 +642,80 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
 
               {/* Right Section */}
               <div className="flex items-center gap-2 md:gap-3">
-                {/* Desktop Only - Action Buttons */}
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="hidden md:flex p-2 hover:bg-white/10 rounded-lg transition-colors"
-                >
-                  <Search className="w-5 h-5 text-white/70" />
-                </motion.button>
+                {/* Desktop Only - Action Buttons (hidden on home route for cleaner HUD feel) */}
+                {currentRoute !== 'home' && (
+                  <>
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="hidden md:flex p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <Search className="w-5 h-5 text-white/70" />
+                    </motion.button>
 
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.35 }}
-                  className="hidden md:flex p-2 hover:bg-white/10 rounded-lg transition-colors relative"
-                >
-                  <Bell className="w-5 h-5 text-white/70" />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[rgb(163,255,18)] rounded-full" />
-                </motion.button>
+                    <motion.button
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.35 }}
+                      onClick={() => router.push('/control-center')}
+                      className="hidden md:flex p-2 hover:bg-white/10 rounded-lg transition-colors relative"
+                    >
+                      <Bell className={cn(
+                        "w-5 h-5 transition-colors",
+                        unreadCount > 0 ? "text-white" : "text-white/70"
+                      )} />
 
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="hidden md:flex"
-                >
-                  <CartButton className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/70" />
-                </motion.div>
+                      {/* Notification count badge */}
+                      {unreadCount > 0 && (
+                        <motion.span
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className={cn(
+                            "absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold flex items-center justify-center",
+                            hasUrgent
+                              ? "bg-red-500 text-white animate-pulse"
+                              : "bg-[rgb(163,255,18)] text-black"
+                          )}
+                        >
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </motion.span>
+                      )}
 
-                {/* Wallet/Profile Dropdown - Always Visible */}
+                      {/* Animated glow ring for urgent notifications */}
+                      {hasUrgent && (
+                        <motion.span
+                          animate={{
+                            scale: [1, 1.5, 1],
+                            opacity: [0.5, 0, 0.5],
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                          className="absolute inset-0 rounded-lg border-2 border-red-500 pointer-events-none"
+                        />
+                      )}
+                    </motion.button>
+
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="hidden md:flex"
+                    >
+                      <CartButton className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/70" />
+                    </motion.div>
+                  </>
+                )}
+
+                {/* Wallet/Profile Dropdown */}
                 <motion.div
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.45 }}
-                  className="ml-2 pl-2 border-l border-white/10"
+                  className={currentRoute !== 'home' ? "ml-2 pl-2 border-l border-white/10" : ""}
                 >
                   {isConnected && user ? (
                     <DropdownMenu>
@@ -773,15 +867,6 @@ export function AnimatedHeader({ show, onNavigate, currentRoute, onStudioViewCha
                             <span className="text-sm font-medium">Privacy & Security</span>
                           </DropdownMenuItem>
                         </DropdownMenuGroup>
-
-                        <DropdownMenuSeparator className="bg-white/5" />
-
-                        {/* Wallet Section */}
-                        <div className="px-2 py-2">
-                          <div className="bg-gradient-to-br from-white/5 to-transparent rounded-lg border border-white/10 overflow-hidden [&_button]:w-full [&_button]:justify-center">
-                            <AuthenticatedConnectButton theme="dark" />
-                          </div>
-                        </div>
 
                         <DropdownMenuSeparator className="bg-white/5" />
 
