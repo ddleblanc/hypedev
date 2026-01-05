@@ -71,7 +71,7 @@
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.540.0",
     "neverthrow": "^8.2.0",
-    "next": "15.4.7",
+    "next": "^15.4.10",
     "prisma": "^6.14.0",
     "rate-limiter-flexible": "^9.0.1",
     "react": "19.1.0",
